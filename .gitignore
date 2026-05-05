@@ -1,0 +1,17 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/slidex
+slidex.so
+slidex.dylib
+slidex.dll
+libslidex.a
+slidex.a
+slidex.lib
+slidex-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst

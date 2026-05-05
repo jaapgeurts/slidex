@@ -1,0 +1,84 @@
+SlidexDoc:
+
+    SlideDeck           <-  WsComment Deck?  (Master / Slide )* eoi
+
+# Deck
+    Deck                <- DECK BEGIN DeckContent* END DECK
+
+# Master
+    Master              <- MASTER Identifier BEGIN MasterContent END MASTER Identifier
+
+# Slide
+    Slide               <- SLIDE Identifier LEFTARROW Identifier BEGIN SlideContent* END SLIDE Identifier
+
+# DeckContent
+    DeckContent         <- ValueAssignment SEMICOLON
+
+# MasterContent
+
+    MasterContent       <- Statement*
+
+# Statement
+    Statement           <- (PropertyDeclaration / ValueAssignment) SEMICOLON
+    PropertyDeclaration <- (QualifiedIdentifier COLON )? FuncCall Placement?
+    ValueAssignment     <- QualifiedIdentifier EQUAL Value
+    Placement           <- AT LocationType ArgList
+    LocationType         <- CELL / COORDS
+
+# Slide Contents
+    SlideContent        <- Events / Statement
+
+# Events
+    Events              <- EVENTS BEGIN Event* END EVENTS
+    Event               <- EventType DO FuncCall SEMICOLON
+    EventType           <- CLICKEVENT / TimerEvent
+    TimerEvent          <- AFTER (Number Unit)
+    
+# construction
+    FuncCall            <- Identifier ArgList
+    ArgList             <- LPAREN Args? RPAREN
+    Args                <- Argument (COMMA Argument)* COMMA?
+    Argument            <- NamedParam / PositionalParam
+    NamedParam          <- Identifier EQUAL Value
+    PositionalParam     <- Value
+
+# General
+    Value               <- String / Array / Date / (Number Unit?) / Text / Colour / FuncCall / QualifiedIdentifier
+
+    Array               <- LSQUARE ArrayValues? RSQUARE
+    ArrayValues         <- Value (COMMA Value)*
+    Date                <~ [1-9][0-9][0-9][0-9] '-' [0-9][0-9] '-' [0-9][0-9] WsComment
+    Number              <- Digits
+    Digits              <~ [0-9] [0-9]* WsComment
+    Unit                <- ('s' / '%' / 'cm' / 'fr') WsComment
+    String              <- :doublequote ~(!doublequote .)* :doublequote WsComment
+    Text                <~ :'{' (!'}' .)* :'}' WsComment
+    Colour              <~ ('red' / 'green' / 'blue' / 'yellow' / 'cyan' / 'magenta') WsComment
+
+    Identifier          <- identifier WsComment
+    QualifiedIdentifier <- identifier ('.' identifier)* WsComment
+
+    DECK                <- 'deck'   WsComment
+    MASTER              <- 'master' WsComment
+    SLIDE               <- 'slide'  WsComment
+    BEGIN               <- 'begin'  WsComment
+    END                 <- 'end'    WsComment
+    EVENTS              <- 'events' WsComment
+    DO                  <- 'do'     WsComment
+    CLICKEVENT          <- 'on' spacing 'click' WsComment
+    AFTER               <- 'after'  WsComment
+    AT                  <- 'at'     WsComment
+    CELL                <- 'cell'   WsComment
+    COORDS              <- 'coords' WsComment
+    LPAREN              <- '('      WsComment 
+    RPAREN              <- ')'      WsComment
+    LSQUARE             <- '['      WsComment
+    RSQUARE             <- ']'      WsComment
+    LEFTARROW           <- '<-'     WsComment
+    SEMICOLON           <: ';'      WsComment
+    COLON               <- ':'      WsComment
+    EQUAL               <- '='      WsComment
+    COMMA               <- ','      WsComment
+    WsComment           <- (InlineComment / EolComment / :blank)*
+    EolComment          <- '#' ~(!eol .)* :eol
+    InlineComment       <- '/#' ~(!'#/' .)* '#/'

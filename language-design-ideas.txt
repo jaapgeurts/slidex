@@ -1,0 +1,51 @@
+deck begin
+    author = "Jaap Geurts";
+    #date = "2026-04-20";
+    date = 2026-04-20;
+    #    sequence:
+    #        Slide1;
+    #    end
+end deck
+
+master MasterSlide1 begin
+    columns = 24;
+    rows = 18;
+    background: rect(fill=yellow);
+    title: text({Put your title text here}) at cell(col=2,row=2,colspan=8,rowspan=2);
+#    grid: layout(regions="2x2",
+#                   names=["topleft","topright","bottomleft","bottomright"],
+#                   widths=[50%,50%],
+#                   gutter = 2cm);
+
+#    grid.bottomleft = image(path="abc.jpg");
+end master MasterSlide1
+
+slide MasterSlide1 <- Slide1 begin
+    events begin
+        on click do reveal(title,grid);
+        after 10s do reveal(grid.topleft,grid.topright);
+        #on click -> animate from=0, to=200, steps=5 @title.x;
+        #on click -> reveal:
+        #  @grid.bottomleft;
+        #  @grid.bottomright;
+        #end
+    end events
+
+    # supress the background
+    background.visible = false;
+    title.body = {Introduction to *thermal* expansion};
+
+    grid.topleft = text({
+        - Markup item 1
+        - Markup item 2
+        - Markup item 3
+    });
+    grid.bottomright = text({
+        *bold text* /italic/ _underlined_
+        https://www.google.com
+    });
+
+    grid.bottomleft.path = "def.jpg";
+
+    image(path="house.jpg") at coords(x=150,y=30, width=300);
+end slide Slide1
