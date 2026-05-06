@@ -14,15 +14,29 @@ import ast;
 
 mixin(grammar(import("grammar.peg")));
 
-SourceLocation sourceLocation(pegged.peg.Position pos) {
+// Wrap the parse tree so that we have access to the filename
+struct ParseContext {
+	string filename;
+}
+
+SourceLocation sourceLocation(const ParseContext ctxt, Position pos) {
 	SourceLocation loc;
+	loc.filepath = ctxt.filename;
 	loc.line = pos.line;
 	loc.column = pos.col;
 	return loc;
 }
 
-string toString(pegged.peg.Position pos) {
-	return format("(%u,%u)", pos.line, pos.col);
+SourceLocation sourceLocation(const ParseContext ctxt, ParseTree root) {
+	return sourceLocation(ctxt, position(root));
+}
+
+string toString(Position pos, const ParseContext ctxt) {
+	return format("%s:(%u,%u)", ctxt.filename, pos.line, pos.col);
+}
+
+string toString(SourceLocation loc) {
+	return format("%s:(%u,%u)", loc.filepath, loc.line, loc.column);
 }
 
 void main(string[] args) {
@@ -32,7 +46,7 @@ void main(string[] args) {
 
 	if (!slideDeckTree.successful) {
 		string msg = slideDeckTree.failMsg(
-			(pegged.peg.Position pos, string left, string right, const ParseTree p) =>
+			(Position pos, string left, string right, const ParseTree p) =>
 				"(" ~ to!string(pos.line + 1) ~ "," ~ to!string(
 					pos.col + 1) ~ ") Error: Unexpected symbol near `\x1b[31m" ~ left ~ "\x1b[1;31m" ~ right[0] ~ right[1 .. $].until('\n')
 				.array.to!string ~ "\x1b[0m`.", "Ok!");
@@ -42,39 +56,49 @@ void main(string[] args) {
 	// writeln(slideDeckTree);
 
 	// Descend into the parse tree.
-
-	Deck ast = parseSlidexDoc(slideDeckTree);
+	ParseContext ctxt = ParseContext(args[1]);
+	Deck ast = parseSlidexDoc(ctxt, slideDeckTree);
 }
 
 // General utility functions
 private auto identity(T)(T x) => x;
 
-string errorPrefix(ParseTree root) {
-	return root.position.toString() ~ ": Error: ";
+string errorPrefix(const ParseContext ctxt, ParseTree root) {
+	return root.position.toString(ctxt) ~ ": Error: ";
 }
 
-void errorWrongType(T)(ParseTree root, string ident, DslType value) {
-	stderr.writeln(errorPrefix(root), "Value `", value.toString, "` for property `", ident, "` expected a `", T
+string errorPrefix(ParseTree root, SourceLocation loc) {
+	return loc.toString() ~ ": Error: ";
+}
+
+void errorWrongType(T)(const ParseContext ctxt, ParseTree root, string ident, DslType value) {
+	stderr.writeln(errorPrefix(ctxt, root), "Value `", value.toString, "` for property `", ident, "` expected a `", T
 			.stringof, "` but got a `", value.typeName, "`");
 
 }
 
-Deck parseSlidexDoc(ParseTree root) {
+void errorWrongType(T)(ParseTree root, string ident, LocatedVal!DslType value) {
+	stderr.writeln(errorPrefix(root, value.loc), "Value `", value.toString, "` for property `", ident, "` expected a `", T
+			.stringof, "` but got a `", value.typeName, "`");
+
+}
+
+Deck parseSlidexDoc(const ParseContext ctxt, ParseTree root) {
 	Deck deck = new Deck();
 	if (root.children.length == 1)
-		parseSlideDeck(root[0], deck);
+		parseSlideDeck(ctxt, root[0], deck);
 
 	return deck;
 }
 
-void parseSlideDeck(ParseTree root, Deck deck) {
+void parseSlideDeck(const ParseContext ctxt, ParseTree root, Deck deck) {
 	foreach (child; root.children) {
 		switch (child.name) {
 		case "SlidexDoc.Deck":
-			parseDeck(child, deck);
+			parseDeck(ctxt, child, deck);
 			break;
 		case "SlidexDoc.Master":
-			deck.masters ~= parseMaster(child);
+			deck.masters ~= parseMaster(ctxt, child);
 			break;
 		case "SlidexDoc.Slide":
 			writeln("Slide!");
@@ -86,96 +110,96 @@ void parseSlideDeck(ParseTree root, Deck deck) {
 	}
 }
 
-void parseDeck(ParseTree root, Deck deck) {
+void parseDeck(const ParseContext ctxt, ParseTree root, Deck deck) {
 	foreach (child; root.children) {
 		if (child.name == "SlidexDoc.DeckContent") {
-			parseDeckContent(child, deck);
+			parseDeckContent(ctxt, child, deck);
 		}
 	}
 }
 
-void parseDeckContent(ParseTree root, Deck deck) {
+void parseDeckContent(const ParseContext ctxt, ParseTree root, Deck deck) {
 	foreach (child; root.children) {
 		if (child.name == "SlidexDoc.ValueAssignment") {
-			string ident = getAssignmentIdentifier(child);
-			DslType value = getAssignmentValue(child);
+			string ident = getAssignmentIdentifier(ctxt, child);
+			LocatedVal!DslType value = getAssignmentValue(ctxt, child);
 			switch (ident) {
 				// TODO: use static foreach to generate field assignment
 			case "author":
 				if (value.has!string)
 					deck.author = value.get!string;
 				else
-					errorWrongType!string(child, ident, value);
+					errorWrongType!string(ctxt, child, ident, value);
 				break;
 			case "date":
 				if (value.has!Date)
 					deck.date = value.get!Date;
 				else
-					errorWrongType!Date(child, ident, value);
+					errorWrongType!Date(ctxt, child, ident, value);
 				break;
 			default:
 				// create a format and sink error function
-				stderr.writeln(errorPrefix(root), "Unknown property: `", ident, "`");
+				stderr.writeln(errorPrefix(ctxt, root), "Unknown property: `", ident, "`");
 				break;
 			}
 		}
 		else {
-			stderr.writeln(errorPrefix(root), "unknown node ", child.name);
+			stderr.writeln(errorPrefix(ctxt, root), "unknown node ", child.name);
 		}
 	}
 }
 
-Master parseMaster(ParseTree root) {
+Master parseMaster(const ParseContext ctxt, ParseTree root) {
 	Master master = new Master();
 
-	master.loc = sourceLocation(root.position);
+	master.loc = sourceLocation(ctxt, root);
 
 	foreach (child; root.children) {
 		if (child.name == "SlidexDoc.MasterContent") {
-			parseMasterContent(child, master);
+			parseMasterContent(ctxt, child, master);
 		}
 	}
 	return master;
 }
 
-void parseMasterContent(ParseTree root, Master master) {
+void parseMasterContent(const ParseContext ctxt, ParseTree root, Master master) {
 	foreach (child; root.children) {
 		if (child.name == "SlidexDoc.Statement")
-			parseStatement(child, master);
+			parseStatement(ctxt, child, master);
 		else
 			writeln("Error: Unknown parse node");
 	}
 }
 
-void parseStatement(ParseTree root, Master master) {
+void parseStatement(const ParseContext ctxt, ParseTree root, Master master) {
 	foreach (child; root.children) {
 		switch (child.name) {
 		case "SlidexDoc.PropertyDeclaration":
 			// writeln("Property");
-			string ident = getPropertyIdentifier(child);
-			Item item = getPropertyItem(child);
+			string ident = getPropertyIdentifier(ctxt, child);
+			Item item = getPropertyItem(ctxt, child);
 			master.itemsMap[ident] = item;
 			master.items ~= item;
 			break;
 		case "SlidexDoc.ValueAssignment":
 			// writeln("Value assignment");
-			string ident = getAssignmentIdentifier(child);
-			DslType value = getAssignmentValue(child);
+			string ident = getAssignmentIdentifier(ctxt, child);
+			DslType value = getAssignmentValue(ctxt, child);
 			switch (ident) {
 			case "columns":
 				if (value.has!int)
 					master.columns = value.get!int;
 				else
-					errorWrongType!int(child, ident, value);
+					errorWrongType!int(ctxt, child, ident, value);
 				break;
 			case "rows":
 				if (value.has!int)
 					master.rows = value.get!int;
 				else
-					errorWrongType!int(child, ident, value);
+					errorWrongType!int(ctxt, child, ident, value);
 				break;
 			default:
-				stderr.writeln(errorPrefix(root), "Unknown property: `", ident, "`");
+				stderr.writeln(errorPrefix(ctxt, root), "Unknown property: `", ident, "`");
 				break;
 			}
 			break;
@@ -186,12 +210,12 @@ void parseStatement(ParseTree root, Master master) {
 	}
 }
 
-Rect parseRect(ParseTree root) {
+Rect parseRect(const ParseContext ctxt, ParseTree root) {
 	Rect rect = new Rect();
 
 	// writeln(root[1]);
 
-	DslType[string] args = getNamedArguments(root[1]);
+	LocatedVal!DslType[string] args = getNamedArguments(ctxt, root[1]);
 	writeln("ARGS: ", args);
 
 	foreach (k, v; args) {
@@ -200,7 +224,7 @@ Rect parseRect(ParseTree root) {
 			if (v.has!Colour)
 				rect.fill = v.get!Colour;
 			else
-				errorWrongType!Colour(root, "fill", v);
+				errorWrongType!Colour(ctxt, root, "fill", v);
 			break;
 		default:
 			stderr.writeln("Unknown argument `", k, "`");
@@ -210,11 +234,11 @@ Rect parseRect(ParseTree root) {
 	return rect;
 }
 
-Text parseText(ParseTree root) {
+Text parseText(const ParseContext ctxt, ParseTree root) {
 	Text text = new Text();
 
-	DslType[string] namedArgs = getNamedArguments(root[1]);
-	DslType[] posArgs = getPositionalArguments(root[1]);
+	LocatedVal!DslType[string] namedArgs = getNamedArguments(ctxt, root[1]);
+	LocatedVal!DslType[] posArgs = getPositionalArguments(ctxt, root[1]);
 
 	// possible arguments:
 	// text:Text, 
@@ -227,50 +251,50 @@ Text parseText(ParseTree root) {
 
 // parsing utility functions
 
-string getAssignmentIdentifier(ParseTree root) {
+string getAssignmentIdentifier(const ParseContext ctxt, ParseTree root) {
 	return root.matches[0];
 }
 
-string getParamIdentifier(ParseTree root) {
+string getParamIdentifier(const ParseContext ctxt, ParseTree root) {
 	return root.matches[0];
 }
 
-DslType getAssignmentValue(ParseTree root) {
-	return getValue(root[2][0]);
+LocatedVal!DslType getAssignmentValue(const ParseContext ctxt, ParseTree root) {
+	return getValue(ctxt, root[2][0]);
 
 }
 
-DslType getNamedParamValue(ParseTree root) {
-	return getValue(root[2][0]);
+LocatedVal!DslType getNamedParamValue(const ParseContext ctxt, ParseTree root) {
+	return getValue(ctxt, root[2][0]);
 }
 
-DslType getPositionalParamValue(ParseTree root) {
-	return getValue(root[0][0]);
+LocatedVal!DslType getPositionalParamValue(const ParseContext ctxt, ParseTree root) {
+	return getValue(ctxt, root[0][0]);
 }
 
-DslType getValue(ParseTree root) {
+LocatedVal!DslType getValue(const ParseContext ctxt, ParseTree root) {
 	switch (root.name) {
 	case "SlidexDoc.String":
-		return DslType(root.matches[0]);
+		return locatedDslType(root.matches[0], sourceLocation(ctxt, root));
 	case "SlidexDoc.Number":
-		return DslType(root.matches[0].to!int);
+		return locatedDslType(root.matches[0].to!int, sourceLocation(ctxt, root));
 	case "SlidexDoc.Colour":
-		return DslType(root.matches[0].asCapitalized.array.to!Colour);
+		return locatedDslType(root.matches[0].asCapitalized.array.to!Colour, sourceLocation(ctxt, root));
 	case "SlidexDoc.Text":
-		return DslType(root.matches[0]);
+		return locatedDslType(root.matches[0], sourceLocation(ctxt, root));
 	case "SlidexDoc.Date":
-		return DslType(Date.fromISOExtString(root.matches[0]));
+		return locatedDslType(Date.fromISOExtString(root.matches[0]), sourceLocation(ctxt, root));
 	default:
 		assert(false, "Type conversion for assignment value `" ~ root.name ~ "` not implemented yet");
 	}
 
 }
 
-string getPropertyIdentifier(ParseTree root) {
+string getPropertyIdentifier(const ParseContext ctxt, ParseTree root) {
 	return root[0].matches[0];
 }
 
-Item getPropertyItem(ParseTree root) {
+Item getPropertyItem(const ParseContext ctxt, ParseTree root) {
 	Item item;
 	// writeln(root);
 	ParseTree child = root[2];
@@ -278,10 +302,10 @@ Item getPropertyItem(ParseTree root) {
 		string ident = child[0].matches[0];
 		switch (ident) {
 		case "rect":
-			item = parseRect(child);
+			item = parseRect(ctxt, child);
 			break;
 		case "text":
-			item = parseText(child);
+			item = parseText(ctxt, child);
 			break;
 		default:
 			assert(false, "Item creation not complete yet");
@@ -292,10 +316,16 @@ Item getPropertyItem(ParseTree root) {
 	if (root.children.length == 4) {
 		child = root[3];
 		if (child.name == "SlidexDoc.Placement") {
-			if(child[1][0].name == "SlidexDoc.CELL") {
-				DslType[string] args = getNamedArguments(child[2]);
-				GridPos pos = GridPos(args["col"].
+			if (child[1][0].name == "SlidexDoc.CELL") {
+				LocatedVal!DslType[string] args = getNamedArguments(ctxt,child[2]);
+				CellLocation pos;
+
 				writeln("PLACE ARGS: ", args);
+				foreach(arg; args) {
+				writeln("LOCS:       ",arg.loc);
+				} 
+			}
+			else if (child[1][0].name == "SlidexDoc.BOUNDS") {
 			}
 		}
 	}
@@ -308,18 +338,22 @@ Item getPropertyItem(ParseTree root) {
   Returns a map of the named arguments.
   Root node must be SlidexDoc.ArgList
 */
-DslType[string] getNamedArguments(ParseTree root) {
+LocatedVal!DslType[string] getNamedArguments(const ParseContext ctxt, ParseTree root) {
 
 	// writeln("getNamedArguments(): ",root.name); 
-	DslType[string] items;
+	LocatedVal!DslType[string] items;
 
 	if (root[1].children.length > 0) {
 		foreach (args; root[1].children) {
 			if (args.name == "SlidexDoc.Argument") {
 				ParseTree child = args[0];
 				if (child.name == "SlidexDoc.NamedParam") {
-					string ident = getParamIdentifier(child);
-					DslType value = getNamedParamValue(child);
+					string ident = getParamIdentifier(ctxt, child);
+					LocatedVal!DslType value;
+					value = getNamedParamValue(ctxt, child);
+					Position pos = position(child);
+					value.loc.line = pos.line;
+					value.loc.column = pos.col;
 					items[ident] = value;
 				}
 			}
@@ -329,14 +363,18 @@ DslType[string] getNamedArguments(ParseTree root) {
 	return items;
 }
 
-DslType[] getPositionalArguments(ParseTree root) {
+LocatedVal!DslType[] getPositionalArguments(const ParseContext ctxt, ParseTree root) {
 
-	DslType[] items;
+	LocatedVal!DslType[] items;
 
 	if (root[1].children.length > 0) {
 		foreach (child; root[1][0].children) {
 			if (child.name == "SlidexDoc.PositionalParam") {
-				DslType value = getPositionalParamValue(child);
+				LocatedVal!DslType value;
+				value.value = getPositionalParamValue(ctxt, child);
+				Position pos = position(child);
+				value.loc.line = pos.line;
+				value.loc.column = pos.col;
 				items ~= value;
 			}
 		}

@@ -102,6 +102,16 @@ struct SourceLocation {
 struct LocatedVal(T) {
     T value;
     SourceLocation loc;
+
+    alias value this;
+
+}
+
+LocatedVal!DslType locatedDslType(T)(T val, SourceLocation loc) {
+    LocatedVal!DslType item;
+    item.value = DslType(val);
+    item.loc = loc;
+    return item;
 }
 
 enum Colour {
@@ -140,7 +150,7 @@ class Slide {
     SourceLocation loc;
 
     string name;
-    string masterName;
+    LocatedVal!string masterName;
 
     Event[] events;
 
@@ -148,32 +158,32 @@ class Slide {
     Item[] items;
 }
 
-struct GridPos {
-    uint col;
-    uint row;
-    uint colspan;
-    uint rowspan;
+struct CellLocation {
+    uint col = 1;
+    uint row = 1;
+    uint colspan = 1;
+    uint rowspan = 1;
     // fine tuning
-    int dx;
-    int dy;
+    int dx = 0;
+    int dy = 0;
     // rotation
-    float rad;
+    float rad = 0;
 }
 
-struct AbsPos {
-    uint x;
-    uint y;
-    uint width;
-    uint height;
+struct BoundsLocation {
+    uint x = 10;
+    uint y = 10;
+    uint width = 100;
+    uint height = 100;
     // rotation
-    float rad;
+    float rad = 0;
 }
 
-alias Position = SumType!(GridPos, AbsPos);
+alias Location = SumType!(CellLocation, BoundsLocation);
 
 class Item {
     SourceLocation loc;
-    Position position;
+    Location location;
     string name;
 }
 

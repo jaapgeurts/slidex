@@ -23,7 +23,7 @@ SlidexDoc:
     PropertyDeclaration <- (QualifiedIdentifier COLON )? FuncCall Placement?
     ValueAssignment     <- QualifiedIdentifier EQUAL Value
     Placement           <- AT LocationType ArgList
-    LocationType         <- CELL / COORDS
+    LocationType         <- CELL / BOUNDS
 
 # Slide Contents
     SlideContent        <- Events / Statement
@@ -69,7 +69,7 @@ SlidexDoc:
     AFTER               <- 'after'  WsComment
     AT                  <- 'at'     WsComment
     CELL                <- 'cell'   WsComment
-    COORDS              <- 'coords' WsComment
+    BOUNDS              <- 'bounds' WsComment
     LPAREN              <- '('      WsComment 
     RPAREN              <- ')'      WsComment
     LSQUARE             <- '['      WsComment
