@@ -19,6 +19,18 @@ struct ParseContext {
 	string filename;
 }
 
+struct ParseResult(T) {
+	bool ok;
+	T value;
+}
+
+struct NamedArgsResult {
+	LocatedVal!string name;
+	LocatedVal!DslType value;
+
+	alias value this;
+}
+
 SourceLocation sourceLocation(const ParseContext ctxt, Position pos) {
 	SourceLocation loc;
 	loc.filepath = ctxt.filename;
@@ -27,16 +39,16 @@ SourceLocation sourceLocation(const ParseContext ctxt, Position pos) {
 	return loc;
 }
 
-SourceLocation sourceLocation(const ParseContext ctxt, ParseTree root) {
+SourceLocation sourceLocation(ParseTree root, const ParseContext ctxt) {
 	return sourceLocation(ctxt, position(root));
 }
 
 string toString(Position pos, const ParseContext ctxt) {
-	return format("%s:(%u,%u)", ctxt.filename, pos.line, pos.col);
+	return format("%s:(%u,%u)", ctxt.filename, pos.line + 1, pos.col + 1);
 }
 
 string toString(SourceLocation loc) {
-	return format("%s:(%u,%u)", loc.filepath, loc.line, loc.column);
+	return format("%s:(%u,%u)", loc.filepath, loc.line + 1, loc.column + 1);
 }
 
 void main(string[] args) {
@@ -67,7 +79,7 @@ string errorPrefix(const ParseContext ctxt, ParseTree root) {
 	return root.position.toString(ctxt) ~ ": Error: ";
 }
 
-string errorPrefix(ParseTree root, SourceLocation loc) {
+string errorPrefix(SourceLocation loc) {
 	return loc.toString() ~ ": Error: ";
 }
 
@@ -77,8 +89,8 @@ void errorWrongType(T)(const ParseContext ctxt, ParseTree root, string ident, Ds
 
 }
 
-void errorWrongType(T)(ParseTree root, string ident, LocatedVal!DslType value) {
-	stderr.writeln(errorPrefix(root, value.loc), "Value `", value.toString, "` for property `", ident, "` expected a `", T
+void errorWrongType(T)(string ident, LocatedVal!DslType value) {
+	stderr.writeln(errorPrefix(value.loc), "Value `", value.toString, "` for property `", ident, "` expected a `", T
 			.stringof, "` but got a `", value.typeName, "`");
 
 }
@@ -121,7 +133,7 @@ void parseDeck(const ParseContext ctxt, ParseTree root, Deck deck) {
 void parseDeckContent(const ParseContext ctxt, ParseTree root, Deck deck) {
 	foreach (child; root.children) {
 		if (child.name == "SlidexDoc.ValueAssignment") {
-			string ident = getAssignmentIdentifier(ctxt, child);
+			string ident = getAssignmentIdentifier(ctxt, child[0]);
 			LocatedVal!DslType value = getAssignmentValue(ctxt, child);
 			switch (ident) {
 				// TODO: use static foreach to generate field assignment
@@ -152,7 +164,7 @@ void parseDeckContent(const ParseContext ctxt, ParseTree root, Deck deck) {
 Master parseMaster(const ParseContext ctxt, ParseTree root) {
 	Master master = new Master();
 
-	master.loc = sourceLocation(ctxt, root);
+	master.loc = root.sourceLocation(ctxt);
 
 	foreach (child; root.children) {
 		if (child.name == "SlidexDoc.MasterContent") {
@@ -183,7 +195,7 @@ void parseStatement(const ParseContext ctxt, ParseTree root, Master master) {
 			break;
 		case "SlidexDoc.ValueAssignment":
 			// writeln("Value assignment");
-			string ident = getAssignmentIdentifier(ctxt, child);
+			string ident = getAssignmentIdentifier(ctxt, child[0]);
 			DslType value = getAssignmentValue(ctxt, child);
 			switch (ident) {
 			case "columns":
@@ -215,7 +227,7 @@ Rect parseRect(const ParseContext ctxt, ParseTree root) {
 
 	// writeln(root[1]);
 
-	LocatedVal!DslType[string] args = getNamedArguments(ctxt, root[1]);
+	NamedArgsResult[string] args = getNamedArguments(ctxt, root[1]);
 	writeln("ARGS: ", args);
 
 	foreach (k, v; args) {
@@ -237,7 +249,7 @@ Rect parseRect(const ParseContext ctxt, ParseTree root) {
 Text parseText(const ParseContext ctxt, ParseTree root) {
 	Text text = new Text();
 
-	LocatedVal!DslType[string] namedArgs = getNamedArguments(ctxt, root[1]);
+	NamedArgsResult[string] namedArgs = getNamedArguments(ctxt, root[1]);
 	LocatedVal!DslType[] posArgs = getPositionalArguments(ctxt, root[1]);
 
 	// possible arguments:
@@ -251,12 +263,20 @@ Text parseText(const ParseContext ctxt, ParseTree root) {
 
 // parsing utility functions
 
-string getAssignmentIdentifier(const ParseContext ctxt, ParseTree root) {
-	return root.matches[0];
+/**
+Return the assignment identifier
+pass in as root: "SlidexDoc.QualifiedIdentifier"
+*/
+LocatedVal!string getAssignmentIdentifier(const ParseContext ctxt, ParseTree root) {
+	return LocatedVal!string(root.matches[0], root.sourceLocation(ctxt));
 }
 
-string getParamIdentifier(const ParseContext ctxt, ParseTree root) {
-	return root.matches[0];
+/**
+return the parameter named identifier.
+Pass in as root : "SlidexDoc.Identifier"
+*/
+LocatedVal!string getParamIdentifier(const ParseContext ctxt, ParseTree root) {
+	return LocatedVal!string(root.matches[0], root.sourceLocation(ctxt));
 }
 
 LocatedVal!DslType getAssignmentValue(const ParseContext ctxt, ParseTree root) {
@@ -275,15 +295,16 @@ LocatedVal!DslType getPositionalParamValue(const ParseContext ctxt, ParseTree ro
 LocatedVal!DslType getValue(const ParseContext ctxt, ParseTree root) {
 	switch (root.name) {
 	case "SlidexDoc.String":
-		return locatedDslType(root.matches[0], sourceLocation(ctxt, root));
+		return locatedDslType(root.matches[0], root.sourceLocation(ctxt));
 	case "SlidexDoc.Number":
-		return locatedDslType(root.matches[0].to!int, sourceLocation(ctxt, root));
+		return locatedDslType(root.matches[0].to!int, root.sourceLocation(ctxt));
 	case "SlidexDoc.Colour":
-		return locatedDslType(root.matches[0].asCapitalized.array.to!Colour, sourceLocation(ctxt, root));
+		return locatedDslType(root.matches[0].asCapitalized.array.to!Colour, root.sourceLocation(
+				ctxt));
 	case "SlidexDoc.Text":
-		return locatedDslType(root.matches[0], sourceLocation(ctxt, root));
+		return locatedDslType(root.matches[0], root.sourceLocation(ctxt));
 	case "SlidexDoc.Date":
-		return locatedDslType(Date.fromISOExtString(root.matches[0]), sourceLocation(ctxt, root));
+		return locatedDslType(Date.fromISOExtString(root.matches[0]), root.sourceLocation(ctxt));
 	default:
 		assert(false, "Type conversion for assignment value `" ~ root.name ~ "` not implemented yet");
 	}
@@ -317,13 +338,16 @@ Item getPropertyItem(const ParseContext ctxt, ParseTree root) {
 		child = root[3];
 		if (child.name == "SlidexDoc.Placement") {
 			if (child[1][0].name == "SlidexDoc.CELL") {
-				LocatedVal!DslType[string] args = getNamedArguments(ctxt,child[2]);
-				CellLocation pos;
+				ParseResult!CellLocation res = parseCell(ctxt, child[2]);
 
-				writeln("PLACE ARGS: ", args);
-				foreach(arg; args) {
-				writeln("LOCS:       ",arg.loc);
-				} 
+				writeln(res.value);
+				// CellLocation pos;
+				// if (!validateCellArguments
+
+				// writeln("PLACE ARGS: ", args);
+				// foreach(arg; args) {
+				// writeln("LOCS:       ",arg.loc);
+				// } 
 			}
 			else if (child[1][0].name == "SlidexDoc.BOUNDS") {
 			}
@@ -335,26 +359,96 @@ Item getPropertyItem(const ParseContext ctxt, ParseTree root) {
 }
 
 /**
+  Parses and validates cell content.
+  Pass in a context and a parsetree node of "SlidexDoc.ArgList"
+  Prints errors if any
+*/
+ParseResult!CellLocation parseCell(ParseContext ctxt, ParseTree root) {
+	// get all args
+	NamedArgsResult[string] args = getNamedArguments(ctxt, root);
+	// check args.
+	ParseResult!CellLocation result = ParseResult!CellLocation(true);
+	CellLocation cell;
+
+	foreach (argname; args.keys) {
+		switch (argname) {
+		case "col":
+			LocatedVal!DslType val = args["col"].value;
+			if (val.value.has!int)
+				cell.col = val.value.get!int;
+			else {
+				errorWrongType!int("col", val);
+				result.ok = false;
+			}
+			break;
+		case "row":
+			LocatedVal!DslType val = args["row"].value;
+			if (val.value.has!int)
+				cell.col = val.value.get!int;
+			else
+				errorWrongType!int("row", val);
+			break;
+		case "colspan":
+			LocatedVal!DslType val = args["colspan"].value;
+			if (val.value.has!int)
+				cell.col = val.value.get!int;
+			else
+				errorWrongType!int("colspan", val);
+			break;
+		case "rowspan":
+			LocatedVal!DslType val = args["rowspan"].value;
+			if (val.value.has!int)
+				cell.col = val.value.get!int;
+			else
+				errorWrongType!int("rowspan", val);
+			break;
+		case "dx":
+			LocatedVal!DslType val = args["dx"].value;
+			if (val.value.has!int)
+				cell.col = val.value.get!int;
+			else
+				errorWrongType!int("dx", val);
+			break;
+		case "dy":
+			LocatedVal!DslType val = args["dy"].value;
+			if (val.value.has!int)
+				cell.col = val.value.get!int;
+			else
+				errorWrongType!int("dy", val);
+			break;
+		case "angle":
+			LocatedVal!DslType val = args["angle"].value;
+			if (val.value.has!int)
+				cell.col = val.value.get!int;
+			else
+				errorWrongType!int("angle", val);
+			break;
+		default:
+			result.ok = false;
+			stderr.writeln(errorPrefix(args[argname].name.loc), "Invalid argument `", argname, "`.");
+			break;
+		}
+	}
+	result.value = cell;
+	return result;
+}
+
+/**
   Returns a map of the named arguments.
   Root node must be SlidexDoc.ArgList
 */
-LocatedVal!DslType[string] getNamedArguments(const ParseContext ctxt, ParseTree root) {
+NamedArgsResult[string] getNamedArguments(const ParseContext ctxt, ParseTree root) {
 
-	// writeln("getNamedArguments(): ",root.name); 
-	LocatedVal!DslType[string] items;
-
+	// writeln("getNamedArguments(): ",root); 
+	NamedArgsResult[string] items;
 	if (root[1].children.length > 0) {
 		foreach (args; root[1].children) {
 			if (args.name == "SlidexDoc.Argument") {
 				ParseTree child = args[0];
 				if (child.name == "SlidexDoc.NamedParam") {
-					string ident = getParamIdentifier(ctxt, child);
-					LocatedVal!DslType value;
-					value = getNamedParamValue(ctxt, child);
-					Position pos = position(child);
-					value.loc.line = pos.line;
-					value.loc.column = pos.col;
-					items[ident] = value;
+					LocatedVal!string ident = getParamIdentifier(ctxt, child[0]);
+					LocatedVal!DslType value = getNamedParamValue(ctxt, child);
+					items[ident] = NamedArgsResult(ident, value);
 				}
 			}
 		}
@@ -366,7 +460,6 @@ LocatedVal!DslType[string] getNamedArguments(const ParseContext ctxt, ParseTree 
 LocatedVal!DslType[] getPositionalArguments(const ParseContext ctxt, ParseTree root) {
 
 	LocatedVal!DslType[] items;
-
 	if (root[1].children.length > 0) {
 		foreach (child; root[1][0].children) {
 			if (child.name == "SlidexDoc.PositionalParam") {

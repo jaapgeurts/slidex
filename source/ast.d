@@ -167,7 +167,7 @@ struct CellLocation {
     int dx = 0;
     int dy = 0;
     // rotation
-    float rad = 0;
+    float angle = 0;
 }
 
 struct BoundsLocation {
@@ -176,7 +176,7 @@ struct BoundsLocation {
     uint width = 100;
     uint height = 100;
     // rotation
-    float rad = 0;
+    float angle = 0;
 }
 
 alias Location = SumType!(CellLocation, BoundsLocation);
