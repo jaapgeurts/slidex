@@ -6,16 +6,15 @@ SlidexDoc:
     Deck                <- DECK BEGIN DeckContent* END DECK
 
 # Master
-    Master              <- MASTER Identifier BEGIN MasterContent END MASTER Identifier
+    Master              <- MASTER OpeningIdentifier BEGIN MasterContent END MASTER ClosingIdentifier
 
 # Slide
-    Slide               <- SLIDE Identifier LEFTARROW Identifier BEGIN SlideContent* END SLIDE Identifier
+    Slide               <- SLIDE MasterIdentifier LEFTARROW OpeningIdentifier BEGIN SlideContent* END SLIDE ClosingIdentifier
 
 # DeckContent
     DeckContent         <- ValueAssignment SEMICOLON
 
 # MasterContent
-
     MasterContent       <- Statement*
 
 # Statement
@@ -43,6 +42,10 @@ SlidexDoc:
     PositionalParam     <- Value
 
 # General
+    OpeningIdentifier   <- Identifier
+    ClosingIdentifier   <- Identifier
+    MasterIdentifier    <- Identifier
+
     Value               <- String / Array / Date / (Number Unit?) / Text / Colour / FuncCall / QualifiedIdentifier
 
     Array               <- LSQUARE ArrayValues? RSQUARE

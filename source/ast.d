@@ -18,7 +18,8 @@ alias DslTypes = AliasSeq!(
     Text,
     Colour,
     Quantity,
-    Date
+    Date,
+    // Func
 );
 
 struct DslType {
@@ -129,7 +130,9 @@ class Deck {
     string author;
     Date date;
 
+    Master[string] masterMap;
     Master[] masters;
+    Slide[string] slideMap;
     Slide[] slides;
 
 }
@@ -158,11 +161,13 @@ class Slide {
     Item[] items;
 }
 
+alias SlideContent = SumType!(Event,Item);
+
 struct CellLocation {
-    uint col = 1;
-    uint row = 1;
-    uint colspan = 1;
-    uint rowspan = 1;
+    int col = 1;
+    int row = 1;
+    int colspan = 1;
+    int rowspan = 1;
     // fine tuning
     int dx = 0;
     int dy = 0;
@@ -171,10 +176,10 @@ struct CellLocation {
 }
 
 struct BoundsLocation {
-    uint x = 10;
-    uint y = 10;
-    uint width = 100;
-    uint height = 100;
+    int x = 10;
+    int y = 10;
+    int width = 100;
+    int height = 100;
     // rotation
     float angle = 0;
 }

@@ -17,7 +17,7 @@ master MasterSlide1 begin
 #                   widths=[50%,50%],
 #                   gutter = 2cm);
 
-#    grid.bottomleft = image(path="abc.jpg");
+    #grid.bottomleft = image(path="abc.jpg");
 end master MasterSlide1
 
 slide MasterSlide1 <- Slide1 begin

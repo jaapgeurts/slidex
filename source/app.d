@@ -20,6 +20,10 @@ struct ParseContext {
 }
 
 struct ParseResult(T) {
+	/// cummulative errors and warnings
+	uint errorCount;
+	uint warningCount;
+	// last parse result.
 	bool ok;
 	T value;
 }
@@ -51,6 +55,11 @@ string toString(SourceLocation loc) {
 	return format("%s:(%u,%u)", loc.filepath, loc.line + 1, loc.column + 1);
 }
 
+void addIssueCount(T, U)(ref ParseResult!T to, ParseResult!U from) {
+	to.errorCount += from.errorCount;
+	to.warningCount += from.warningCount;
+}
+
 void main(string[] args) {
 
 	auto source = readText(args[1]);
@@ -69,7 +78,10 @@ void main(string[] args) {
 
 	// Descend into the parse tree.
 	ParseContext ctxt = ParseContext(args[1]);
-	Deck ast = parseSlidexDoc(ctxt, slideDeckTree);
+	ParseResult!Deck result = parseSlidexDoc(ctxt, slideDeckTree);
+	if (!result.ok) {
+		stderr.writeln("Error: There were ", result.errorCount, " errors, and ", result.warningCount, " warnings.");
+	}
 }
 
 // General utility functions
@@ -95,31 +107,46 @@ void errorWrongType(T)(string ident, LocatedVal!DslType value) {
 
 }
 
-Deck parseSlidexDoc(const ParseContext ctxt, ParseTree root) {
-	Deck deck = new Deck();
+ParseResult!Deck parseSlidexDoc(const ParseContext ctxt, ParseTree root) {
 	if (root.children.length == 1)
-		parseSlideDeck(ctxt, root[0], deck);
+		return parseSlideDeck(ctxt, root[0]);
 
-	return deck;
+	stderr.writeln(errorPrefix(ctxt, root), "Empty document!");
+	return ParseResult!Deck(1, 0, false, null);
 }
 
-void parseSlideDeck(const ParseContext ctxt, ParseTree root, Deck deck) {
+// TODO: everywhere return ParseResults so we can propagate errors
+ParseResult!Deck parseSlideDeck(const ParseContext ctxt, ParseTree root) {
+	Deck deck = new Deck();
+	ParseResult!Deck result;
+	result.value = deck;
+
 	foreach (child; root.children) {
 		switch (child.name) {
 		case "SlidexDoc.Deck":
+			// TODO: add ParseResult
 			parseDeck(ctxt, child, deck);
 			break;
 		case "SlidexDoc.Master":
-			deck.masters ~= parseMaster(ctxt, child);
+			ParseResult!Master res = parseMaster(ctxt, child);
+			deck.masters ~= res.value;
+			deck.masterMap[res.value.name] = res.value;
+			result.addIssueCount(res);
 			break;
 		case "SlidexDoc.Slide":
-			writeln("Slide!");
+			ParseResult!Slide res = parseSlide(ctxt, child);
+			if (!res.ok)
+				result.ok = false;
+			deck.slides ~= res.value;
+			deck.slideMap[res.value.name] = res.value;
+			result.addIssueCount(res);
 			break;
 		default:
 			writeln("UNKNOWN: ", child.name);
 			break;
 		}
 	}
+	return result;
 }
 
 void parseDeck(const ParseContext ctxt, ParseTree root, Deck deck) {
@@ -161,26 +188,108 @@ void parseDeckContent(const ParseContext ctxt, ParseTree root, Deck deck) {
 	}
 }
 
-Master parseMaster(const ParseContext ctxt, ParseTree root) {
+ParseResult!Master parseMaster(const ParseContext ctxt, ParseTree root) {
 	Master master = new Master();
-
 	master.loc = root.sourceLocation(ctxt);
 
+	ParseResult!Master result = {ok: true, value: master};
+
+	assert(root.children.length == 7, "Master must contain 7 parse nodes");
+
 	foreach (child; root.children) {
-		if (child.name == "SlidexDoc.MasterContent") {
-			parseMasterContent(ctxt, child, master);
+		switch (child.name) {
+		case "SlidexDoc.OpeningIdentifier":
+			master.name = child[0].matches[0];
+			break;
+		case "SlidexDoc.ClosingIdentifier":
+			if (child[0].matches[0] != master.name) {
+				stderr.writeln(errorPrefix(ctxt, child[0]), "Expected master name `", master.name, "` but got `", child[0]
+						.matches[0], "`");
+				result.errorCount++;
+				result.ok = false;
+			}
+			break;
+		case "SlidexDoc.MasterContent":
+			parseMasterContent(ctxt, root[3], master);
+			break;
+		default:
+			break;
 		}
 	}
-	return master;
+
+	if (root[6].matches[0] != master.name) {
+		stderr.writeln("Error: Closing name of master must equal master name");
+		result.warningCount++;
+		result.ok = false;
+	}
+
+	return result;
 }
 
 void parseMasterContent(const ParseContext ctxt, ParseTree root, Master master) {
 	foreach (child; root.children) {
 		if (child.name == "SlidexDoc.Statement")
 			parseStatement(ctxt, child, master);
-		else
-			writeln("Error: Unknown parse node");
 	}
+}
+
+/** 
+Parses a slide node.
+Pass as root: "SlidexDoc.Slide" 
+*/
+ParseResult!Slide parseSlide(const ParseContext ctxt, ParseTree root) {
+	Slide slide = new Slide();
+	slide.loc = root.sourceLocation(ctxt);
+
+	// TODO preferred syntax, but dscanner doesn't like it
+	// ParseResult!Slide result = ParseResult!Slide(ok : true, value: slide);
+	ParseResult!Slide result = {ok: true, value: slide};
+
+	writeln(root);
+	foreach (child; root.children) {
+		switch (child.name) {
+		case "SlidexDoc.MasterIdentifier":
+			slide.masterName = LocatedVal!string(child[0].matches[0], child.sourceLocation(ctxt));
+			break;
+		case "SlidexDoc.OpeningIdentifier":
+			slide.name = child[0].matches[0];
+			break;
+		case "SlidexDoc.ClosingIdentifier":
+			if (child[0].matches[0] != slide.name) {
+				stderr.writeln(errorPrefix(ctxt, child[0]), "Expected slide name `", slide.name, "` but got `", child[0]
+						.matches[0], "`");
+				result.errorCount++;
+				result.ok = false;
+			}
+			break;
+		case "SlidexDoc.SlideContent":
+			ParseResult!SlideContent res = parseSlideContent(ctxt, child, slide);
+			res.value.match!(
+				(Event e) {},
+				(ValueAssignment va) {},
+				(PropertyDeclaration pd) {});
+			break;
+		default:
+			break;
+		}
+	}
+
+	return result;
+}
+
+ParseResult!SlideContent parseSlideContent(const ParseContext ctxt, ParseTree root, Slide slide) {
+
+	slide.masterName = LocatedVal!string(root[3].matches[0], root[3].sourceLocation(ctxt));
+	foreach (child; root.children) {
+		switch (child.name) {
+		case "SlidexDoc.Event":
+			assert(false, "Parse events");
+			break;
+		default:
+			break;
+		}
+	}
+	return ParseResult!bool(0, 0, false, false);
 }
 
 void parseStatement(const ParseContext ctxt, ParseTree root, Master master) {
@@ -305,6 +414,8 @@ LocatedVal!DslType getValue(const ParseContext ctxt, ParseTree root) {
 		return locatedDslType(root.matches[0], root.sourceLocation(ctxt));
 	case "SlidexDoc.Date":
 		return locatedDslType(Date.fromISOExtString(root.matches[0]), root.sourceLocation(ctxt));
+		// case "SlidexDoc.FuncCall":
+		// 	return locatedDslType(Date.fromISOExtString(root.matches[0]), root.sourceLocation(ctxt));
 	default:
 		assert(false, "Type conversion for assignment value `" ~ root.name ~ "` not implemented yet");
 	}
@@ -364,70 +475,40 @@ Item getPropertyItem(const ParseContext ctxt, ParseTree root) {
   Prints errors if any
 */
 ParseResult!CellLocation parseCell(ParseContext ctxt, ParseTree root) {
+
+	bool extractValue(T)(ref T target, string argname, LocatedVal!DslType val) {
+		if (val.value.has!T) {
+			target = val.value.get!T;
+			return true;
+		}
+		errorWrongType!T(argname, val);
+		return false;
+	}
+
 	// get all args
 	NamedArgsResult[string] args = getNamedArguments(ctxt, root);
 	// check args.
 	ParseResult!CellLocation result = ParseResult!CellLocation(true);
 	CellLocation cell;
-
+	bool success = true;
 	foreach (argname; args.keys) {
 		switch (argname) {
-		case "col":
-			LocatedVal!DslType val = args["col"].value;
-			if (val.value.has!int)
-				cell.col = val.value.get!int;
-			else {
-				errorWrongType!int("col", val);
-				result.ok = false;
-			}
-			break;
-		case "row":
-			LocatedVal!DslType val = args["row"].value;
-			if (val.value.has!int)
-				cell.col = val.value.get!int;
-			else
-				errorWrongType!int("row", val);
-			break;
-		case "colspan":
-			LocatedVal!DslType val = args["colspan"].value;
-			if (val.value.has!int)
-				cell.col = val.value.get!int;
-			else
-				errorWrongType!int("colspan", val);
-			break;
-		case "rowspan":
-			LocatedVal!DslType val = args["rowspan"].value;
-			if (val.value.has!int)
-				cell.col = val.value.get!int;
-			else
-				errorWrongType!int("rowspan", val);
-			break;
-		case "dx":
-			LocatedVal!DslType val = args["dx"].value;
-			if (val.value.has!int)
-				cell.col = val.value.get!int;
-			else
-				errorWrongType!int("dx", val);
-			break;
-		case "dy":
-			LocatedVal!DslType val = args["dy"].value;
-			if (val.value.has!int)
-				cell.col = val.value.get!int;
-			else
-				errorWrongType!int("dy", val);
-			break;
-		case "angle":
-			LocatedVal!DslType val = args["angle"].value;
-			if (val.value.has!int)
-				cell.col = val.value.get!int;
-			else
-				errorWrongType!int("angle", val);
-			break;
+			//dfmt off
+		case "col":	    success = extractValue!int(cell.col, argname, args[argname].value); break;
+		case "row":	    success = extractValue!int(cell.row, argname, args[argname].value); break;
+		case "colspan":	success = extractValue!int(cell.colspan, argname, args[argname].value); break;
+		case "rowspan":	success = extractValue!int(cell.rowspan, argname, args[argname].value); break;
+		case "dx":	    success = extractValue!int(cell.dx, argname, args[argname].value); break;
+		case "dy":	    success = extractValue!int(cell.dy, argname, args[argname].value); break;
+		case "angle":	success = extractValue!float(cell.angle, argname, args[argname].value); break;
+		//dfmt on
 		default:
-			result.ok = false;
+			result.errorCount++;
 			stderr.writeln(errorPrefix(args[argname].name.loc), "Invalid argument `", argname, "`.");
 			break;
 		}
+		if (!success)
+			result.errorCount++;
 	}
 	result.value = cell;
 	return result;
