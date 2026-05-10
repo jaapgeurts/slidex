@@ -8,14 +8,17 @@ deck begin
 end deck
 
 master MasterSlide1 begin
-    columns = 24;
-    rows = 18;
+    columns = 12;
+    rows = 12;
     background: rect(fill=yellow);
     title: text({Put your title text here}) at cell(col=2,row=2,colspan=8,rowspan=2);
 #    grid: layout(regions="2x2",
 #                   names=["topleft","topright","bottomleft","bottomright"],
 #                   widths=[50%,50%],
 #                   gutter = 2cm);
+
+    left: text({Put left text here}) at cell(col = 2, row = 4, colspan=4,rowspan=7);
+    right: text({Put right text here}) at cell(col = 7, row = 4, colspan=4,rowspan=7);
 
     #grid.bottomleft = image(path="abc.jpg");
 end master MasterSlide1
@@ -35,17 +38,16 @@ slide MasterSlide1 <- Slide1 begin
     background.visible = false;
     title.body = {Introduction to *thermal* expansion};
 
-    grid.topleft = text({
+    left.body = {
         - Markup item 1
         - Markup item 2
         - Markup item 3
-    });
-    grid.bottomright = text({
+    };
+    right.body = {
         *bold text* /italic/ _underlined_
         https://www.google.com
-    });
+    };
 
-    grid.bottomleft.path = "def.jpg";
 
-    image(path="house.jpg") at bounds(x=150,y=30, width=300);
+    #image(path="house.jpg") at bounds(x=150,y=30, width=300);
 end slide Slide1

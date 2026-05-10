@@ -5,11 +5,6 @@ import std.meta;
 import std.sumtype;
 import std.conv;
 
-struct Quantity {
-    float value;
-    string unit;
-}
-
 alias DslTypes = AliasSeq!(
     string,
     int,
@@ -19,7 +14,7 @@ alias DslTypes = AliasSeq!(
     Colour,
     Quantity,
     Date,
-    // Func
+    FuncCall
 );
 
 struct DslType {
@@ -81,7 +76,7 @@ struct DslType {
                     return mixin("_" ~ i.stringof).to!string;
             }
         }
-        assert(false, "toString not implemented for this type");
+        assert(false, "toString() not implemented. This DslType was not assigned a value.");
     }
 
     string typeName() {
@@ -115,6 +110,11 @@ LocatedVal!DslType locatedDslType(T)(T val, SourceLocation loc) {
     return item;
 }
 
+struct Quantity {
+    float value;
+    string unit;
+}
+
 enum Colour {
     Red,
     Green,
@@ -122,6 +122,17 @@ enum Colour {
     Cyan,
     Magenta,
     Yellow,
+}
+
+struct NamedArg {
+	LocatedVal!string name;
+	LocatedVal!DslType value;
+}
+
+struct FuncCall {
+    LocatedVal!string name;
+    NamedArg[string] namedArgs;
+    LocatedVal!DslType[] positionalArgs;
 }
 
 class Deck {
@@ -140,8 +151,8 @@ class Deck {
 class Master {
     SourceLocation loc;
 
-    uint columns;
-    uint rows;
+    int columns;
+    int rows;
 
     string name;
 
@@ -159,9 +170,11 @@ class Slide {
 
     Item[string] itemsMap;
     Item[] items;
+
+    // assignments that should be resolved after the master has been assigned
+    ValueAssignment[] masterAssignments;
 }
 
-alias SlideContent = SumType!(Event,Item);
 
 struct CellLocation {
     int col = 1;
@@ -185,6 +198,21 @@ struct BoundsLocation {
 }
 
 alias Location = SumType!(CellLocation, BoundsLocation);
+
+alias Statement = SumType!(ValueAssignment, PropertyDeclaration);
+
+struct ValueAssignment {
+    // consider using a type for Qualified Identifier
+    LocatedVal!string ident;
+    LocatedVal!DslType value;    
+}
+
+struct PropertyDeclaration {
+    LocatedVal!string ident;
+    LocatedVal!DslType value;
+	Location atLocation;
+}
+
 
 class Item {
     SourceLocation loc;
