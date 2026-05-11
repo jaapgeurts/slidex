@@ -101,7 +101,7 @@ class Item {
     string name;
 
     @DslField
-    bool visible;
+    bool visible = true;
 
     this(string name) {
         this.name = name;

@@ -8,7 +8,6 @@ import std.variant;
 
 import types;
 
-
 alias DslTypes = AliasSeq!(
     string,
     int,
@@ -70,17 +69,19 @@ struct DslType {
     }
 
     Variant toVariant() {
-        static foreach (i, T; DslTypes) {
-            if (kind == i) {
+        final switch (kind) {
+            static foreach (i, T; DslTypes) {
+        case i:
                 return Variant(mixin("_" ~ i.stringof));
             }
         }
-        return Variant();
+        assert(false, "toVariant(): This DslType contains an unregistered kind.");
     }
 
     string toString() const {
-        static foreach (i, T; DslTypes) {
-            if (kind == i) {
+        final switch (kind) {
+            static foreach (i, T; DslTypes) {
+        case i:
                 static if (is(T == string))
                     return mixin("_" ~ i.stringof);
                 else static if (is(T == bool))
@@ -89,15 +90,17 @@ struct DslType {
                     return mixin("_" ~ i.stringof).to!string;
             }
         }
-        assert(false, "toString() not implemented. This DslType was not assigned a value.");
+        assert(false, "toString(): This DslType contains an unregistered kind.");
     }
 
     string typeName() {
-        static foreach (i, T; DslTypes) {
-            if (kind == i)
+        final switch (kind) {
+            static foreach (i, T; DslTypes) {
+        case i:
                 return T.stringof;
+            }
         }
-        return "unknown";
+        assert(false, "typeName(): This DslType contains an unregistered kind.");
     }
 
 }
