@@ -12,6 +12,7 @@ import std.uni : asCapitalized;
 import pegged.grammar;
 
 import ast;
+import types;
 
 mixin(grammar(import("grammar.peg")));
 
@@ -117,6 +118,7 @@ ParseResult!Deck buildAst(const ParseContext ctxt, ConcreteTree tree) {
 ParseResult!Deck parseSlideDeck(const ParseContext ctxt, ParseTree root) {
     Deck deck = new Deck();
     ParseResult!Deck result;
+    result.ok = true;
     result.value = deck;
 
     foreach (child; root.children) {
@@ -129,6 +131,8 @@ ParseResult!Deck parseSlideDeck(const ParseContext ctxt, ParseTree root) {
             ParseResult!Master res = parseMaster(ctxt, child);
             deck.masters ~= res.value;
             deck.masterMap[res.value.name] = res.value;
+            if (!res.ok)
+                result.ok = false;
             result.addIssueCount(res);
             break;
         case "SlidexDoc.Slide":
@@ -259,7 +263,7 @@ ParseResult!bool parseMasterContent(const ParseContext ctxt, ParseTree root, Mas
             case "rect":
                 writeln("Creating rect");
                 // factor out
-                Rect rect = new Rect();
+                Rect rect;
                 bool success = true;
                 foreach (k, v; call.namedArgs) {
                     switch (k) {
@@ -276,23 +280,29 @@ ParseResult!bool parseMasterContent(const ParseContext ctxt, ParseTree root, Mas
                     result.errorCount++;
                 }
                 else {
-                    master.items ~= rect;
-                    master.itemsMap[pd.ident] = rect;
+                    Item item = new Item(pd.ident);
+                    item.loc = pd.value.loc;
+                    item.layoutLocation = pd.layoutLocation;
+                    item.shape = rect;
+                    master.items ~=  item;
+                    master.itemsMap[pd.ident] = item;
                 }
                 break;
             case "text":
                 // Deal with errors
                 writeln("Creating text");
-                Text text = new Text();
+                Text text;
 
                 // possible arguments:
                 // text:Text, 
                 if (call.positionalArgs.length > 0 && call.positionalArgs[0].has!string) {
                     text.text = call.positionalArgs[0].get!string;
                 }
-
-                master.items ~= text;
-                master.itemsMap[pd.ident] = text;
+                Item item = new Item(pd.ident);
+                item.loc = pd.value.loc;
+                item.shape = text;
+                master.items ~= item;
+                master.itemsMap[pd.ident] = item;
                 break;
             default:
                 assert(false, "Unknown property function save for later");
@@ -379,11 +389,11 @@ ParseResult!bool parseSlideContent(const ParseContext ctxt, ParseTree root, Slid
     ParseResult!bool result;
 
     void handleValueAssignment(ValueAssignment va) {
-        // is the value assignment a local slide field assignment?
+        // TODO: is the value assignment a local slide field assignment?
         // LATER: currently here are no fields
 
         // if not, then keep it for later when the master is resolved.
-        slide.masterAssignments ~= va;
+        slide.assignments ~= va;
     }
 
     // ParseResult!Statement stmt = parseStatement(ctxt, child);
@@ -481,9 +491,9 @@ ParseResult!PropertyDeclaration parsePropertyDeclaration(const ParseContext ctxt
             break;
         case "SlidexDoc.Placement":
             // writeln("SlidexDoc.Placement");
-            ParseResult!Location res = parseAtLocation(ctxt, child);
+            ParseResult!LayoutLocation res = parseAtLocation(ctxt, child);
             if (res.ok) {
-                result.value.atLocation = res.value;
+                result.value.layoutLocation = res.value;
                 // writeln("parse AT success");
             }
             else {
@@ -591,7 +601,7 @@ bool extractValue(T)(ref T target, string argname, LocatedVal!DslType val) {
   parse an at location 
   for root pass in "SlidexDoc.Placement"
   */
-ParseResult!Location parseAtLocation(ParseContext ctxt, ParseTree root) {
+ParseResult!LayoutLocation parseAtLocation(ParseContext ctxt, ParseTree root) {
     enum LocationKind {
         Undefined,
         Cell,
@@ -616,7 +626,7 @@ ParseResult!Location parseAtLocation(ParseContext ctxt, ParseTree root) {
             break;
         }
     }
-    ParseResult!Location result;
+    ParseResult!LayoutLocation result;
     if (locKind == LocationKind.Cell) {
         CellLocation cell;
         bool success = true;

@@ -1,9 +1,13 @@
 module ast;
 
+import std.conv;
 import std.datetime;
 import std.meta;
 import std.sumtype;
-import std.conv;
+import std.variant;
+
+import types;
+
 
 alias DslTypes = AliasSeq!(
     string,
@@ -65,6 +69,15 @@ struct DslType {
         return mixin("_" ~ i.stringof);
     }
 
+    Variant toVariant() {
+        static foreach (i, T; DslTypes) {
+            if (kind == i) {
+                return Variant(mixin("_" ~ i.stringof));
+            }
+        }
+        return Variant();
+    }
+
     string toString() const {
         static foreach (i, T; DslTypes) {
             if (kind == i) {
@@ -110,23 +123,9 @@ LocatedVal!DslType locatedDslType(T)(T val, SourceLocation loc) {
     return item;
 }
 
-struct Quantity {
-    float value;
-    string unit;
-}
-
-enum Colour {
-    Red,
-    Green,
-    Blue,
-    Cyan,
-    Magenta,
-    Yellow,
-}
-
 struct NamedArg {
-	LocatedVal!string name;
-	LocatedVal!DslType value;
+    LocatedVal!string name;
+    LocatedVal!DslType value;
 }
 
 struct FuncCall {
@@ -165,16 +164,16 @@ class Slide {
 
     string name;
     LocatedVal!string masterName;
+    Master master;
 
     Event[] events;
 
     Item[string] itemsMap;
     Item[] items;
 
-    // assignments that should be resolved after the master has been assigned
-    ValueAssignment[] masterAssignments;
+    // assignments that should be resolved later
+    ValueAssignment[] assignments;
 }
-
 
 struct CellLocation {
     int col = 1;
@@ -197,38 +196,44 @@ struct BoundsLocation {
     float angle = 0;
 }
 
-alias Location = SumType!(CellLocation, BoundsLocation);
+alias LayoutLocation = SumType!(CellLocation, BoundsLocation);
 
 alias Statement = SumType!(ValueAssignment, PropertyDeclaration);
 
 struct ValueAssignment {
     // consider using a type for Qualified Identifier
     LocatedVal!string ident;
-    LocatedVal!DslType value;    
+    LocatedVal!DslType value;
 }
 
 struct PropertyDeclaration {
     LocatedVal!string ident;
     LocatedVal!DslType value;
-	Location atLocation;
+    LayoutLocation layoutLocation;
 }
-
 
 class Item {
     SourceLocation loc;
-    Location location;
     string name;
+
+    LayoutLocation layoutLocation;
+
+    SumType!(Rect, Text, Image) shape;
+
+    this(string name) {
+        this.name = name;
+    }
 }
 
-class Rect : Item {
+struct Rect {
     Colour fill;
 }
 
-class Text : Item {
+struct Text {
     string text;
 }
 
-class Image : Item {
+struct Image {
     string path;
 }
 
