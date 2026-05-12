@@ -30,7 +30,7 @@ class GtkDrawingVisitor : ItemVisitor {
             selectFontFace("Vollkorn", CairoFontSlant.NORMAL, CairoFontWeight.NORMAL);
             setFontSize(35);
 
-            setSourceRgba(0.8, 0.5, 0.2, 1);
+            setSourceRgb(1, 1, 1);
             paint();
 
             // find the dimensions of the text so we can center it

@@ -10,7 +10,7 @@ end deck
 master MasterSlide1 begin
     columns = 12;
     rows = 12;
-    background: rect(fill=yellow);
+    background:  rect(fill=yellow);
     title: text({Put your title text here}) at cell(col=2,row=2,colspan=8,rowspan=2);
 #    grid: layout(regions="2x2",
 #                   names=["topleft","topright","bottomleft","bottomright"],
@@ -49,5 +49,5 @@ slide MasterSlide1 <- Slide1 begin
     };
 
 
-    #image(path="house.jpg") at bounds(x=150,y=30, width=300);
+    image(path="centipede.png") at bounds(x=150,y=30, width=300);
 end slide Slide1

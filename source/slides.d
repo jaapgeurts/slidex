@@ -104,6 +104,9 @@ class Master {
 
 class Slide {
     string name;
+    
+    @DslField
+    Item background;
 
     Master master;
 

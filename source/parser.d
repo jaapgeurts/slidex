@@ -1,10 +1,13 @@
 module parser;
 
 import std.algorithm.searching;
+import std.algorithm.iteration;
 import std.array;
 import std.conv;
 import std.datetime;
 import std.format;
+import std.random;
+import std.range;
 import std.stdio;
 import std.sumtype;
 import std.uni : asCapitalized;
@@ -214,6 +217,10 @@ ParseResult!Master parseMaster(const ParseContext ctxt, ParseTree root) {
             break;
         case "SlidexDoc.MasterContent":
             ParseResult!bool res = parseMasterContent(ctxt, child, master);
+            if (!res.ok) {
+                result.ok = false;
+                result.addIssueCount(res);
+            }
             break;
         default:
             break;
@@ -226,6 +233,93 @@ ParseResult!Master parseMaster(const ParseContext ctxt, ParseTree root) {
         result.ok = false;
     }
 
+    return result;
+}
+
+ParseResult!Item parseItemDeclaration(PropertyDeclaration pd) {
+
+    ParseResult!Item result = {ok: true};
+
+    // TODO: check if this symbol is already defined in the master and refuse if so
+
+    if (pd.ident.value is null)
+        pd.ident.value = iota(26).randomSample(8).map!(x => to!char(x + 'a')).array.idup;
+
+    if (pd.value.value.has!FuncCall) {
+        FuncCall call = pd.value.value.get!FuncCall();
+        switch (call.name) {
+        case "rect":
+            writeln("Creating rect");
+            // factor out
+            Rect rect;
+            bool success = true;
+            foreach (k, v; call.namedArgs) {
+                switch (k) {
+                case "fill":
+                    success = extractValue!Colour(rect.fill, v.name, v.value);
+                    break;
+                default:
+                    stderr.writeln("Unknown argument `", k, "`");
+                    result.ok = false;
+                    result.errorCount++;
+                    break;
+                }
+            }
+            if (!success) {
+                result.errorCount++;
+            }
+            else {
+                Item item = new Item(pd.ident.value);
+                item.loc = pd.value.loc;
+                item.layoutLocation = pd.layoutLocation;
+                item.shape = rect;
+                result.value = item;
+            }
+            break;
+        case "text":
+            // Deal with errors
+            writeln("Creating text");
+            Text text;
+
+            // possible arguments:
+            // text:Text, 
+            if (call.positionalArgs.length > 0 && call.positionalArgs[0].has!string) {
+                text.text = call.positionalArgs[0].get!string;
+            }
+            Item item = new Item(pd.ident.value);
+            item.loc = pd.value.loc;
+            item.shape = text;
+            result.value = item;
+            break;
+        case "image":
+            Image image;
+            if (call.positionalArgs.length > 0 && call.positionalArgs[0].has!string) {
+                image.path = call.positionalArgs[0].get!string;
+            }
+            else if (auto val = "path" in call.namedArgs) {
+                if (!extractValue!string(image.path, "path", val.value))
+                    result.ok = false;
+                result.errorCount++;
+                break;
+            }
+            Item item = new Item(pd.ident.value);
+            item.loc = pd.value.loc;
+            item.shape = image;
+            result.value = item;
+            break;
+        default:
+            stderr.writeln(errorPrefix(call.name.loc), "Unknown declaration value: `" ~ call.name ~ "`.");
+            result.ok = false;
+            result.errorCount++;
+            break;
+        }
+    }
+    else {
+        assert(false, "Property assignments must be Items such as Rect, Image, ...");
+        result.ok = false;
+        result.errorCount++;
+
+    }
     return result;
 }
 
@@ -244,72 +338,23 @@ ParseResult!bool parseMasterContent(const ParseContext ctxt, ParseTree root, Mas
 		case "rows": success = extractValue!int(master.rows, va.ident,va.value); break;
 		// dfmt on
         default:
-            stderr.writeln(errorPrefix(ctxt, root), "Unknown property: `", va.ident, "`");
+            stderr.writeln(errorPrefix(va.ident.loc), "Unknown property: `", va.ident, "`");
+            success = false;
             break;
         }
         if (!success) {
             result.ok = false;
             result.errorCount++;
         }
-
     }
 
     void handlePropertyDeclaration(PropertyDeclaration pd) {
         // create items
         // writeln("handlePropertyDeclaration(): ", pd);
-
-        // TODO: check if this symbol is already defined in the master and refuse if so
-        if (pd.value.value.has!FuncCall) {
-            FuncCall call = pd.value.value.get!FuncCall();
-            switch (call.name) {
-            case "rect":
-                writeln("Creating rect");
-                // factor out
-                Rect rect;
-                bool success = true;
-                foreach (k, v; call.namedArgs) {
-                    switch (k) {
-                    case "fill":
-                        success = extractValue!Colour(rect.fill, v.name, v.value);
-                        break;
-                    default:
-                        stderr.writeln("Unknown argument `", k, "`");
-                        break;
-                    }
-                }
-                if (!success) {
-                    result.ok = false;
-                    result.errorCount++;
-                }
-                else {
-                    Item item = new Item(pd.ident);
-                    item.loc = pd.value.loc;
-                    item.layoutLocation = pd.layoutLocation;
-                    item.shape = rect;
-                    master.items ~=  item;
-                    master.itemsMap[pd.ident] = item;
-                }
-                break;
-            case "text":
-                // Deal with errors
-                writeln("Creating text");
-                Text text;
-
-                // possible arguments:
-                // text:Text, 
-                if (call.positionalArgs.length > 0 && call.positionalArgs[0].has!string) {
-                    text.text = call.positionalArgs[0].get!string;
-                }
-                Item item = new Item(pd.ident);
-                item.loc = pd.value.loc;
-                item.shape = text;
-                master.items ~= item;
-                master.itemsMap[pd.ident] = item;
-                break;
-            default:
-                assert(false, "Unknown property function save for later");
-                break;
-            }
+        ParseResult!Item result = parseItemDeclaration(pd);
+        if (result.ok) {
+            master.items ~= result.value;
+            master.itemsMap[pd.ident] = result.value;
         }
     }
 
@@ -398,17 +443,15 @@ ParseResult!bool parseSlideContent(const ParseContext ctxt, ParseTree root, Slid
         slide.assignments ~= va;
     }
 
-    // ParseResult!Statement stmt = parseStatement(ctxt, child);
+    void handlePropertyDeclaration(PropertyDeclaration pd) {
+        ParseResult!Item result = parseItemDeclaration(pd);
 
-    // if (stmt.ok) {
-    // 	// writeln("parseMasterContent():", stmt);
-
-    // 	stmt.value.match!(
-    // 		handleValueAssignment,
-    // 		handlePropertyDeclaration,
-    // 	);
-    // }
-    // writeln(root);
+        if (result.ok) {
+            slide.items ~= result.value;
+            slide.itemsMap[pd.ident.value] = result.value;
+        }
+        // TODO: return parse errors
+    }
 
     result.ok = true;
 
@@ -418,14 +461,11 @@ ParseResult!bool parseSlideContent(const ParseContext ctxt, ParseTree root, Slid
             assert(false, "Event parsing is not yet implemented");
             break;
         case "SlidexDoc.Statement":
-            ParseResult!Statement stmt = parseStatement(ctxt, child);
-            if (stmt.ok) {
-                // writeln("PARSED: ", stmt);
-                stmt.value.match!(
+            ParseResult!Statement res = parseStatement(ctxt, child);
+            if (res.ok) {
+                res.value.match!(
                     handleValueAssignment,
-                    (PropertyDeclaration pd) {
-                    assert(false, "Property declarations are not yet implemented");
-                },
+                    handlePropertyDeclaration,
                 );
             }
             break;
@@ -440,15 +480,15 @@ ParseResult!bool parseSlideContent(const ParseContext ctxt, ParseTree root, Slid
 Parses a statement node,
 For root pass in "SlidexDoc.Statement"
 */
-ParseResult!Statement parseStatement(
-    const ParseContext ctxt, ParseTree root) {
+ParseResult!Statement parseStatement(const ParseContext ctxt, ParseTree root) {
+
     ParseResult!Statement result;
+
     foreach (child; root.children) {
         switch (child.name) {
         case "SlidexDoc.PropertyDeclaration":
             // writeln("->Property Declaration");
-            ParseResult!PropertyDeclaration res = parsePropertyDeclaration(
-                ctxt, child);
+            ParseResult!PropertyDeclaration res = parsePropertyDeclaration(ctxt, child);
             if (res.ok) {
                 result.value = res.value;
                 result.addIssueCount(res);
@@ -585,7 +625,7 @@ LocatedVal!DslType getValue(const ParseContext ctxt, ParseTree root) {
 
 FuncCall getFuncCall(const ParseContext ctxt, ParseTree root) {
     // writeln("getFuncCall(): ", root);
-    return FuncCall(LocatedVal!string(root[0].matches[0]),
+    return FuncCall(LocatedVal!string(root[0].matches[0], root[0].sourceLocation(ctxt)),
         getNamedArguments(ctxt, root[1]),
         getPositionalArguments(ctxt, root[1]));
 }
@@ -619,7 +659,6 @@ ParseResult!LayoutLocation parseAtLocation(ParseContext ctxt, ParseTree root) {
             break;
         case "SlidexDoc.BOUNDS":
             locKind = LocationKind.Bounds;
-            assert(false, "parsing bounds not implemented yet");
             break;
         case "SlidexDoc.Args":
             args = getNamedArguments(ctxt, child);
@@ -653,6 +692,29 @@ ParseResult!LayoutLocation parseAtLocation(ParseContext ctxt, ParseTree root) {
         }
         result.ok = success;
         result.value = cell;
+    }
+    else if (locKind == LocationKind.Bounds) {
+        BoundsLocation bounds;
+        bool success = true;
+        foreach (argname; args.keys) {
+            switch (argname) {
+                //dfmt off
+			case "x":	    success = extractValue!int(bounds.x, argname, args[argname].value); break;
+			case "y":	    success = extractValue!int(bounds.y, argname, args[argname].value); break;
+			case "width":	success = extractValue!int(bounds.width, argname, args[argname].value); break;
+			case "height":	success = extractValue!int(bounds.height, argname, args[argname].value); break;
+			case "angle":	success = extractValue!float(bounds.angle, argname, args[argname].value); break;
+			//dfmt on
+            default:
+                result.errorCount++;
+                stderr.writeln(errorPrefix(args[argname].name.loc), "Invalid argument `", argname, "`.");
+                break;
+            }
+            if (!success)
+                result.errorCount++;
+        }
+        result.ok = success;
+        result.value = bounds;
     }
 
     return result;
