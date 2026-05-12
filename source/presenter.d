@@ -1,13 +1,17 @@
 module presenter;
 
 import std.stdio;
+import std.sumtype;
 
 import cairo.Context;
+import cairo.ImageSurface;
+import cairo.Surface;
 
 import gtk.MainWindow;
 import gtk.Main;
 import gtk.Widget;
 
+import types;
 import slides;
 
 class GtkDrawingVisitor : ItemVisitor {
@@ -31,6 +35,7 @@ class GtkDrawingVisitor : ItemVisitor {
             setFontSize(35);
 
             setSourceRgb(1, 1, 1);
+
             paint();
 
             // find the dimensions of the text so we can center it
@@ -49,7 +54,7 @@ class GtkDrawingVisitor : ItemVisitor {
     void visit(Rect rect) {
         writeln("TODO: drawing rect");
         with (context) {
-            setSourceRgba(0.384, 0.914, 0.976, 1.0);
+            setSourceRgb(0.384, 0.914, 0.976);
             setLineWidth(5);
             rectangle(56, 150, 32, 32);
             stroke();
@@ -57,7 +62,29 @@ class GtkDrawingVisitor : ItemVisitor {
     }
 
     void visit(Image image) {
-        writeln("TODO: drawing image");
+        writeln("TODO: drawing image: ", image.path);
+        ImageSurface surface = ImageSurface.createFromPng(image.path);
+        writeln("PRESENT LAYOUT: ", image.layoutLocation);
+
+        // factor out
+        int x, y, w, h;
+        image.layoutLocation.match!(
+            (BoundsLocation bl) { x = bl.x; y = bl.y; w = bl.width; h = bl.height; },
+            (CellLocation cl) {}
+        );
+
+        float img_w = surface.getWidth();
+        float img_h = surface.getHeight();
+
+        with (context) {
+            save();
+            translate(x, y);
+            scale(w / img_w, w / img_w);
+            setSourceSurface(surface, 0, 0);
+            paint();
+            restore();
+        }
+
     }
 
     void visit(Text text) {
@@ -66,8 +93,8 @@ class GtkDrawingVisitor : ItemVisitor {
 }
 
 void presentDeck(string[] args, Deck deck) {
-    writeln("DECK: ", deck.slides[0].toString);
-    writeln("DECK: ", deck.slides[0].master.toString);
+    writeln("Slide:  ", deck.slides[0].toString);
+    writeln("Master: ", deck.slides[0].master.toString);
     // writeln("DECK: ", deck.slides[0].master.items[0].visible);
     size_t currentSlide = 0;
     // open the gtk window

@@ -25,13 +25,22 @@ ParseResult!(slides.Deck) resolveAst(ParseContext ctx, parser.Deck fromDeck) {
             // build master items
             foreach (fromItem; fromMaster.items) {
                 slides.Item toItem = fromItem.shape.match!(
-                    (ast.Rect r) {
-                    return cast(slides.Item) new slides.Rect(fromItem.name);
-                },
+                    (ast.Rect r) {return cast(slides.Item) new slides.Rect(fromItem.name);},
                     (ast.Text t) { return new slides.Text(fromItem.name); },
-                    (ast.Image i) { return new slides.Image(fromItem.name); });
+                    (ast.Image i) { return new slides.Image(fromItem.name, i.path); });
+                    toItem.layoutLocation = fromItem.layoutLocation;
                 toMaster.items ~= toItem;
                 toMaster.itemsMap[toItem.name] = toItem;
+            }
+            // build slide items
+            foreach(fromItem; fromSlide.items) {
+                slides.Item toItem = fromItem.shape.match!(
+                    (ast.Rect r) {return cast(slides.Item) new slides.Rect(fromItem.name);},
+                    (ast.Text t) { return new slides.Text(fromItem.name); },
+                    (ast.Image i) { return new slides.Image(fromItem.name, i.path); });
+                toItem.layoutLocation = fromItem.layoutLocation;
+                toSlide.items ~= toItem;
+                toSlide.itemsMap[toItem.name] = toItem;
             }
             // copy master values
             toMaster.columns = fromMaster.columns;
@@ -69,7 +78,7 @@ ParseResult!(slides.Deck) resolveAst(ParseContext ctx, parser.Deck fromDeck) {
             else {
                 stderr.writeln(errorPrefix(assignment.ident.loc), "ERROR: undefined element `", parts[0], "`");
             }
-            writeln("Assignment succeeded: ", assignment);
+            // writeln("Assignment succeeded: ", assignment);
         }
 
         // finally add the slide to the deck.

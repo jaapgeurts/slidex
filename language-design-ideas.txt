@@ -49,5 +49,7 @@ slide MasterSlide1 <- Slide1 begin
     };
 
 
-    image(path="centipede.png") at bounds(x=150,y=30, width=300);
+    image(path="centipede.png") at bounds(x=150,y=30, width=120);
+
+    image(path="crab1.png") at bounds(x=550,y=130, width=150);
 end slide Slide1

@@ -106,7 +106,7 @@ class Slide {
     string name;
     
     @DslField
-    Item background;
+    Colour background;
 
     Master master;
 
@@ -181,6 +181,8 @@ class Item {
     @DslField
     bool visible = true;
 
+    LayoutLocation layoutLocation;
+
     this(string name) {
         this.name = name;
     }
@@ -222,8 +224,12 @@ class Text : Item {
 }
 
 class Image : Item {
-    this(string name) {
+    @DslField
+    string path;
+
+    this(string name, string path) {
         super(name);
+        this.path = path;
     }
 
     mixin DslProperties;

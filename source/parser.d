@@ -288,6 +288,7 @@ ParseResult!Item parseItemDeclaration(PropertyDeclaration pd) {
             }
             Item item = new Item(pd.ident.value);
             item.loc = pd.value.loc;
+            item.layoutLocation = pd.layoutLocation;
             item.shape = text;
             result.value = item;
             break;
@@ -297,13 +298,15 @@ ParseResult!Item parseItemDeclaration(PropertyDeclaration pd) {
                 image.path = call.positionalArgs[0].get!string;
             }
             else if (auto val = "path" in call.namedArgs) {
-                if (!extractValue!string(image.path, "path", val.value))
+                if (!extractValue!string(image.path, "path", val.value)) {
                     result.ok = false;
-                result.errorCount++;
-                break;
+                    result.errorCount++;
+                    break;
+                }
             }
             Item item = new Item(pd.ident.value);
             item.loc = pd.value.loc;
+            item.layoutLocation = pd.layoutLocation;
             item.shape = image;
             result.value = item;
             break;
@@ -354,7 +357,7 @@ ParseResult!bool parseMasterContent(const ParseContext ctxt, ParseTree root, Mas
         ParseResult!Item result = parseItemDeclaration(pd);
         if (result.ok) {
             master.items ~= result.value;
-            master.itemsMap[pd.ident] = result.value;
+            master.itemsMap[result.value.name] = result.value;
         }
     }
 
@@ -444,11 +447,11 @@ ParseResult!bool parseSlideContent(const ParseContext ctxt, ParseTree root, Slid
     }
 
     void handlePropertyDeclaration(PropertyDeclaration pd) {
-        ParseResult!Item result = parseItemDeclaration(pd);
+        ParseResult!Item res = parseItemDeclaration(pd);
 
-        if (result.ok) {
-            slide.items ~= result.value;
-            slide.itemsMap[pd.ident.value] = result.value;
+        if (res.ok) {
+            slide.items ~= res.value;
+            slide.itemsMap[res.value.name] = res.value;
         }
         // TODO: return parse errors
     }
@@ -536,7 +539,7 @@ ParseResult!PropertyDeclaration parsePropertyDeclaration(const ParseContext ctxt
             ParseResult!LayoutLocation res = parseAtLocation(ctxt, child);
             if (res.ok) {
                 result.value.layoutLocation = res.value;
-                // writeln("parse AT success");
+                // writeln("parse AT success: ", res.value);
             }
             else {
                 // writeln("failed parse AT");
@@ -660,13 +663,14 @@ ParseResult!LayoutLocation parseAtLocation(ParseContext ctxt, ParseTree root) {
         case "SlidexDoc.BOUNDS":
             locKind = LocationKind.Bounds;
             break;
-        case "SlidexDoc.Args":
+        case "SlidexDoc.ArgList":
             args = getNamedArguments(ctxt, child);
             break;
         default:
             break;
         }
     }
+
     ParseResult!LayoutLocation result;
     if (locKind == LocationKind.Cell) {
         CellLocation cell;
@@ -690,12 +694,14 @@ ParseResult!LayoutLocation parseAtLocation(ParseContext ctxt, ParseTree root) {
             if (!success)
                 result.errorCount++;
         }
-        result.ok = success;
-        result.value = cell;
+        if (success) {
+            result.ok = true;
+            result.value = cell;
+        }
     }
     else if (locKind == LocationKind.Bounds) {
         BoundsLocation bounds;
-        bool success = true;
+        bool success = false;
         foreach (argname; args.keys) {
             switch (argname) {
                 //dfmt off
@@ -713,8 +719,11 @@ ParseResult!LayoutLocation parseAtLocation(ParseContext ctxt, ParseTree root) {
             if (!success)
                 result.errorCount++;
         }
-        result.ok = success;
-        result.value = bounds;
+        // writeln("BOUNDS: ", bounds);
+        if (success) {
+            result.ok = true;
+            result.value = bounds;
+        }
     }
 
     return result;
