@@ -257,6 +257,8 @@ ParseResult!bool parseMasterContent(const ParseContext ctxt, ParseTree root, Mas
     void handlePropertyDeclaration(PropertyDeclaration pd) {
         // create items
         // writeln("handlePropertyDeclaration(): ", pd);
+
+        // TODO: check if this symbol is already defined in the master and refuse if so
         if (pd.value.value.has!FuncCall) {
             FuncCall call = pd.value.value.get!FuncCall();
             switch (call.name) {

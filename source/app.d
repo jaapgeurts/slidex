@@ -1,6 +1,7 @@
 import std.file;
 import std.stdio;
 
+
 import ast;
 import parser;
 import resolver;
@@ -9,6 +10,7 @@ import slides;
 import presenter;
 
 int main(string[] args) {
+
 
 	auto source = readText(args[1]);
 	ParseResult!ConcreteTree cst = parseDocument(source);
@@ -36,8 +38,7 @@ int main(string[] args) {
 	}
 
 	// show the desk.
-
-	presentDeck(deck.value);
+	presentDeck(args, deck.value);
 
 	return 0;
 

@@ -43,6 +43,8 @@ ParseResult!(slides.Deck) resolveAst(ParseContext ctx, parser.Deck fromDeck) {
             stderr.writeln(errorPrefix(fromSlide.masterName.loc), "ERROR: unknown master reference: " ~ fromSlide
                     .masterName.value);
         }
+
+        // TODO: check if symbols are duplicated between master and slide
         ValueAssignment a;
         // apply deferred assignments
         foreach (assignment; fromSlide.assignments) {
