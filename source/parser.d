@@ -257,6 +257,11 @@ ParseResult!Item parseItemDeclaration(PropertyDeclaration pd) {
                 switch (k) {
                 case "fill":
                     success = extractValue!Colour(rect.fill, v.name, v.value);
+                    if(!success) {
+                        stderr.writeln("Invalid colour name: `",v.value.toString,"`");
+                        result.ok = false;
+                        result.errorCount++;
+                    }
                     break;
                 default:
                     stderr.writeln("Unknown argument `", k, "`");
@@ -266,6 +271,7 @@ ParseResult!Item parseItemDeclaration(PropertyDeclaration pd) {
                 }
             }
             if (!success) {
+                result.ok = false;
                 result.errorCount++;
             }
             else {
@@ -339,6 +345,7 @@ ParseResult!bool parseMasterContent(const ParseContext ctxt, ParseTree root, Mas
             // dfmt off
 		case "columns": success = extractValue!int(master.columns, va.ident,va.value); break;
 		case "rows": success = extractValue!int(master.rows, va.ident,va.value); break;
+		case "showgrid": success = extractValue!bool(master.showgrid, va.ident,va.value); break;
 		// dfmt on
         default:
             stderr.writeln(errorPrefix(va.ident.loc), "Unknown property: `", va.ident, "`");
@@ -620,7 +627,10 @@ LocatedVal!DslType getValue(const ParseContext ctxt, ParseTree root) {
             Date.fromISOExtString(root.matches[0]), loc);
     case "SlidexDoc.FuncCall":
         return locatedDslType(getFuncCall(ctxt, root), loc);
+    case "SlidexDoc.QualifiedIdentifier":
+        return locatedDslType(root.matches[0], loc);
     default:
+        // writeln(root);
         assert(false, "Type conversion for assignment value `" ~ root
                 .name ~ "` not implemented yet");
     }
@@ -678,8 +688,8 @@ ParseResult!LayoutLocation parseAtLocation(ParseContext ctxt, ParseTree root) {
         foreach (argname; args.keys) {
             switch (argname) {
                 //dfmt off
-			case "col":	    success = extractValue!int(cell.col, argname, args[argname].value); break;
-			case "row":	    success = extractValue!int(cell.row, argname, args[argname].value); break;
+			case "col":	    success = extractValue!int(cell.col, argname, args[argname].value); if (success) cell.col--; break;
+			case "row":	    success = extractValue!int(cell.row, argname, args[argname].value); if (success) cell.row--; break;
 			case "colspan":	success = extractValue!int(cell.colspan, argname, args[argname].value); break;
 			case "rowspan":	success = extractValue!int(cell.rowspan, argname, args[argname].value); break;
 			case "dx":	    success = extractValue!int(cell.dx, argname, args[argname].value); break;

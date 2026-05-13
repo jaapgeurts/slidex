@@ -21,11 +21,11 @@ ParseResult!(slides.Deck) resolveAst(ParseContext ctx, parser.Deck fromDeck) {
         // build master
         if (auto fromMaster = fromSlide.masterName.value in fromDeck.masterMap) {
             slides.Master toMaster = new slides.Master(fromMaster.name, fromMaster.columns, fromMaster
-                    .rows);
+                    .rows, fromMaster.showgrid);
             // build master items
             foreach (fromItem; fromMaster.items) {
                 slides.Item toItem = fromItem.shape.match!(
-                    (ast.Rect r) {return cast(slides.Item) new slides.Rect(fromItem.name);},
+                    (ast.Rect r) {return cast(slides.Item) new slides.Rect(fromItem.name, r.fill);},
                     (ast.Text t) { return new slides.Text(fromItem.name); },
                     (ast.Image i) { return new slides.Image(fromItem.name, i.path); });
                     toItem.layoutLocation = fromItem.layoutLocation;
@@ -35,7 +35,7 @@ ParseResult!(slides.Deck) resolveAst(ParseContext ctx, parser.Deck fromDeck) {
             // build slide items
             foreach(fromItem; fromSlide.items) {
                 slides.Item toItem = fromItem.shape.match!(
-                    (ast.Rect r) {return cast(slides.Item) new slides.Rect(fromItem.name);},
+                    (ast.Rect r) {return cast(slides.Item) new slides.Rect(fromItem.name, r.fill);},
                     (ast.Text t) { return new slides.Text(fromItem.name); },
                     (ast.Image i) { return new slides.Image(fromItem.name, i.path); });
                 toItem.layoutLocation = fromItem.layoutLocation;

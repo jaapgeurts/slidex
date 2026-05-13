@@ -85,15 +85,19 @@ class Master {
     uint columns;
     uint rows;
 
+    @DslField
+    bool showgrid = false;
+
     Item[] items;
     Item[string] itemsMap;
 
     mixin DumpFieldsToString;
 
-    this(string name, uint columns, uint rows) {
+    this(string name, uint columns, uint rows, bool showgrid) {
         this.name = name;
         this.columns = columns;
         this.rows = rows;
+        this.showgrid = showgrid;
     }
 
     void accept(ItemVisitor visitor) {
@@ -200,8 +204,9 @@ class Rect : Item {
     @DslField
     Colour fill;
 
-    this(string name) {
+    this(string name, Colour fill) {
         super(name);
+        this.fill = fill;
     }
 
     mixin DslProperties;

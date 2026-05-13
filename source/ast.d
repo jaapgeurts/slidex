@@ -156,6 +156,8 @@ class Master {
     int columns;
     int rows;
 
+    bool showgrid;
+
     string name;
 
     Item[string] itemsMap;

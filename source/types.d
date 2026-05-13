@@ -39,3 +39,4 @@ struct BoundsLocation {
 }
 
 alias LayoutLocation = SumType!(CellLocation, BoundsLocation);
+

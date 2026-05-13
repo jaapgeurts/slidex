@@ -53,3 +53,27 @@ slide MasterSlide1 <- Slide1 begin
 
 
 end slide Slide1
+
+
+slide MasterSlide1 <- Slide2 begin
+    events begin
+        on click do reveal(title,grid);
+        after 10s do reveal(grid.topleft,grid.topright);
+        #on click -> animate from=0, to=200, steps=5 @title.x;
+        #on click -> reveal:
+        #  @grid.bottomleft;
+        #  @grid.bottomright;
+        #end
+    end events
+
+    # supress the background
+    background.visible = false;
+    title.body = {Another fabulous slide};
+
+    left.body = {This is a test slide2 };
+    right.body = {Left side area};
+
+    image(path="crab1.png") at bounds(x=750,y=430, width=150);
+
+
+end slide Slide2
