@@ -257,8 +257,8 @@ ParseResult!Item parseItemDeclaration(PropertyDeclaration pd) {
                 switch (k) {
                 case "fill":
                     success = extractValue!Colour(rect.fill, v.name, v.value);
-                    if(!success) {
-                        stderr.writeln("Invalid colour name: `",v.value.toString,"`");
+                    if (!success) {
+                        stderr.writeln("Invalid colour name: `", v.value.toString, "`");
                         result.ok = false;
                         result.errorCount++;
                     }
@@ -342,11 +342,36 @@ ParseResult!bool parseMasterContent(const ParseContext ctxt, ParseTree root, Mas
         // writeln("handleValueAssignment(): ", va.ident);
         bool success = true;
         switch (va.ident) {
-            // dfmt off
-		case "columns": success = extractValue!int(master.columns, va.ident,va.value); break;
-		case "rows": success = extractValue!int(master.rows, va.ident,va.value); break;
-		case "showgrid": success = extractValue!bool(master.showgrid, va.ident,va.value); break;
-		// dfmt on
+            // TODO: invent better way to avoid code duplication
+        case "columns":
+            success = extractValue!int(master.columns, va.ident, va.value);
+            break;
+        case "rows":
+            success = extractValue!int(master.rows, va.ident, va.value);
+            break;
+        case "showgrid":
+            success = extractValue!bool(master.showgrid, va.ident, va.value);
+            break;
+        case "background":
+            if (va.value.has!Colour) {
+                master.background = va.value;
+            }
+            else if (va.value.has!FuncCall) {
+                if (va.value.get!FuncCall().name == "image") {
+                    master.background = va.value;
+                }
+                else {
+                    stderr.writeln(errorPrefix(va.value.loc), "Invalid type `", va.value.toString, "`. Only color and images are allowed");
+                    result.errorCount++;
+                    success = false;
+                }
+            }
+            else {
+                stderr.writeln(errorPrefix(va.value.loc), "Invalid type `", va.value.toString, "`. Only color and images are allowed");
+                result.errorCount++;
+                success = false;
+            }
+            break;
         default:
             stderr.writeln(errorPrefix(va.ident.loc), "Unknown property: `", va.ident, "`");
             success = false;

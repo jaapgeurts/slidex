@@ -153,10 +153,12 @@ class Deck {
 class Master {
     SourceLocation loc;
 
+    // TODO: use field annotations for allowable
     int columns;
     int rows;
 
     bool showgrid;
+    LocatedVal!DslType background;
 
     string name;
 

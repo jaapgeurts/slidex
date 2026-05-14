@@ -110,7 +110,7 @@ class Slide {
     string name;
     
     @DslField
-    Colour background;
+    SumType!(Colour,Image) background;
 
     Master master;
 

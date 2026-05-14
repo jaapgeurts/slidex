@@ -10,8 +10,12 @@ end deck
 master MasterSlide1 begin
     columns = 12;
     rows = 12;
-    showgrid = false;
-    background:  rect(fill=yellow);
+    showgrid = true;
+    # background can be a color, image
+    #background:  rect(fill=yellow);
+    # default background color is white
+    background = yellow;
+    #background= image("abc.jpg";
 
     rect(fill=magenta) at cell(col=1,row=1, colspan=2,rowspan=12);
 
