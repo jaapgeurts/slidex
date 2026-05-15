@@ -33,9 +33,6 @@ SourceLocation sourceLocation(ParseTree root, string filepath) {
     return sourceLocation(position(root), filepath);
 }
 
-// General utility functions
-private auto identity(T)(T x) => x;
-
 public Result!ConcreteTree parseDocument(string sourceFilePath) {
 
     Result!ConcreteTree result;
@@ -103,6 +100,10 @@ struct ConcreteTree {
         Result!Deck res = builder.buildSlideDeck(concreteRoot);
 
         result.absorb(res);
+
+        // writeln("deck:   " , res.value);
+        // writeln("slides: " , res.value.slides);
+        
 
         // if (!res.ok) {
         //     result.ok = false;

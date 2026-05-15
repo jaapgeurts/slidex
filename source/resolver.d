@@ -17,6 +17,7 @@ struct AbstractTree {
     Result!(slides.Deck) resolveAst() {
         // assert(false,__FUNCTION__ ~ "() not yet implemented.");
         Result!(slides.Deck) result;
+        result.ok = true;
 
         slides.Deck toDeck = new slides.Deck();
 
@@ -24,13 +25,12 @@ struct AbstractTree {
         foreach (fromSlide; root.slides) {
             Result!(slides.Slide) res = buildSlide(fromSlide);
             result.absorb(res);
-            if (res.ok) {
-                // add the slide to the deck.
-                toDeck.slides ~= res.value;
-            }
+            // if (!res.ok)
+            //     result.ok = false;
+            // add the slide to the deck.
+            toDeck.slides ~= res.value;
         }
 
-        result.ok = true;
         result.value = toDeck;
         return result;
     }
@@ -103,7 +103,7 @@ private:
     }
 
     Result!(slides.Master) buildMaster(ast.Master fromMaster) {
-        Result!(slides.Master) result = Result!(slides.Master)(ok:true);
+        Result!(slides.Master) result = Result!(slides.Master)(ok : true);
 
         slides.Master toMaster = new slides.Master(fromMaster.name, fromMaster.columns, fromMaster
                 .rows, fromMaster.showgrid);
@@ -119,7 +119,6 @@ private:
         // copy master values
         toMaster.columns = fromMaster.columns;
         toMaster.rows = fromMaster.rows;
-
 
         result.value = toMaster;
         return result;
