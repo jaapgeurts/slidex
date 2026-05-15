@@ -8,106 +8,132 @@ import std.variant;
 import ast;
 import parser;
 import slides;
+import common;
 
-ParseResult!(slides.Deck) resolveAst(ParseContext ctx, parser.Deck fromDeck) {
-    // assert(false,__FUNCTION__ ~ "() not yet implemented.");
-    ParseResult!(slides.Deck) result;
+struct AbstractTree {
+    parser.Deck root;
+    string sourceFilePath;
 
-    slides.Deck toDeck = new slides.Deck();
+    Result!(slides.Deck) resolveAst() {
+        // assert(false,__FUNCTION__ ~ "() not yet implemented.");
+        Result!(slides.Deck) result;
 
-    // build slides
-    foreach (fromSlide; fromDeck.slides) {
-        slides.Slide toSlide = buildSlide(fromSlide);
-        // add the slide to the deck.
-        toDeck.slides ~= toSlide;
+        slides.Deck toDeck = new slides.Deck();
 
+        // build slides
+        foreach (fromSlide; root.slides) {
+            Result!(slides.Slide) res = buildSlide(fromSlide);
+            result.absorb(res);
+            if (res.ok) {
+                // add the slide to the deck.
+                toDeck.slides ~= res.value;
+            }
+        }
+
+        result.ok = true;
+        result.value = toDeck;
+        return result;
     }
 
-    result.ok = true;
-    result.value = toDeck;
-    return result;
-}
+private:
 
-slides.Slide buildSlide(ast.Slide fromSlide) {
-    slides.Slide toSlide = new slides.Slide(fromSlide.name);
-    // build master
-    if (auto fromMaster = fromSlide.masterName.value in fromDeck.masterMap) {
-        toSlide.master = buildMaster(fromMaster);
+    Result!(slides.Slide) buildSlide(ast.Slide fromSlide) {
 
-    }
-    else {
-        stderr.writeln(errorPrefix(fromSlide.masterName.loc), "ERROR: unknown master reference: " ~ fromSlide
-                .masterName.value);
-    }
+        Result!(slides.Slide) result;
+        slides.Slide toSlide = new slides.Slide(fromSlide.name);
 
-    // TODO: check if symbols are duplicated between master and slide
-    ValueAssignment a;
-    // apply deferred assignments
-    foreach (assignment; fromSlide.assignments) {
-        string[] parts = assignment.ident.value.split('.');
-
-        // search items in master
-        if (auto item = parts[0] in toSlide.master.itemsMap) {
-            Variant var = assignment.value.value.toVariant;
-            if (!item.hasProperty(parts[1])) {
-                // TODO: for correct location reporting increase the col location here with the length of the parts[1] 
-                stderr.writeln(errorPrefix(assignment.value.loc), "ERROR: no field `", parts[1], "` on element `", parts[0], "`");
-            }
-            else if (!item.isPropertyType(parts[1], var.type)) {
-                stderr.writeln(errorPrefix(assignment.value.loc), "ERROR: invalid type: `", assignment.value
-                        .value.typeName, "` for field `", assignment.ident.value, "`");
-            }
-            else if (!item.setProperty(parts[1], var)) {
-                stderr.writeln(errorPrefix(assignment.value.loc), "ERROR: Couldn't set value: `", assignment.value
-                        .value.typeName, "` for field `", assignment.ident.value, "`");
-            }
+        // build master
+        if (auto fromMaster = fromSlide.masterName.value in root.masterMap) {
+            Result!(slides.Master) res = buildMaster(*fromMaster);
+            result.absorb(res);
+            if (res.ok)
+                toSlide.master = res.value;
         }
         else {
-            stderr.writeln(errorPrefix(assignment.ident.loc), "ERROR: undefined element `", parts[0], "`");
+            result.ok = false;
+            result.diagnostics ~= Diagnostic(DiagnosticKind.UnresolvedMaster, Severity.Error, fromSlide.masterName.loc, "Unknown master reference: " ~
+                    fromSlide.masterName.value);
         }
-        // writeln("Assignment succeeded: ", assignment);
+
+        // build slide items
+        foreach (fromItem; fromSlide.items) {
+            Result!(slides.Item) res = buildItem(fromItem);
+            result.absorb(res);
+            if (!res.ok)
+                result.ok = false;
+            toSlide.items ~= res.value;
+            toSlide.itemsMap[res.value.name] = res.value;
+        }
+
+        // TODO: check if symbols are duplicated between master and slide
+        ValueAssignment a;
+        // apply deferred assignments
+        foreach (assignment; fromSlide.assignments) {
+            string[] parts = assignment.ident.value.split('.');
+
+            // search items in master
+            if (auto item = parts[0] in toSlide.master.itemsMap) {
+                Variant var = assignment.value.value.toVariant;
+                if (!item.hasProperty(parts[1])) {
+                    result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "No such property `" ~ parts[1] ~ "` on element `" ~ parts[0] ~ "`");
+                    // TODO: for correct location reporting increase the col location here with the length of the parts[1] 
+                    result.ok = false;
+                }
+                else if (!item.isPropertyType(parts[1], var.type)) {
+                    result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, assignment.value.loc, "Invalid type: `" ~
+                            assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value ~ "`");
+                    result.ok = false;
+                }
+                else if (!item.setProperty(parts[1], var)) {
+                    result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "Unable to set value: `" ~
+                            assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value ~ "`");
+                    result.ok = false;
+                }
+            }
+            else {
+                result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownElement, Severity.Error, assignment.ident.loc, "Undefined element `" ~ parts[0] ~ "`");
+                result.ok = false;
+            }
+            // writeln("Assignment succeeded: ", assignment);
+        }
+
+        result.value = toSlide;
+
+        return result;
     }
-}
 
-slides.Master buildMaster(ast.Master fromMaster) {
-    slides.Master toMaster = new slides.Master(fromMaster.name, fromMaster.columns, fromMaster
-            .rows, fromMaster.showgrid);
-    // build master items
-    foreach (fromItem; fromMaster.items) {
-        slides.Item toItem = buildItem(fromItem);
-        toMaster.items ~= toItem;
-        toMaster.itemsMap[toItem.name] = toItem;
+    Result!(slides.Master) buildMaster(ast.Master fromMaster) {
+        Result!(slides.Master) result = Result!(slides.Master)(ok:true);
+
+        slides.Master toMaster = new slides.Master(fromMaster.name, fromMaster.columns, fromMaster
+                .rows, fromMaster.showgrid);
+        // build master items
+        foreach (fromItem; fromMaster.items) {
+            Result!(slides.Item) res = buildItem(fromItem);
+            result.absorb(res);
+            if (!res.ok)
+                result.ok = false;
+            toMaster.items ~= res.value;
+            toMaster.itemsMap[res.value.name] = res.value;
+        }
+        // copy master values
+        toMaster.columns = fromMaster.columns;
+        toMaster.rows = fromMaster.rows;
+
+
+        result.value = toMaster;
+        return result;
     }
-    // build slide items
-    foreach (fromItem; fromSlide.items) {
-        slides.Item toItem = buildItem(froMItem);
-        toSlide.items ~= toItem;
-        toSlide.itemsMap[toItem.name] = toItem;
+
+    Result!(slides.Item) buildItem(ast.Item fromItem) {
+        slides.Item toItem = fromItem.shape.match!(
+            (ast.Rect r) => cast(slides.Item) new slides.Rect(fromItem.name, r.fill),
+            (ast.Text t) => new slides.Text(fromItem.name, t.text),
+            (ast.Image i) => new slides.Image(fromItem.name, i.path),
+        );
+        toItem.layoutLocation = fromItem.layoutLocation;
+        return Result!(slides.Item)(ok : true, value:
+            toItem);
     }
-    // copy master values
-    toMaster.columns = fromMaster.columns;
-    toMaster.rows = fromMaster.rows;
 
-    return toMaster;
-}
-
-slides.Item buildItem(ast.Item fromItem) {
-    Slides.toItem = fromItem.shape.match!(
-        buildRect,
-        buildText,
-        buildImage
-    );
-    toItem.layoutLocation = fromItem.layoutLocation;
-}
-
-slides.Rect buildRect(ast.Rect r) {
-    return new slides.Rect(fromItem.name, r.fill);
-}
-
-slides.Text buildText(ast.Text t) {
-    return new slides.Text(fromItem.name);
-}
-
-slides.Image buildImage(ast.Image i) {
-    return new slides.Image(fromItem.name, i.path);
 }

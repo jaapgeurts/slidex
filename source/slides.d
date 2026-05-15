@@ -2,6 +2,7 @@ module slides;
 
 import std.traits;
 import std.variant;
+import std.sumtype;
 
 import types;
 
@@ -66,12 +67,6 @@ mixin template ItemAcceptVisitor() {
     override void accept(ItemVisitor visitor) {
         visitor.visit(this);
     }
-}
-
-struct Result(T) {
-    T value;
-    bool ok;
-    string[] errors;
 }
 
 class Deck {
@@ -217,10 +212,11 @@ class Rect : Item {
 class Text : Item {
 
     @DslField
-    string body;
+    string content;
 
-    this(string name) {
+    this(string name, string content) {
         super(name);
+        this.content = content;
     }
 
     mixin DslProperties;

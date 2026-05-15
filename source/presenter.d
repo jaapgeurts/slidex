@@ -16,8 +16,8 @@ import gdk.Keymap;
 import gdk.Keysyms;
 import gdk.Event;
 
-import types;
 import slides;
+import types;
 
 class GtkDrawingVisitor : ItemVisitor {
     Context context;
@@ -157,9 +157,9 @@ class GtkDrawingVisitor : ItemVisitor {
         });
         with (context) {
             setSourceRgb(0.0, 0.0, 1.0);
-            textExtents(text.body, &extents);
+            textExtents(text.content, &extents);
             moveTo(x, y);
-            showText(text.body);
+            showText(text.content);
         }
 
     }
@@ -171,6 +171,7 @@ void presentDeck(string[] args, Deck deck) {
     // writeln("DECK: ", deck.slides[0].master.items[0].visible);
     size_t currentSlide = 0;
     // open the gtk window
+
     Main.init(args);
     MainWindow projectorWin = new MainWindow("Projector",);
     projectorWin.setSizeRequest(960, 600);
@@ -179,14 +180,18 @@ void presentDeck(string[] args, Deck deck) {
     bool onDraw(Scoped!Context context, Widget w) {
 
         GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, w);
-        Slide slide = deck.slides[currentSlide];
-        slide.master.accept(drawing);
-        slide.accept(drawing);
-        foreach (item; slide.master.items)
-            item.accept(drawing);
-        foreach (item; slide.items)
-            item.accept(drawing);
-
+        if (deck.slides.length == 0) {
+            writeln("No slides to show");
+        }
+        else {
+            Slide slide = deck.slides[currentSlide];
+            slide.master.accept(drawing);
+            slide.accept(drawing);
+            foreach (item; slide.master.items)
+                item.accept(drawing);
+            foreach (item; slide.items)
+                item.accept(drawing);
+        }
         return true;
     }
 

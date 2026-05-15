@@ -1,39 +1,44 @@
 import std.file;
 import std.stdio;
 
-
-import ast;
 import parser;
 import resolver;
 import slides;
+import common;
 
 import presenter;
 
+void printAllErrors(Diagnostic[] diagnostics, File file) {
+	foreach (diag; diagnostics) {
+		printError(diag, file);
+	}
+	file.writeln("Error: There were ", diagnostics.length, " errors and warnings.");
+}
+
 int main(string[] args) {
 
+	string sourceFilePath = args[1];
 
-	auto source = readText(args[1]);
-	ParseResult!ConcreteTree cst = parseDocument(source);
+	// Pass one. Lexical parse and build concrete syntax tree
+	Result!ConcreteTree cst = parseDocument(sourceFilePath);
 
 	if (!cst.ok) {
-		stderr.writeln("Error: There were ", cst.errorCount, " errors, and ", cst.warningCount, " warnings.");
+		printAllErrors(cst.diagnostics, stderr);
 		return 1;
 	}
 
-	// Descend into the parse tree.
-	ParseContext ctxt = ParseContext(args[1]);
-	// Pass one build concrete syntax tree
-	ParseResult!(ast.Deck) ast = buildAst(ctxt, cst.value);
+	// Pass two. Convert parse tree into abstract syntax tree.
+	Result!AbstractTree ast = cst.value.buildAst();
 	if (!ast.ok) {
-		stderr.writeln("Error: There were ", ast.errorCount, " errors, and ", ast.warningCount, " warnings.");
+		printAllErrors(ast.diagnostics, stderr);
 		return 2;
 	}
-	// Pass two: build domain model
 
-	ParseResult!(slides.Deck) deck = resolveAst(ctxt, ast.value);
+	// Pass three: resolve symbols and execute statement and build domain model
+	Result!Deck deck = ast.value.resolveAst();
 
 	if (!deck.ok) {
-		stderr.writeln("Error: There were ", deck.errorCount, " errors, and ", deck.warningCount, " warnings.");
+		printAllErrors(deck.diagnostics, stderr);
 		return 3;
 	}
 

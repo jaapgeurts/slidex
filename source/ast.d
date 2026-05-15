@@ -6,7 +6,7 @@ import std.meta;
 import std.sumtype;
 import std.variant;
 
-import types;
+public import types;
 
 alias DslTypes = AliasSeq!(
     string,
@@ -105,12 +105,6 @@ struct DslType {
 
 }
 
-struct SourceLocation {
-    string filepath;
-    ulong line;
-    ulong column;
-}
-
 struct LocatedVal(T) {
     T value;
     SourceLocation loc;
@@ -151,7 +145,6 @@ class Deck {
 }
 
 class Master {
-    SourceLocation loc;
 
     // TODO: use field annotations for allowable
     int columns;
@@ -167,7 +160,6 @@ class Master {
 }
 
 class Slide {
-    SourceLocation loc;
 
     string name;
     LocatedVal!string masterName;
@@ -181,7 +173,6 @@ class Slide {
     // assignments that should be resolved later
     ValueAssignment[] assignments;
 }
-
 
 alias Statement = SumType!(ValueAssignment, PropertyDeclaration);
 

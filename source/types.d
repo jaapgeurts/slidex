@@ -2,6 +2,12 @@ module types;
 
 import std.sumtype;
 
+struct SourceLocation {
+    string filepath;
+    ulong line;
+    ulong column;
+}
+
 struct Quantity {
     float value;
     string unit;
@@ -15,7 +21,6 @@ enum Colour {
     Magenta,
     Yellow,
 }
-
 
 struct CellLocation {
     int col = 1;
@@ -39,4 +44,3 @@ struct BoundsLocation {
 }
 
 alias LayoutLocation = SumType!(CellLocation, BoundsLocation);
-
