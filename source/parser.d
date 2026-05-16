@@ -260,6 +260,7 @@ private:
                 break;
             }
         }
+
         return result;
     }
 
@@ -380,20 +381,22 @@ private:
                         master.background = va.value;
                     }
                     else {
-                        r1.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, va.value.loc, "Invalid type `" ~ va
-                                .value.typeName ~ "`. Only colour and image are allowed.");
+                        r1.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, va.value.loc, "Invalid type `" ~
+                                va.value.typeName ~ "`. Expected colour or image but found `" ~ va.value.get!FuncCall()
+                                .name ~ "`");
                         r1.ok = false;
                     }
                 }
                 else {
-                    r1.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, va.value.loc, "Invalid type `" ~ va
-                            .value.typeName ~ "`. Only colour and image are allowed.");
+                    r1.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, va.value.loc, "Invalid type `" ~
+                            va.value.typeName ~ "`. Expected colour or image but found `" ~ va.value.get!FuncCall()
+                            .name ~ "`");
                     r1.ok = false;
                 }
                 break;
             default:
-                r1.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, va.value.loc, "No such property `" ~ va
-                        .ident ~ "`.");
+                r1.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, va.value.loc, "No such property `" ~
+                        va.ident ~ "`.");
                 r1.ok = false;
                 break;
             }
@@ -420,8 +423,8 @@ private:
         foreach (child; root.children) {
 
             // master slides currently only contain statements.
-            assert(child.name == "SlidexDoc.Statement", "Master slide content is not a statement but: " ~ child
-                    .name);
+            assert(child.name == "SlidexDoc.Statement", "Master slide content is not a statement but: " ~
+                    child.name);
             Result!Statement stmt = parseStatement(child);
             result.absorb(stmt);
             if (stmt.ok) {
@@ -434,6 +437,9 @@ private:
                 result.absorb(res);
                 if (!res.ok)
                     result.ok = false;
+            }
+            else {
+                result.ok = false;
             }
         }
 

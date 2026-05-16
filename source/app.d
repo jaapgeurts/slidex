@@ -32,22 +32,22 @@ int main(string[] args) {
 
 	// Pass two. Convert parse tree into abstract syntax tree.
 	Result!AbstractTree ast = cst.value.buildAst();
+	result.absorb(ast);
 	if (!ast.ok) {
 		writeln("Ast errors");
-		result.absorb(ast);
 		result.ok = false;
 	}
 
 	// Pass three: resolve symbols and execute statement and build domain model
 	Result!Deck deck = ast.value.resolveAst();
+	result.absorb(deck);
 	if (!deck.ok) {
 		writeln("Resolve errors");
-		result.absorb(deck);
 		result.ok = false;
 	}
 
 	if (!result.ok) {
-		printAllErrors(deck.diagnostics, stderr);
+		printAllErrors(result.diagnostics, stderr);
 		return 1;
 	}
 
