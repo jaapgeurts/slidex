@@ -23,23 +23,32 @@ int main(string[] args) {
 	Result!ConcreteTree cst = parseDocument(sourceFilePath);
 
 	if (!cst.ok) {
+		writeln("Parse errors");
 		printAllErrors(cst.diagnostics, stderr);
 		return 1;
 	}
 
+	VoidResult result = VoidResult(ok : true);
+
 	// Pass two. Convert parse tree into abstract syntax tree.
 	Result!AbstractTree ast = cst.value.buildAst();
 	if (!ast.ok) {
-		printAllErrors(ast.diagnostics, stderr);
-		return 2;
+		writeln("Ast errors");
+		result.absorb(ast);
+		result.ok = false;
 	}
 
 	// Pass three: resolve symbols and execute statement and build domain model
 	Result!Deck deck = ast.value.resolveAst();
-
 	if (!deck.ok) {
+		writeln("Resolve errors");
+		result.absorb(deck);
+		result.ok = false;
+	}
+
+	if (!result.ok) {
 		printAllErrors(deck.diagnostics, stderr);
-		return 3;
+		return 1;
 	}
 
 	// show the desk.

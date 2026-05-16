@@ -25,8 +25,8 @@ struct AbstractTree {
         foreach (fromSlide; root.slides) {
             Result!(slides.Slide) res = buildSlide(fromSlide);
             result.absorb(res);
-            // if (!res.ok)
-            //     result.ok = false;
+            if (!res.ok)
+                result.ok = false;
             // add the slide to the deck.
             toDeck.slides ~= res.value;
         }
@@ -39,7 +39,7 @@ private:
 
     Result!(slides.Slide) buildSlide(ast.Slide fromSlide) {
 
-        Result!(slides.Slide) result;
+        Result!(slides.Slide) result = Result!(slides.Slide)(ok : true);
         slides.Slide toSlide = new slides.Slide(fromSlide.name);
 
         // build master
@@ -48,6 +48,8 @@ private:
             result.absorb(res);
             if (res.ok)
                 toSlide.master = res.value;
+            else
+                res.ok = false;
         }
         else {
             result.ok = false;
@@ -127,7 +129,7 @@ private:
     Result!(slides.Item) buildItem(ast.Item fromItem) {
         slides.Item toItem = fromItem.shape.match!(
             (ast.Rect r) => cast(slides.Item) new slides.Rect(fromItem.name, r.fill),
-            (ast.Text t) => new slides.Text(fromItem.name, t.text),
+            (ast.Text t) => new slides.Text(fromItem.name, t.content),
             (ast.Image i) => new slides.Image(fromItem.name, i.path),
         );
         toItem.layoutLocation = fromItem.layoutLocation;

@@ -103,11 +103,10 @@ struct ConcreteTree {
 
         // writeln("deck:   " , res.value);
         // writeln("slides: " , res.value.slides);
-        
 
-        // if (!res.ok) {
-        //     result.ok = false;
-        // }
+        if (!res.ok) {
+            result.ok = false;
+        }
 
         result.value = AbstractTree(res.value, sourceFilePath);
 
@@ -277,13 +276,15 @@ private:
             FuncCall call = pd.value.value.get!FuncCall();
             switch (call.name) {
             case "rect":
-                writeln("Creating rect");
                 // factor out
                 Rect rect;
                 foreach (k, v; call.namedArgs) {
                     switch (k) {
                     case "fill":
-                        result.absorb(extractValue!Colour(rect.fill, v.name, v.value));
+                        auto res = extractValue!Colour(rect.fill, v.name, v.value);
+                        result.absorb(res);
+                        if (!res.ok)
+                            result.ok = false;
                         break;
                     default:
                         result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, v.name.loc, "Unknown argument name `" ~ v
@@ -302,7 +303,6 @@ private:
                 break;
             case "text":
                 // Deal with errors
-                writeln("Creating text");
                 Text text;
 
                 // possible arguments:
@@ -354,13 +354,22 @@ private:
             switch (va.ident) {
                 // TODO: invent better way to avoid code duplication
             case "columns":
-                r1.absorb(extractValue!int(master.columns, va.ident, va.value));
+                auto res = extractValue!int(master.columns, va.ident, va.value);
+                r1.absorb(res);
+                if (!res.ok)
+                    r1.ok = false;
                 break;
             case "rows":
-                r1.absorb(extractValue!int(master.rows, va.ident, va.value));
+                auto res = extractValue!int(master.rows, va.ident, va.value);
+                r1.absorb(res);
+                if (!res.ok)
+                    r1.ok = false;
                 break;
             case "showgrid":
-                r1.absorb(extractValue!bool(master.showgrid, va.ident, va.value));
+                auto res = extractValue!bool(master.showgrid, va.ident, va.value);
+                r1.absorb(res);
+                if (!res.ok)
+                    r1.ok = false;
                 break;
             case "background":
                 if (va.value.has!Colour) {
@@ -487,6 +496,7 @@ Pass as root: "SlidexDoc.Slide"
             Result!Item res = parseItemDeclaration(pd);
             result.absorb(res);
             if (res.ok) {
+                result.ok = true;
                 slide.items ~= res.value;
                 slide.itemsMap[res.value.name] = res.value;
             }
@@ -728,27 +738,46 @@ Pass in as root : "SlidexDoc.Identifier"
                     result.absorb(res);
                     if (res.ok)
                         cell.col--;
+                    else
+                        result.ok = false;
                     break;
                 case "row":
                     VoidResult res = extractValue!int(cell.row, argname, args[argname].value);
                     result.absorb(res);
                     if (res.ok)
                         cell.row--;
+                    else
+                        result.ok = false;
                     break;
                 case "colspan":
-                    result.absorb(extractValue!int(cell.colspan, argname, args[argname].value));
+                    auto res = extractValue!int(cell.colspan, argname, args[argname].value);
+                    result.absorb(res);
+                    if (!res.ok)
+                        result.ok = false;
                     break;
                 case "rowspan":
-                    result.absorb(extractValue!int(cell.rowspan, argname, args[argname].value));
+                    auto res = extractValue!int(cell.rowspan, argname, args[argname].value);
+                    result.absorb(res);
+                    if (!res.ok)
+                        result.ok = false;
                     break;
                 case "dx":
-                    result.absorb(extractValue!int(cell.dx, argname, args[argname].value));
+                    auto res = extractValue!int(cell.dx, argname, args[argname].value);
+                    result.absorb(res);
+                    if (!res.ok)
+                        result.ok = false;
                     break;
                 case "dy":
-                    result.absorb(extractValue!int(cell.dy, argname, args[argname].value));
+                    auto res = extractValue!int(cell.dy, argname, args[argname].value);
+                    result.absorb(res);
+                    if (!res.ok)
+                        result.ok = false;
                     break;
                 case "angle":
-                    result.absorb(extractValue!float(cell.angle, argname, args[argname].value));
+                    auto res = extractValue!float(cell.angle, argname, args[argname].value);
+                    result.absorb(res);
+                    if (!res.ok)
+                        result.ok = false;
                     break;
                 default:
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, args[argname]
@@ -765,13 +794,36 @@ Pass in as root : "SlidexDoc.Identifier"
             BoundsLocation bounds;
             foreach (argname; args.keys) {
                 switch (argname) {
-                    //dfmt off
-                case "x":	    result.absorb(extractValue!int(bounds.x, argname, args[argname].value)); break;
-                case "y":	    result.absorb(extractValue!int(bounds.y, argname, args[argname].value)); break;
-                case "width":	result.absorb(extractValue!int(bounds.width, argname, args[argname].value)); break;
-                case "height":	result.absorb(extractValue!int(bounds.height, argname, args[argname].value)); break;
-                case "angle":	result.absorb(extractValue!float(bounds.angle, argname, args[argname].value)); break;
-                //dfmt on
+                case "x":
+                    auto res = extractValue!int(bounds.x, argname, args[argname].value);
+                    result.absorb(res);
+                    if (!res.ok)
+                        result.ok = false;
+                    break;
+                case "y":
+                    auto res = extractValue!int(bounds.y, argname, args[argname].value);
+                    result.absorb(res);
+                    if (!res.ok)
+                        result.ok = false;
+                    break;
+                case "width":
+                    auto res = extractValue!int(bounds.width, argname, args[argname].value);
+                    result.absorb(res);
+                    if (!res.ok)
+                        result.ok = false;
+                    break;
+                case "height":
+                    auto res = extractValue!int(bounds.height, argname, args[argname].value);
+                    result.absorb(res);
+                    if (!res.ok)
+                        result.ok = false;
+                    break;
+                case "angle":
+                    auto res = extractValue!float(bounds.angle, argname, args[argname].value);
+                    result.absorb(res);
+                    if (!res.ok)
+                        result.ok = false;
+                    break;
                 default:
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, args[argname]
                             .name.loc, "Unknown argument name `" ~ argname ~ "`");

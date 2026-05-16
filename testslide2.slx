@@ -38,15 +38,15 @@ slide MasterSlide1 <- Slide1 begin
     end events
 
     # supress the background
-    background.visible = false;
-    title.body = {Introduction to *thermal* expansion};
+    #background.visible = false;
+    title.content = {Introduction to *thermal* expansion};
 
-    left.body = {
+    left.content = {
         - Markup item 1
         - Markup item 2
         - Markup item 3
     };
-    right.body = {
+    right.content = {
         *bold text* /italic/ _underlined_
         https://www.google.com
     };
@@ -71,11 +71,11 @@ slide MasterSlide1 <- Slide2 begin
     end events
 
     # supress the background
-    background.visible = false;
-    title.body = {Another fabulous slide};
+    #background.visible = false;
+    title.content = {Another fabulous slide};
 
-    left.body = {This is a test slide2 };
-    right.body = {Left side area};
+    left.content = {This is a test slide2 };
+    right.content = {Left side area};
 
     image(path="crab1.png") at bounds(x=750,y=430, width=150);
 

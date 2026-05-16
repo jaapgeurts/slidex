@@ -206,7 +206,7 @@ struct Rect {
 }
 
 struct Text {
-    string text;
+    string content;
 }
 
 struct Image {
