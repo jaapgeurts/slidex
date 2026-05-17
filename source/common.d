@@ -5,45 +5,6 @@ import std.stdio;
 
 import types;
 
-/* Possible diag kinds:
-Lexer/Parser:
-
-UnexpectedToken
-UnexpectedEof
-InvalidNumber
-InvalidDate
-UnterminatedString
-UnterminatedText
-
-Structure:
-
-DuplicateDeclaration — same name declared twice in a block
-UnknownBlockType — unknown keyword where master/slide expected
-
-Properties:
-
-UnknownProperty — background.banana = ...
-TypeMismatch — wrong value type for property
-MissingRequiredProperty — required field never assigned
-InvalidUnit — 10banana
-
-References:
-
-UnresolvedMaster — slide references unknown master
-UnresolvedItem — title.body but title never declared
-UnresolvedEvent — event references undeclared item
-
-Placement:
-
-InvalidGridCoordinate — col/row out of bounds
-ConflictingPlacement — both grid and absolute specified
-
-Warnings:
-
-UnusedDeclaration — item declared but never referenced
-OverriddenProperty — property set twice in same block
-*/
-
 enum DiagnosticKind {
     DuplicateDeclaration,
     InvalidGridCoordinate,
@@ -57,6 +18,7 @@ enum DiagnosticKind {
     UnusedDeclaration,
     ParseError,
     NameMismatch,
+    InvalidUnit,
 }
 
 // enum DiagnosticKindMessage = [
@@ -87,6 +49,7 @@ struct Diagnostic {
 }
 
 struct Result(T = void) {
+
     /// cummulative errors and warnings
     Diagnostic[] diagnostics;
     // last parse result.
@@ -95,16 +58,27 @@ struct Result(T = void) {
         T value;
     }
 
-    void absorb(U)(Result!U res) {
-        diagnostics ~= res.diagnostics;
+    struct Some(V) {
+        V a;
+        void ifSome(void delegate(V a) func) {
+            func(a);
+        }
     }
 
+    auto absorb(U)(Result!U res) {
+        if (!res.ok)
+            ok = false;
+        diagnostics ~= res.diagnostics;
+        static if (!is(U == void)) {
+            return Some!U(res.value);
+        }
+    }
 }
 
 alias VoidResult = Result!void;
 
 // void printError(R)(const Diagnostic diagnostic, R sink) if (isOutputRange!(R, char)) {
-void printError(const Diagnostic diagnostic,File file )  {
+void printError(const Diagnostic diagnostic, File file) {
     // TODO: change concat to appender
     string message = format("%s:(%u,%u): %s: %s",
         diagnostic.loc.filepath,
@@ -114,4 +88,3 @@ void printError(const Diagnostic diagnostic,File file )  {
         diagnostic.message);
     file.writeln(message);
 }
-

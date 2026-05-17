@@ -8,19 +8,23 @@ struct SourceLocation {
     ulong column;
 }
 
-struct Quantity {
-    float value;
-    string unit;
+
+enum Unit {
+    Unspecified,
+    Seconds,
+    Percent,
+    Fraction,
+    Centimeter,
 }
 
-enum Colour {
-    Red,
-    Green,
-    Blue,
-    Cyan,
-    Magenta,
-    Yellow,
+
+
+struct RgbColour {
+    ubyte r;
+    ubyte g;
+    ubyte b;
 }
+
 
 struct CellLocation {
     int col = 1;

@@ -27,19 +27,9 @@ class GtkDrawingVisitor : ItemVisitor {
     int colwidth;
     int rowheight;
 
-    alias RgbTup = Tuple!(float, "r", float, "g", float, "b");
-    RgbTup[Colour] colours;
-
     this(Context context, Widget w) {
         this.context = context;
         w.getAllocation(size);
-
-        colours[Colour.Red] = RgbTup(1, 0, 0);
-        colours[Colour.Green] = RgbTup(0, 1, 0);
-        colours[Colour.Blue] = RgbTup(0, 0, 1);
-        colours[Colour.Yellow] = RgbTup(1, 1, 0);
-        colours[Colour.Cyan] = RgbTup(0, 1, 1);
-        colours[Colour.Magenta] = RgbTup(1, 0, 1);
 
     }
 
@@ -106,7 +96,8 @@ class GtkDrawingVisitor : ItemVisitor {
 
         with (context) {
             writeln("FILL: ", rect.fill);
-            setSourceRgb(colours[rect.fill].expand);
+            assert(false, "color parsing needs fix");
+            // setSourceRgb(colours[rect.fill].expand);
             setLineWidth(5);
             rectangle(x, y, w, h);
             fill();

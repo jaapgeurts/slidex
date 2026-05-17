@@ -105,7 +105,7 @@ class Slide {
     string name;
     
     @DslField
-    SumType!(Colour,Image) background;
+    SumType!(RgbColour,Image) background;
 
     Master master;
 
@@ -197,9 +197,9 @@ class Item {
 class Rect : Item {
 
     @DslField
-    Colour fill;
+    RgbColour fill;
 
-    this(string name, Colour fill) {
+    this(string name, RgbColour fill) {
         super(name);
         this.fill = fill;
     }

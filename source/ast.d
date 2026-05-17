@@ -14,7 +14,7 @@ alias DslTypes = AliasSeq!(
     float,
     bool,
     Text,
-    Colour,
+    NamedColour,
     Quantity,
     Date,
     FuncCall
@@ -113,6 +113,24 @@ struct LocatedVal(T) {
 
 }
 
+enum NamedColour {
+    Red,
+    Green,
+    Blue,
+    Cyan,
+    Magenta,
+    Yellow,
+}
+
+struct Quantity {
+    LocatedVal!float value;
+    LocatedVal!string unit;
+
+    string toString() {
+        return value.to!string ~ unit;
+    }
+}
+
 LocatedVal!DslType locatedDslType(T)(T val, SourceLocation loc) {
     LocatedVal!DslType item;
     item.value = DslType(val);
@@ -202,7 +220,7 @@ class Item {
 }
 
 struct Rect {
-    Colour fill;
+    RgbColour fill;
 }
 
 struct Text {

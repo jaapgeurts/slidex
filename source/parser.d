@@ -33,6 +33,21 @@ SourceLocation sourceLocation(ParseTree root, string filepath) {
     return sourceLocation(position(root), filepath);
 }
 
+Result!Unit stringToUnit(string str, SourceLocation loc) {
+    Result!Unit result;
+    switch (str) {
+        // dfmt off
+        case "s":  result.value = Unit.Seconds; result.ok = true; break;
+        case "fr": result.value = Unit.Fraction; result.ok = true; break;
+        case "cm": result.value = Unit.Centimeter; result.ok = true; break;
+        case "%":  result.value = Unit.Percent; result.ok = true; break;
+        // dfmt on
+    default:
+        result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidUnit, Severity.Error, loc, "Invalid unit name `" ~ str ~ "` conversion not implemented.");
+    }
+    return result;
+}
+
 public Result!ConcreteTree parseDocument(string sourceFilePath) {
 
     Result!ConcreteTree result;
@@ -103,11 +118,6 @@ struct ConcreteTree {
 
         // writeln("deck:   " , res.value);
         // writeln("slides: " , res.value.slides);
-
-        if (!res.ok) {
-            result.ok = false;
-        }
-
         result.value = AbstractTree(res.value, sourceFilePath);
 
         return result;
@@ -145,22 +155,16 @@ private:
             case "SlidexDoc.Deck":
                 VoidResult res = parseDeck(child, deck);
                 result.absorb(res);
-                if (!res.ok)
-                    result.ok = false;
                 break;
             case "SlidexDoc.Master":
                 Result!Master res = parseMaster(child);
                 deck.masters ~= res.value;
                 deck.masterMap[res.value.name] = res.value;
                 result.absorb(res);
-                if (!res.ok)
-                    result.ok = false;
                 break;
             case "SlidexDoc.Slide":
                 Result!Slide res = parseSlide(child);
                 result.absorb(res);
-                if (!res.ok)
-                    result.ok = false;
                 deck.slides ~= res.value;
                 deck.slideMap[res.value.name] = res.value;
                 break;
@@ -179,8 +183,6 @@ private:
             if (child.name == "SlidexDoc.DeckContent") {
                 VoidResult res = parseDeckContent(child, deck);
                 result.absorb(res);
-                if (!res.ok)
-                    result.ok = false;
             }
         }
         return result;
@@ -198,14 +200,10 @@ private:
                 case "author":
                     auto res = extractValue!string(deck.author, "author", value);
                     result.absorb(res);
-                    if (!res.ok)
-                        result.ok = false;
                     break;
                 case "date":
                     auto res = extractValue!Date(deck.date, "date", value);
                     result.absorb(res);
-                    if (!res.ok)
-                        result.ok = false;
                     break;
                 default:
                     // create a format and sink error function
@@ -245,9 +243,6 @@ private:
             case "SlidexDoc.MasterContent":
                 VoidResult res = parseMasterContent(child, master);
                 result.absorb(res);
-                if (!res.ok) {
-                    result.ok = false;
-                }
                 break;
             case "SlidexDoc.MASTER":
             case "SlidexDoc.BEGIN":
@@ -282,10 +277,9 @@ private:
                 foreach (k, v; call.namedArgs) {
                     switch (k) {
                     case "fill":
-                        auto res = extractValue!Colour(rect.fill, v.name, v.value);
-                        result.absorb(res);
-                        if (!res.ok)
-                            result.ok = false;
+                        // TODO: parse colour or func.
+                        Result!RgbColour res = evalColour(v);
+                        result.absorb(res).ifSome((c) { rect.fill = c; });
                         break;
                     default:
                         result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, v.name.loc, "Unknown argument name `" ~ v
@@ -357,37 +351,27 @@ private:
             case "columns":
                 auto res = extractValue!int(master.columns, va.ident, va.value);
                 r1.absorb(res);
-                if (!res.ok)
-                    r1.ok = false;
                 break;
             case "rows":
                 auto res = extractValue!int(master.rows, va.ident, va.value);
                 r1.absorb(res);
-                if (!res.ok)
-                    r1.ok = false;
                 break;
             case "showgrid":
                 auto res = extractValue!bool(master.showgrid, va.ident, va.value);
                 r1.absorb(res);
-                if (!res.ok)
-                    r1.ok = false;
                 break;
             case "background":
-                if (va.value.has!Colour) {
+                bool success = false;
+                // assert(false, "Rgb Parsing not implemented");
+                if (va.value.has!NamedColour) {
                     master.background = va.value;
+                    success = true;
                 }
-                else if (va.value.has!FuncCall) {
-                    if (va.value.get!FuncCall().name == "image") {
-                        master.background = va.value;
-                    }
-                    else {
-                        r1.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, va.value.loc, "Invalid type `" ~
-                                va.value.typeName ~ "`. Expected colour or image but found `" ~ va.value.get!FuncCall()
-                                .name ~ "`");
-                        r1.ok = false;
-                    }
+                else if (va.value.has!FuncCall && va.value.get!FuncCall().name == "image") {
+                    master.background = va.value;
+                    success = true;
                 }
-                else {
+                if (!success) {
                     r1.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, va.value.loc, "Invalid type `" ~
                             va.value.typeName ~ "`. Expected colour or image but found `" ~ va.value.get!FuncCall()
                             .name ~ "`");
@@ -435,11 +419,6 @@ private:
                     handlePropertyDeclaration,
                 );
                 result.absorb(res);
-                if (!res.ok)
-                    result.ok = false;
-            }
-            else {
-                result.ok = false;
             }
         }
 
@@ -475,8 +454,6 @@ Pass as root: "SlidexDoc.Slide"
             case "SlidexDoc.SlideContent":
                 VoidResult res = parseSlideContent(child, slide);
                 result.absorb(res);
-                if (!res.ok)
-                    result.ok = false;
                 break;
             default:
                 break;
@@ -525,12 +502,6 @@ Pass as root: "SlidexDoc.Slide"
                         handlePropertyDeclaration,
                     );
                     result.absorb(r2);
-                    if (!r2.ok) {
-                        result.ok = false;
-                    }
-                }
-                else {
-                    result.ok = false;
                 }
                 break;
             default:
@@ -596,15 +567,9 @@ For root pass in "SlidexDoc.Statement"
             case "SlidexDoc.Placement":
                 // writeln("SlidexDoc.Placement");
                 Result!LayoutLocation res = parseAtLocation(child);
-                result.absorb(res);
-                if (res.ok) {
-                    result.value.layoutLocation = res.value;
-                    // writeln("parse AT success: ", res.value);
-                }
-                else {
-                    // writeln("failed parse AT");
-                    result.ok = false;
-                }
+                result.absorb(res).ifSome((ll) {
+                    result.value.layoutLocation = ll;
+                });
                 break;
             case "SlidexDoc.COLON":
                 // ignore these nodes
@@ -664,9 +629,12 @@ Pass in as root : "SlidexDoc.Identifier"
             return locatedDslType(root.matches[0], loc);
         case "SlidexDoc.Number":
             return locatedDslType(root.matches[0].to!int, loc);
-        case "SlidexDoc.Colour":
+        case "SlidexDoc.Quantity":
+            return locatedDslType!Quantity(getQuantity(root), loc);
+        case "SlidexDoc.NamedColour":
+            // fixed color value.
             return locatedDslType(root.matches[0]
-                    .asCapitalized.array.to!Colour, loc);
+                    .asCapitalized.array.to!NamedColour, loc);
         case "SlidexDoc.Boolean":
             return locatedDslType(TrueValues.canFind(root.matches[0]), loc);
         case "SlidexDoc.Text":
@@ -700,9 +668,11 @@ Pass in as root : "SlidexDoc.Identifier"
             result.ok = true;
             return result;
         }
-        result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, val.loc, "Argument `" ~ argname ~ "` expected a `" ~ T
-                .stringof ~ "` but got `" ~ val.typeName ~ "`");
-        return result;
+        else {
+            result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, val.loc, "Invalid value `"~val.value.toVariant().toString~"` for argument `" ~ argname ~ "`. Expected a `" ~ T
+                    .stringof ~ "` but got `" ~ val.typeName ~ "`");
+            return result;
+        }
     }
 
     /**
@@ -744,46 +714,32 @@ Pass in as root : "SlidexDoc.Identifier"
                     result.absorb(res);
                     if (res.ok)
                         cell.col--;
-                    else
-                        result.ok = false;
                     break;
                 case "row":
                     VoidResult res = extractValue!int(cell.row, argname, args[argname].value);
                     result.absorb(res);
                     if (res.ok)
                         cell.row--;
-                    else
-                        result.ok = false;
                     break;
                 case "colspan":
                     auto res = extractValue!int(cell.colspan, argname, args[argname].value);
                     result.absorb(res);
-                    if (!res.ok)
-                        result.ok = false;
                     break;
                 case "rowspan":
                     auto res = extractValue!int(cell.rowspan, argname, args[argname].value);
                     result.absorb(res);
-                    if (!res.ok)
-                        result.ok = false;
                     break;
                 case "dx":
                     auto res = extractValue!int(cell.dx, argname, args[argname].value);
                     result.absorb(res);
-                    if (!res.ok)
-                        result.ok = false;
                     break;
                 case "dy":
                     auto res = extractValue!int(cell.dy, argname, args[argname].value);
                     result.absorb(res);
-                    if (!res.ok)
-                        result.ok = false;
                     break;
                 case "angle":
                     auto res = extractValue!float(cell.angle, argname, args[argname].value);
                     result.absorb(res);
-                    if (!res.ok)
-                        result.ok = false;
                     break;
                 default:
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, args[argname]
@@ -803,32 +759,22 @@ Pass in as root : "SlidexDoc.Identifier"
                 case "x":
                     auto res = extractValue!int(bounds.x, argname, args[argname].value);
                     result.absorb(res);
-                    if (!res.ok)
-                        result.ok = false;
                     break;
                 case "y":
                     auto res = extractValue!int(bounds.y, argname, args[argname].value);
                     result.absorb(res);
-                    if (!res.ok)
-                        result.ok = false;
                     break;
                 case "width":
                     auto res = extractValue!int(bounds.width, argname, args[argname].value);
                     result.absorb(res);
-                    if (!res.ok)
-                        result.ok = false;
                     break;
                 case "height":
                     auto res = extractValue!int(bounds.height, argname, args[argname].value);
                     result.absorb(res);
-                    if (!res.ok)
-                        result.ok = false;
                     break;
                 case "angle":
                     auto res = extractValue!float(bounds.angle, argname, args[argname].value);
                     result.absorb(res);
-                    if (!res.ok)
-                        result.ok = false;
                     break;
                 default:
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, args[argname]
@@ -894,4 +840,24 @@ Pass in as root : "SlidexDoc.Identifier"
 
         return items;
     }
+
+    Quantity getQuantity(ParseTree root) {
+        Quantity qty;
+        qty.value = LocatedVal!float(root[0].matches[0].to!float,
+            root[0].sourceLocation(sourceFilePath));
+        if (root.children.length == 2) {
+            // unit present
+            SourceLocation unitloc = root[1].sourceLocation(sourceFilePath);
+            qty.unit = LocatedVal!string(root[1].matches[0], unitloc);
+        }
+        return qty;
+
+    }
+
+    Result!RgbColour evalColour(NamedArg arg) {
+        writeln(arg);
+        return Result!RgbColour(ok : true, value:
+            RgbColour(0x80, 0xe0, 0x40));
+    }
+
 }
