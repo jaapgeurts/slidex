@@ -25,8 +25,6 @@ struct AbstractTree {
         foreach (fromSlide; root.slides) {
             Result!(slides.Slide) res = buildSlide(fromSlide);
             result.absorb(res);
-            if (!res.ok)
-                result.ok = false;
             // add the slide to the deck.
             toDeck.slides ~= res.value;
         }
@@ -48,8 +46,6 @@ private:
             result.absorb(res);
             if (res.ok)
                 toSlide.master = res.value;
-            else
-                res.ok = false;
         }
         else {
             result.ok = false;
@@ -61,8 +57,6 @@ private:
         foreach (fromItem; fromSlide.items) {
             Result!(slides.Item) res = buildItem(fromItem);
             result.absorb(res);
-            if (!res.ok)
-                result.ok = false;
             toSlide.items ~= res.value;
             toSlide.itemsMap[res.value.name] = res.value;
         }
@@ -113,8 +107,6 @@ private:
         foreach (fromItem; fromMaster.items) {
             Result!(slides.Item) res = buildItem(fromItem);
             result.absorb(res);
-            if (!res.ok)
-                result.ok = false;
             toMaster.items ~= res.value;
             toMaster.itemsMap[res.value.name] = res.value;
         }

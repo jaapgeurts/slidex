@@ -96,8 +96,8 @@ class GtkDrawingVisitor : ItemVisitor {
 
         with (context) {
             writeln("FILL: ", rect.fill);
-            assert(false, "color parsing needs fix");
-            // setSourceRgb(colours[rect.fill].expand);
+            // assert(false, "color parsing needs fix");
+            setSourceRgb(rect.fill.r,rect.fill.g,rect.fill.b);
             setLineWidth(5);
             rectangle(x, y, w, h);
             fill();

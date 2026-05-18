@@ -1,5 +1,6 @@
 module types;
 
+import core.exception;
 import std.sumtype;
 
 struct SourceLocation {
@@ -7,7 +8,6 @@ struct SourceLocation {
     ulong line;
     ulong column;
 }
-
 
 enum Unit {
     Unspecified,
@@ -17,14 +17,37 @@ enum Unit {
     Centimeter,
 }
 
-
-
 struct RgbColour {
     ubyte r;
     ubyte g;
     ubyte b;
-}
 
+    ubyte opIndex(size_t i) {
+        if (i == 0)
+            return r;
+        else if (i == 1)
+            return g;
+        else if (i == 2)
+            return b;
+        else
+            throw new ArrayIndexError(i, 3, "Valid indexes are 0,1,2 equivalent to r,g,b");
+    }
+
+    void opIndexAssign(ubyte val, size_t i) {
+        if (i == 0)
+            r = val;
+        else if (i == 1)
+            g = val;
+        else if (i == 2)
+            b = val;
+        else
+            throw new ArrayIndexError(i, 3, "Valid indexes are 0,1,2 equivalent to r,g,b");
+    }
+
+    ubyte[] expand() {
+        return [r,g,b];
+    }
+}
 
 struct CellLocation {
     int col = 1;

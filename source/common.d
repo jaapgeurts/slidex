@@ -88,3 +88,22 @@ void printError(const Diagnostic diagnostic, File file) {
         diagnostic.message);
     file.writeln(message);
 }
+
+ubyte[] fromHex(scope const(char)[] s)
+{
+    import std.array;
+    import std.conv;
+    
+    if (s.length % 2 != 0 )
+        throw new Exception("Invalid hex input string. Odd number of characters");
+
+    auto buf = appender!(ubyte[])();
+
+    foreach (i; 0 .. s.length / 2)
+    {
+        auto byteStr = s[i * 2 .. i * 2 + 2];
+        buf.put(cast(ubyte) to!uint(byteStr, 16));
+    }
+
+    return buf.data;
+}

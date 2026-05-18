@@ -8,6 +8,7 @@ import std.variant;
 
 public import types;
 
+// TODO: move this to parser.d
 alias DslTypes = AliasSeq!(
     string,
     int,
@@ -123,6 +124,7 @@ enum NamedColour {
 }
 
 struct Quantity {
+    // TODO: Make distinction between int and float values
     LocatedVal!float value;
     LocatedVal!string unit;
 
@@ -169,7 +171,7 @@ class Master {
     int rows;
 
     bool showgrid;
-    LocatedVal!DslType background;
+    SumType!(RgbColour,Image) background;
 
     string name;
 
