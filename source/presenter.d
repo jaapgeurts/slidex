@@ -24,6 +24,8 @@ class GtkDrawingVisitor : ItemVisitor {
     GtkAllocation size;
     cairo_text_extents_t extents;
 
+    bool showDebugOverlay;
+
     int colwidth;
     int rowheight;
 
@@ -47,7 +49,7 @@ class GtkDrawingVisitor : ItemVisitor {
             setSourceRgb(1, 1, 1);
             paint();
 
-            if (master.showgrid) {
+            if (showDebugOverlay) {
                 // draw grid
                 setSourceRgb(0.8, 0.8, 0.8);
                 setLineWidth(2);
@@ -171,6 +173,7 @@ void presentDeck(string[] args, Deck deck) {
     bool onDraw(Scoped!Context context, Widget w) {
 
         GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, w);
+        drawing.showDebugOverlay = true;
         if (deck.slides.length == 0) {
             writeln("No slides to show");
         }

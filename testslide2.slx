@@ -10,7 +10,6 @@ end deck
 master MasterSlide1 begin
     columns = 12;
     rows = 12;
-    showgrid = true;
     # background can be a color, image
     # default background color is white
     #background = yellow;

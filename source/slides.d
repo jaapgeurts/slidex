@@ -1,8 +1,9 @@
 module slides;
 
-import std.traits;
-import std.variant;
 import std.sumtype;
+import std.traits;
+import std.typecons;
+import std.variant;
 
 import types;
 
@@ -80,19 +81,15 @@ class Master {
     uint columns;
     uint rows;
 
-    @DslField
-    bool showgrid = false;
-
     Item[] items;
     Item[string] itemsMap;
 
     mixin DumpFieldsToString;
 
-    this(string name, uint columns, uint rows, bool showgrid) {
+    this(string name, uint columns, uint rows) {
         this.name = name;
         this.columns = columns;
         this.rows = rows;
-        this.showgrid = showgrid;
     }
 
     void accept(ItemVisitor visitor) {
@@ -103,9 +100,9 @@ class Master {
 
 class Slide {
     string name;
-    
+
     @DslField
-    SumType!(RgbColour,Image) background;
+    SumType!(RgbColour, Image) background;
 
     Master master;
 
@@ -142,13 +139,14 @@ mixin template DslProperties() {
         }
     }
 
-    override bool isPropertyType(string name, TypeInfo info) {
+    override bool isPropertyType(string name, Variant var) {
         switch (name) {
             static foreach (member; __traits(allMembers, typeof(this))) {
                 static if (hasUDA!(__traits(getMember, typeof(this), member), DslField)) {
-        case member:
-                    enum FT = typeid(typeof(__traits(getMember, typeof(this), member)));
-                    return info is FT;
+        case member: {
+                        alias FT = typeof(__traits(getMember, typeof(this), member));
+                        return var.convertsTo!(FT);
+                    }
                 }
             }
         default:
@@ -187,7 +185,7 @@ class Item {
     }
 
     abstract bool hasProperty(string name);
-    abstract bool isPropertyType(string name, TypeInfo info);
+    abstract bool isPropertyType(string name, Variant info);
     abstract bool setProperty(string name, Variant value);
 
     abstract void accept(ItemVisitor visitor);

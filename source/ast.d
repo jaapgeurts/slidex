@@ -4,9 +4,11 @@ import std.conv;
 import std.datetime;
 import std.meta;
 import std.sumtype;
+import std.typecons;
 import std.variant;
 
 public import types;
+
 
 // TODO: move this to parser.d
 alias DslTypes = AliasSeq!(
@@ -14,17 +16,24 @@ alias DslTypes = AliasSeq!(
     int,
     float,
     bool,
-    Text,
+    RichText,
     NamedColour,
     Quantity,
     Date,
     FuncCall
 );
 
-struct DslType {
+alias RichText = Typedef!(string, string.init, "richtext");
+alias Seconds = Typedef!(int, int.init, "seconds");
+alias Percent = Typedef!(ubyte, ubyte.init, "percent");
+alias Centimeter = Typedef!(int, int.init, "centimeter");
+
+alias DslType = TaggedUnion!DslTypes;
+
+struct TaggedUnion(V...) {
 
     this(T)(T v) {
-        static foreach (i, U; DslTypes) {
+        static foreach (i, U; V) {
             static if (is(T == U)) {
                 kind = i;
                 mixin("_" ~ i.stringof) = v;
@@ -35,8 +44,8 @@ struct DslType {
 
     size_t kind = size_t.max;
     private union {
-        static foreach (i, T; DslTypes) {
-            mixin(T.stringof ~ " _" ~ i.stringof ~ ";");
+        static foreach (i, T; V) {
+            mixin("T _" ~ i.stringof ~ ";");
         }
     }
 
@@ -54,34 +63,35 @@ struct DslType {
     }
 
     bool has(T)() {
-        enum i = IndexOf!(T, DslTypes);
+        enum i = IndexOf!(T, V);
         static if (i == -1)
-            static assert(false, "Type not in DslTypes");
+            static assert(false, "Type not in this TaggedUnion");
 
         return kind == i;
     }
 
     T get(T)() {
-        enum i = IndexOf!(T, DslTypes);
+        enum i = IndexOf!(T, V);
         static if (i == -1)
-            static assert(false, "Type not in DslTypes");
+            static assert(false, "Type not in this TaggedUnion");
 
         return mixin("_" ~ i.stringof);
     }
 
+
     Variant toVariant() {
         final switch (kind) {
-            static foreach (i, T; DslTypes) {
+            static foreach (i, T; V) {
         case i:
                 return Variant(mixin("_" ~ i.stringof));
             }
         }
-        assert(false, "toVariant(): This DslType contains an unregistered kind.");
+        assert(false, "toVariant(): This TaggedUnion contains an unregistered kind.");
     }
 
     string toString() const {
         final switch (kind) {
-            static foreach (i, T; DslTypes) {
+            static foreach (i, T; V) {
         case i:
                 static if (is(T == string))
                     return mixin("_" ~ i.stringof);
@@ -91,17 +101,17 @@ struct DslType {
                     return mixin("_" ~ i.stringof).to!string;
             }
         }
-        assert(false, "toString(): This DslType contains an unregistered kind.");
+        assert(false, "toString(): This TaggedUnion contains an unregistered kind.");
     }
 
     string typeName() {
         final switch (kind) {
-            static foreach (i, T; DslTypes) {
+            static foreach (i, T; V) {
         case i:
                 return T.stringof;
             }
         }
-        assert(false, "typeName(): This DslType contains an unregistered kind.");
+        assert(false, "typeName(): This TaggedUnion contains an unregistered kind.");
     }
 
 }
@@ -170,8 +180,7 @@ class Master {
     int columns;
     int rows;
 
-    bool showgrid;
-    SumType!(RgbColour,Image) background;
+    SumType!(RgbColour, Image) background;
 
     string name;
 

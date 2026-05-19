@@ -2,12 +2,14 @@ module types;
 
 import core.exception;
 import std.sumtype;
+import std.typecons;
 
 struct SourceLocation {
     string filepath;
     ulong line;
     ulong column;
 }
+
 
 enum Unit {
     Unspecified,
@@ -45,7 +47,7 @@ struct RgbColour {
     }
 
     ubyte[] expand() {
-        return [r,g,b];
+        return [r, g, b];
     }
 }
 

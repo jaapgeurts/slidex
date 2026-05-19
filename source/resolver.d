@@ -69,13 +69,24 @@ private:
 
             // search items in master
             if (auto item = parts[0] in toSlide.master.itemsMap) {
+
                 Variant var = assignment.value.value.toVariant;
+                // Convert Typedef wrappers here.
+                if (var.convertsTo!(RichText))
+                    var = cast(string) var.get!RichText;
+                else if (var.convertsTo!(Seconds))
+                    var = cast(int) var.get!Seconds;
+                else if (var.convertsTo!(Percent))
+                    var = cast(int) var.get!Percent;
+                else if (var.convertsTo!(Centimeter))
+                    var = cast(int) var.get!Centimeter;
+
                 if (!item.hasProperty(parts[1])) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "No such property `" ~ parts[1] ~ "` on element `" ~ parts[0] ~ "`");
                     // TODO: for correct location reporting increase the col location here with the length of the parts[1] 
                     result.ok = false;
                 }
-                else if (!item.isPropertyType(parts[1], var.type)) {
+                else if (!item.isPropertyType(parts[1], var)) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, assignment.value.loc, "Invalid type: `" ~
                             assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value ~ "`");
                     result.ok = false;
@@ -102,7 +113,7 @@ private:
         Result!(slides.Master) result = Result!(slides.Master)(ok : true);
 
         slides.Master toMaster = new slides.Master(fromMaster.name, fromMaster.columns, fromMaster
-                .rows, fromMaster.showgrid);
+                .rows);
         // build master items
         foreach (fromItem; fromMaster.items) {
             Result!(slides.Item) res = buildItem(fromItem);
