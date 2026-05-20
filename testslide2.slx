@@ -20,7 +20,10 @@ master MasterSlide1 begin
 
     rect(fill=rgb("#663366")) at cell(col=1,row=1, colspan=2,rowspan=12);
 
-    title: text({Put your title text here}, colour=blue) at cell(col=4,row=2,colspan=8,rowspan=2);
+    title: text({Put your title text here}, colour=blue, size = 28) at cell(col=4,row=2,colspan=8,rowspan=2);
+
+    # This doesn't work yet
+    #title.size = 42;
 
     left: text({Put left text here}, colour=magenta) at cell(col = 3, row = 4, colspan=4,rowspan=7);
     right: text({Put right text here}) at cell(col = 8, row = 5, colspan=4,rowspan=7);
@@ -43,7 +46,7 @@ slide MasterSlide1 <- Slide1 begin
     title.content = {Introduction to *thermal* expansion};
 
     left.content = {
-        - Markup item 1
+        • Markup item 1
         - Markup item 2
         - Markup item 3
     };
@@ -52,9 +55,9 @@ slide MasterSlide1 <- Slide1 begin
 #        https://www.google.com
 #   };
 
-    image(path="centipede.png") at bounds(x=80,y=130, width=120);
+    image(path="centipede.png") at bounds(x=80,y=230, width=120);
 
-    image(path="crab1.png") at bounds(x=550,y=130, width=150);
+    image(path="crab1.png") at bounds(x=550,y=230, width=150);
 
 
 end slide Slide1

@@ -215,10 +215,14 @@ class Text : Item {
     @DslField
     RgbColour colour;
 
-    this(string name, string content, RgbColour colour) {
+    @DslField
+    int size = 32; // default font size
+
+    this(string name, string content, RgbColour colour, int size) {
         super(name);
         this.content = content;
         this.colour = colour;
+        this.size = size;
 
     }
 

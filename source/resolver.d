@@ -37,7 +37,7 @@ private:
 
     Result!(slides.Slide) buildSlide(ast.Slide fromSlide) {
 
-        Result!(slides.Slide) result = Result!(slides.Slide)(ok : true);
+        Result!(slides.Slide) result = Result!(slides.Slide)(ok: true);
         slides.Slide toSlide = new slides.Slide(fromSlide.name);
 
         // build master
@@ -63,24 +63,38 @@ private:
         }
 
         // TODO: check if symbols are duplicated between master and slide
-        ValueAssignment a;
         // apply deferred assignments
         foreach (assignment; fromSlide.assignments) {
+            // writeln("Assignment: " , assignment);
             string[] parts = assignment.ident.value.split('.');
 
             // search items in master
             if (auto item = parts[0] in toSlide.master.itemsMap) {
 
                 Variant var = assignment.value.value.toVariant;
-                // Convert Typedef wrappers here.
-                if (var.convertsTo!(RichText))
+
+                if (var.convertsTo!(Quantity)) {
+                    EvalResult res = evalQuantity(var.get!Quantity);
+                    result.absorb(res);
+                    if (res.ok) {
+                        // Convert Typedef wrappers here.
+                        if (res.value.has!Seconds)
+                            var = cast(int) res.value.get!Seconds;
+                        if (res.value.has!(Percent))
+                            var = cast(int) res.value.get!Percent;
+                        if (res.value.has!(Centimeter))
+                            var = cast(int) res.value.get!Centimeter;
+                        if (res.value.has!int) {
+                            var = res.value.get!int;
+                        }
+                    }
+                    else {
+                        assert(false, "Failed quantity conversion");
+                    }
+                }
+                else if (var.convertsTo!(RichText)) {
                     var = cast(string) var.get!RichText;
-                else if (var.convertsTo!(Seconds))
-                    var = cast(int) var.get!Seconds;
-                else if (var.convertsTo!(Percent))
-                    var = cast(int) var.get!Percent;
-                else if (var.convertsTo!(Centimeter))
-                    var = cast(int) var.get!Centimeter;
+                }
 
                 if (!item.hasProperty(parts[1])) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "No such property `" ~ parts[1] ~ "` on element `" ~ parts[0] ~ "`");
@@ -111,7 +125,7 @@ private:
     }
 
     Result!(slides.Master) buildMaster(ast.Master fromMaster) {
-        Result!(slides.Master) result = Result!(slides.Master)(ok : true);
+        Result!(slides.Master) result = Result!(slides.Master)(ok: true);
 
         slides.Master toMaster = new slides.Master(fromMaster.name, fromMaster.columns, fromMaster
                 .rows);
@@ -127,7 +141,9 @@ private:
         toMaster.rows = fromMaster.rows;
         fromMaster.background.match!(
             (RgbColour c) { toMaster.background = c; },
-            (ast.Image i) { toMaster.background = new slides.Image("backgroundimage",i.path); }
+            (ast.Image i) {
+            toMaster.background = new slides.Image("backgroundimage", i.path);
+        }
         );
 
         result.value = toMaster;
@@ -137,15 +153,13 @@ private:
     Result!(slides.Item) buildItem(ast.Item fromItem) {
         slides.Item toItem = fromItem.shape.match!(
             (ast.Rect r) => cast(slides.Item) new slides.Rect(fromItem.name, r.fill),
-            (ast.Text t) => new slides.Text(fromItem.name, t.content, t.colour),
+            (ast.Text t) => new slides.Text(fromItem.name, t.content, t.colour, t.size),
             (ast.Image i) => new slides.Image(fromItem.name, i.path),
         );
 
         toItem.layoutLocation = fromItem.layoutLocation;
 
-
-        return Result!(slides.Item)(ok : true, value:
-            toItem);
+        return Result!(slides.Item)(ok: true, value: toItem);
     }
 
 }

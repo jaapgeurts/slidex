@@ -25,6 +25,12 @@ mixin(grammar(import("grammar.peg")));
 
 alias LocatedResult(T) = Result!(LocatedVal!T);
 
+alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Seconds, Percent, Centimeter);
+
+alias SlidexType = TaggedUnion!SlidexTypes;
+
+alias EvalResult = Result!SlidexType;
+
 /////////////////////////
 // Helper functions
 SourceLocation sourceLocation(Position pos, string filepath) {
@@ -75,11 +81,11 @@ RgbColour namedColourToRgb(NamedColour colour) {
     }
 }
 
-alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Seconds, Percent, Centimeter);
-
-alias SlidexType = TaggedUnion!SlidexTypes;
-
-alias EvalResult = Result!SlidexType;
+private Diagnostic createInvalidTypeDiag(LocatedVal!DslType val, string expectedType) {
+    return Diagnostic(DiagnosticKind.InvalidType,
+        Severity.Error, val.loc, "Invalid value `" ~ val.value.toVariant.toString() ~ "`. Expected a " ~ expectedType ~ " but got " ~ val
+            .value.typeName() ~ ".");
+}
 
 ///////////////////////
 // Parser
@@ -467,6 +473,7 @@ Pass as root: "SlidexDoc.Slide"
             // TODO: is the value assignment a local slide field assignment?
             // LATER: currently slides have no fields so can't assign anything either.
             // so keep it for later when the master is resolved.
+
             slide.assignments ~= va;
             return VoidResult(ok: true);
         }
@@ -655,13 +662,6 @@ Pass in as root : "SlidexDoc.Identifier"
                 sourceFilePath)),
             getNamedArguments(root[1]),
             getPositionalArguments(root[1]));
-    }
-
-    // TODO: move helper
-    private Diagnostic createInvalidTypeDiag(LocatedVal!DslType val, string expectedType) {
-        return Diagnostic(DiagnosticKind.InvalidType,
-            Severity.Error, val.loc, "Invalid value `" ~ val.value.toVariant.toString() ~ "`. Expected a " ~ expectedType ~ " but got " ~ val
-                .value.typeName() ~ ".");
     }
 
     /**
@@ -890,214 +890,232 @@ Pass in as root : "SlidexDoc.Identifier"
         return qty;
 
     }
+}
 
-    EvalResult evalValue(LocatedVal!DslType val) {
-        if (val.value.has!int) {
-            return EvalResult(ok: true, value: SlidexType(val.value.get!int));
-        }
-        else if (val.value.has!float) {
-            return EvalResult(ok: true, value: SlidexType(val.value.get!float));
-        }
-        else if (val.value.has!bool) {
-            return EvalResult(ok: true, value: SlidexType(val.value.get!bool));
-        }
-        if (val.value.has!string) {
-            return EvalResult(ok: true, value: SlidexType(val.value.get!string));
-        }
-        else if (val.value.has!NamedColour) {
-            return EvalResult(ok: true, value: SlidexType(
-                    namedColourToRgb(val.value.get!NamedColour)));
-        }
-        else if (val.value.has!Quantity) {
-            Quantity v = val.value.get!Quantity;
-            if (v.unit.value == null)
-                return EvalResult(ok: true, value: SlidexType(cast(int) v.value.value));
-            else if (v.unit == "s")
-                return EvalResult(ok: true, value: SlidexType(Seconds(cast(int) v.value.value)));
-            else if (v.unit == "%")
-                return EvalResult(ok: true, value: SlidexType(Percent(cast(ubyte) v.value.value)));
-            else if (v.unit == "cm")
-                return EvalResult(ok: true, value: SlidexType(Centimeter(cast(int) v.value.value)));
-            else
-                assert(false, "Quantity not implemented");
-        }
-        else if (val.value.has!Date) {
-            // TODO: handle date parsing exception 
-            return EvalResult(ok: true, value: SlidexType(val.value.get!Date));
-        }
-        else if (val.value.has!RichText) {
-            return EvalResult(ok: true, value: SlidexType(val.value.get!RichText));
-        }
-        else if (val.value.has!FuncCall) {
-            FuncCall v = val.value.get!FuncCall;
-            switch (v.name) {
-            case "rgb":
-                return evalColour(v);
-            case "rect":
-                return evalRect(v);
-            case "text":
-                return evalText(v);
-            case "image":
-                return evalImage(v);
-            default: // TODO: replace with error
-                assert(false, "unimplemented function: " ~ v.name);
-            }
-        }
+/// Evalation functions
 
-        assert(false, "Unreachable");
+EvalResult evalValue(LocatedVal!DslType val) {
+    if (val.value.has!int) {
+        return EvalResult(ok: true, value: SlidexType(val.value.get!int));
+    }
+    else if (val.value.has!float) {
+        return EvalResult(ok: true, value: SlidexType(val.value.get!float));
+    }
+    else if (val.value.has!bool) {
+        return EvalResult(ok: true, value: SlidexType(val.value.get!bool));
+    }
+    if (val.value.has!string) {
+        return EvalResult(ok: true, value: SlidexType(val.value.get!string));
+    }
+    else if (val.value.has!NamedColour) {
+        return EvalResult(ok: true, value: SlidexType(
+                namedColourToRgb(val.value.get!NamedColour)));
+    }
+    else if (val.value.has!Quantity) {
+        return evalQuantity(val.value.get!Quantity);
+    }
+    else if (val.value.has!Date) {
+        // TODO: handle date parsing exception 
+        return EvalResult(ok: true, value: SlidexType(val.value.get!Date));
+    }
+    else if (val.value.has!RichText) {
+        return EvalResult(ok: true, value: SlidexType(val.value.get!RichText));
+    }
+    else if (val.value.has!FuncCall) {
+        FuncCall v = val.value.get!FuncCall;
+        switch (v.name) {
+        case "rgb":
+            return evalColour(v);
+        case "rect":
+            return evalRect(v);
+        case "text":
+            return evalText(v);
+        case "image":
+            return evalImage(v);
+        default: // TODO: replace with error
+            assert(false, "unimplemented function: " ~ v.name);
+        }
     }
 
-    EvalResult evalColour(FuncCall rgb) {
-        // TODO: value reading should use eval functions
-        EvalResult result;
-        if (rgb.namedArgs.length > 0) {
-            result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, rgb.name.loc, "rgb() colours do not accept named arugments. Expected rgb(r,g,b) or rgb(\"#12ab7f\")");
-            result.ok = false;
-        }
-        else if (rgb.positionalArgs.length == 3) {
-            // parse components
-            bool success = true;
-            RgbColour colour;
-            for (size_t i = 0; i < 3; i++) {
-                if (!rgb.positionalArgs[i].value.has!Quantity) {
-                    result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, rgb
-                            .positionalArgs[i].loc, "Invalid value `" ~ rgb.positionalArgs[i].value.toVariant()
-                            .toString() ~ "` Expected a number but got `" ~ rgb
-                            .positionalArgs[i].value.typeName ~ "`");
-                    success = false;
-                }
-                // else if (rgb.positionalArgs[i].value.Quantity!int().value < 0 || rgb.positionalArgs[i].value.get!int > 255) {
-                //     result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, rgb
-                //             .positionalArgs[i].loc, "Invalid value `" ~ rgb.positionalArgs[i].value.toVariant()
-                //             .toString() ~ "`. Color values must be between 0 and 255.");
-                //     success = false;
-                // }
-        else {
-                    colour[i] = cast(ubyte) rgb.positionalArgs[i].value
-                        .get!Quantity.value.value;
-                }
-            }
+    assert(false, "Unreachable");
+}
 
-            if (success) {
-                result.value = SlidexType(colour);
-                result.ok = true;
+EvalResult evalColour(FuncCall rgb) {
+    // TODO: value reading should use eval functions
+    EvalResult result;
+    if (rgb.namedArgs.length > 0) {
+        result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, rgb.name.loc, "rgb() colours do not accept named arugments. Expected rgb(r,g,b) or rgb(\"#12ab7f\")");
+        result.ok = false;
+    }
+    else if (rgb.positionalArgs.length == 3) {
+        // parse components
+        bool success = true;
+        RgbColour colour;
+        for (size_t i = 0; i < 3; i++) {
+            if (!rgb.positionalArgs[i].value.has!Quantity) {
+                result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, rgb
+                        .positionalArgs[i].loc, "Invalid value `" ~ rgb.positionalArgs[i].value.toVariant()
+                        .toString() ~ "` Expected a number but got `" ~ rgb
+                        .positionalArgs[i].value.typeName ~ "`");
+                success = false;
+            }
+            // else if (rgb.positionalArgs[i].value.Quantity!int().value < 0 || rgb.positionalArgs[i].value.get!int > 255) {
+            //     result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, rgb
+            //             .positionalArgs[i].loc, "Invalid value `" ~ rgb.positionalArgs[i].value.toVariant()
+            //             .toString() ~ "`. Color values must be between 0 and 255.");
+            //     success = false;
+            // }
+    else {
+                colour[i] = cast(ubyte) rgb.positionalArgs[i].value
+                    .get!Quantity.value.value;
             }
         }
-        else if (rgb.positionalArgs.length == 1 && rgb.positionalArgs[0].value.has!string) {
-            // parse string
-            string hexval = rgb.positionalArgs[0].value.get!string;
-            bool success = false;
-            RgbColour colour;
-            if (hexval[0] == '#') {
-                try {
-                    ubyte[] triplet = hexval[1 .. $].fromHex;
-                    if (triplet.length == 3) {
-                        for (size_t i = 0; i < 3; i++) {
-                            colour[i] = triplet[i];
-                        }
-                        success = true;
+
+        if (success) {
+            result.value = SlidexType(colour);
+            result.ok = true;
+        }
+    }
+    else if (rgb.positionalArgs.length == 1 && rgb.positionalArgs[0].value.has!string) {
+        // parse string
+        string hexval = rgb.positionalArgs[0].value.get!string;
+        bool success = false;
+        RgbColour colour;
+        if (hexval[0] == '#') {
+            try {
+                ubyte[] triplet = hexval[1 .. $].fromHex;
+                if (triplet.length == 3) {
+                    for (size_t i = 0; i < 3; i++) {
+                        colour[i] = triplet[i];
                     }
-                }
-                catch (Exception e) {
-                    writeln("failed: ", e);
-                    success = false;
+                    success = true;
                 }
             }
-            if (success) {
-                result.ok = true;
-                result.value = SlidexType(colour);
+            catch (Exception e) {
+                writeln("failed: ", e);
+                success = false;
             }
-            else {
-                result.diagnostics ~= Diagnostic(DiagnosticKind.ParseError, Severity.Error, rgb.positionalArgs[0].loc, "Invalid hex colour value: Expected \"#rrggbb\" but got `" ~ hexval ~ "`.");
-            }
+        }
+        if (success) {
+            result.ok = true;
+            result.value = SlidexType(colour);
         }
         else {
-            writeln("VAL: ", rgb.positionalArgs);
-            result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, rgb.name.loc, "Invalid number of arguments `" ~ rgb
-                    .positionalArgs.length.to!string ~ "` Expected rgb(r,g,b) or rgb(\"0x12ab7f\")");
+            result.diagnostics ~= Diagnostic(DiagnosticKind.ParseError, Severity.Error, rgb.positionalArgs[0].loc, "Invalid hex colour value: Expected \"#rrggbb\" but got `" ~ hexval ~ "`.");
         }
-        return result;
     }
+    else {
+        writeln("VAL: ", rgb.positionalArgs);
+        result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, rgb.name.loc, "Invalid number of arguments `" ~ rgb
+                .positionalArgs.length.to!string ~ "` Expected rgb(r,g,b) or rgb(\"0x12ab7f\")");
+    }
+    return result;
+}
 
-    EvalResult evalRect(FuncCall func) {
-        EvalResult result;
-        if (NamedArg* arg = "fill" in func.namedArgs) {
+EvalResult evalQuantity(Quantity v) {
+    if (v.unit.value == null)
+        return EvalResult(ok: true, value: SlidexType(cast(int) v.value.value));
+    else if (v.unit == "s")
+        return EvalResult(ok: true, value: SlidexType(Seconds(cast(int) v.value.value)));
+    else if (v.unit == "%")
+        return EvalResult(ok: true, value: SlidexType(Percent(cast(ubyte) v.value.value)));
+    else if (v.unit == "cm")
+        return EvalResult(ok: true, value: SlidexType(Centimeter(cast(int) v.value.value)));
+
+    EvalResult result = EvalResult(ok: false);
+    result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidUnit, Severity.Error, v.unit.loc, "Invalid unit `" ~ v.unit.value ~ "`.");
+    return result;
+}
+
+EvalResult evalRect(FuncCall func) {
+    EvalResult result;
+    if (NamedArg* arg = "fill" in func.namedArgs) {
+        EvalResult res = evalValue(arg.value);
+        result.absorb(res);
+        Rect rect;
+        if (res.ok && res.value.has!RgbColour) {
+            rect.fill = res.value.get!RgbColour;
+        }
+        else {
+            result.diagnostics ~= createInvalidTypeDiag(arg.value, "rect");
+        }
+        result.ok = true;
+        result.value = SlidexType(rect);
+    }
+    return result;
+}
+
+EvalResult evalText(FuncCall func) {
+    EvalResult result;
+    Text text;
+    if (func.positionalArgs.length == 1) {
+        LocatedVal!DslType val = func.positionalArgs[0];
+        EvalResult res = evalValue(val);
+        result.absorb(res);
+        if (res.ok && res.value.has!RichText) {
+            text.content = cast(string) res.value.get!RichText;
+            result.ok = true;
+        }
+        else {
+            result.diagnostics ~= createInvalidTypeDiag(val, "richtext");
+        }
+    }
+    if (func.namedArgs.length > 0) {
+        // TODO: must consume all args or fail.
+        // TODO: generalize arg reading
+        if (NamedArg* arg = "colour" in func.namedArgs) {
             EvalResult res = evalValue(arg.value);
             result.absorb(res);
-            Rect rect;
             if (res.ok && res.value.has!RgbColour) {
-                rect.fill = res.value.get!RgbColour;
+                text.colour = res.value.get!RgbColour;
             }
             else {
-                result.diagnostics ~= createInvalidTypeDiag(arg.value, "rect");
-            }
-            result.ok = true;
-            result.value = SlidexType(rect);
-        }
-        return result;
-    }
-
-    EvalResult evalText(FuncCall func) {
-        EvalResult result;
-        Text text;
-        if (func.positionalArgs.length == 1) {
-            LocatedVal!DslType val = func.positionalArgs[0];
-            EvalResult res = evalValue(val);
-            result.absorb(res);
-            if (res.ok && res.value.has!RichText) {
-                text.content = cast(string) res.value.get!RichText;
-                result.ok = true;
-            }
-            else {
-                result.diagnostics ~= createInvalidTypeDiag(val, "richtext");
+                result.diagnostics ~= createInvalidTypeDiag(arg.value, "colour");
             }
         }
-        if (func.namedArgs.length > 0) {
-            // TODO: must consume all args or fail.
-            if (NamedArg* arg = "colour" in func.namedArgs) {
-                EvalResult res = evalValue(arg.value);
-                result.absorb(res);
-                if (res.ok && res.value.has!RgbColour) {
-                    text.colour = res.value.get!RgbColour;
-                }
-                else {
-                    result.diagnostics ~= createInvalidTypeDiag(arg.value, "colour");
-                }
-            }
-        }
-        result.value = SlidexType(text);
-        return result;
-    }
-
-    EvalResult evalImage(FuncCall func) {
-        EvalResult result;
-        // TODO: these functions need error reporting
-        Image image;
-        if (func.positionalArgs.length == 1) {
-            LocatedVal!DslType val = func.positionalArgs[0];
-            EvalResult res = evalValue(val);
-            result.absorb(res);
-            if (res.ok && res.value.has!string) {
-                image.path = res.value.get!string;
-            }
-            else {
-                result.diagnostics ~= createInvalidTypeDiag(val, "image");
-            }
-            result.ok = true;
-            result.value = SlidexType(image);
-        }
-        else if (NamedArg* arg = "path" in func.namedArgs) {
+        if (NamedArg* arg = "size" in func.namedArgs) {
             EvalResult res = evalValue(arg.value);
             result.absorb(res);
-            if (res.ok && res.value.has!string) {
-                image.path = res.value.get!string;
+            if (res.ok && res.value.has!int) {
+                text.size = res.value.get!int;
             }
             else {
-                result.diagnostics ~= createInvalidTypeDiag(arg.value, "image");
+                result.diagnostics ~= createInvalidTypeDiag(arg.value, "int");
             }
-            result.ok = true;
-            result.value = SlidexType(image);
         }
-        return result;
     }
+    result.value = SlidexType(text);
+    return result;
+}
+
+EvalResult evalImage(FuncCall func) {
+    EvalResult result;
+    // TODO: these functions need error reporting
+    Image image;
+    if (func.positionalArgs.length == 1) {
+        LocatedVal!DslType val = func.positionalArgs[0];
+        EvalResult res = evalValue(val);
+        result.absorb(res);
+        if (res.ok && res.value.has!string) {
+            image.path = res.value.get!string;
+        }
+        else {
+            result.diagnostics ~= createInvalidTypeDiag(val, "image");
+        }
+        result.ok = true;
+        result.value = SlidexType(image);
+    }
+    else if (NamedArg* arg = "path" in func.namedArgs) {
+        EvalResult res = evalValue(arg.value);
+        result.absorb(res);
+        if (res.ok && res.value.has!string) {
+            image.path = res.value.get!string;
+        }
+        else {
+            result.diagnostics ~= createInvalidTypeDiag(arg.value, "image");
+        }
+        result.ok = true;
+        result.value = SlidexType(image);
+    }
+    return result;
 }

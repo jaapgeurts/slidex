@@ -16,8 +16,12 @@ import gdk.Keymap;
 import gdk.Keysyms;
 import gdk.Event;
 
+import pango.PgCairo;
+import pango.PgLayout;
+
 import slides;
 import types;
+import pango.PgFontDescription;
 
 class GtkDrawingVisitor : ItemVisitor {
     Context context;
@@ -25,6 +29,7 @@ class GtkDrawingVisitor : ItemVisitor {
     cairo_text_extents_t extents;
 
     bool showDebugOverlay;
+    bool showLastSlideReached;
 
     int colwidth;
     int rowheight;
@@ -42,8 +47,8 @@ class GtkDrawingVisitor : ItemVisitor {
 
         with (context) {
             // set defaults
-            selectFontFace("Vollkorn", CairoFontSlant.NORMAL, CairoFontWeight.NORMAL);
-            setFontSize(35);
+            // selectFontFace("Vollkorn", CairoFontSlant.NORMAL, CairoFontWeight.NORMAL);
+            // setFontSize(35);
 
             master.background.match!(
                 (RgbColour c) {
@@ -153,12 +158,18 @@ class GtkDrawingVisitor : ItemVisitor {
             w = x + cl.colspan * colwidth;
             h = y + cl.rowspan * rowheight;
         });
+
+        auto layout = PgCairo.createLayout(context);
+        layout.setText(text.content);
+        layout.setFontDescription(new PgFontDescription("Latin Modern Sans", text.size));
+
         with (context) {
             // TODO: auto convert rgb colour to float triplet
             setSourceRgb(text.colour.r / 255.0, text.colour.g / 255.0, text.colour.b / 255.0);
             textExtents(text.content, &extents);
             moveTo(x, y);
-            showText(text.content);
+            // showText(text.content);
+            PgCairo.showLayout(context, layout);
         }
 
     }
@@ -169,6 +180,8 @@ void presentDeck(string[] args, Deck deck) {
     // writeln("Master: ", deck.slides[0].master.toString);
     // writeln("DECK: ", deck.slides[0].master.items[0].visible);
     size_t currentSlide = 0;
+    bool isFullScreen = false;
+    bool isBlanking = false;
     // open the gtk window
 
     Main.init(args);
@@ -178,8 +191,14 @@ void presentDeck(string[] args, Deck deck) {
 
     bool onDraw(Scoped!Context context, Widget w) {
 
+        if (isBlanking) {
+            context.setSourceRgb(0, 0, 0);
+            context.paint();
+            return true;
+        }
         GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, w);
-        drawing.showDebugOverlay = true;
+        drawing.showDebugOverlay = args.length > 2 && args[2] == "debug";
+
         if (deck.slides.length == 0) {
             writeln("No slides to show");
         }
@@ -220,6 +239,32 @@ void presentDeck(string[] args, Deck deck) {
                 currentSlide--;
             else
                 writeln("Reached first slide");
+        }
+        else if (eventKey.keyval == GdkKeysyms.GDK_Escape) {
+            if (isFullScreen) {
+                projectorWin.unfullscreen();
+                isFullScreen = false;
+            }
+            else {
+                Main.quit();
+            }
+        }
+        else if (eventKey.keyval == GdkKeysyms.GDK_b) {
+            if (isFullScreen) {
+                isBlanking = !isBlanking;
+                projectorWin.queueDraw();
+            }
+        }
+        else if (eventKey.keyval == GdkKeysyms.GDK_F11) {
+            if (!isFullScreen) {
+                isBlanking = false;
+                projectorWin.fullscreen();
+                isFullScreen = true;
+            }
+            else {
+                projectorWin.unfullscreen();
+                isFullScreen = false;
+            }
         }
         if (oldCurrentSlide != currentSlide)
             projectorWin.queueDraw();

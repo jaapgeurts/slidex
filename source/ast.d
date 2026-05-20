@@ -239,6 +239,7 @@ struct Rect {
 struct Text {
     string content;
     RgbColour colour;
+    int size = 32; // default size
 }
 
 struct Image {
