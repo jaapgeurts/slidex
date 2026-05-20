@@ -45,8 +45,12 @@ class GtkDrawingVisitor : ItemVisitor {
             selectFontFace("Vollkorn", CairoFontSlant.NORMAL, CairoFontWeight.NORMAL);
             setFontSize(35);
 
-            // clear surface
-            setSourceRgb(1, 1, 1);
+            master.background.match!(
+                (RgbColour c) {
+                setSourceRgb(c.r / 255.0, c.g / 255.0, c.b / 255.0);
+            },
+                (Image i) { assert(false, "Background images not implemented"); }
+            );
             paint();
 
             if (showDebugOverlay) {
@@ -100,7 +104,7 @@ class GtkDrawingVisitor : ItemVisitor {
         with (context) {
             writeln("FILL: ", rect.fill);
             // assert(false, "color parsing needs fix");
-            setSourceRgb(rect.fill.r/255.0,rect.fill.g/255.0,rect.fill.b/255.0);
+            setSourceRgb(rect.fill.r / 255.0, rect.fill.g / 255.0, rect.fill.b / 255.0);
             setLineWidth(5);
             rectangle(x, y, w, h);
             fill();
@@ -116,7 +120,7 @@ class GtkDrawingVisitor : ItemVisitor {
         int x, y, w, h;
         image.layoutLocation.match!(
             (BoundsLocation bl) { x = bl.x; y = bl.y; w = bl.width; h = bl.height; },
-                (CellLocation cl) {
+            (CellLocation cl) {
             assert(false, "CellLocation is not implemented for Image");
         }
         );
@@ -150,7 +154,8 @@ class GtkDrawingVisitor : ItemVisitor {
             h = y + cl.rowspan * rowheight;
         });
         with (context) {
-            setSourceRgb(0.0, 0.0, 1.0);
+            // TODO: auto convert rgb colour to float triplet
+            setSourceRgb(text.colour.r / 255.0, text.colour.g / 255.0, text.colour.b / 255.0);
             textExtents(text.content, &extents);
             moveTo(x, y);
             showText(text.content);

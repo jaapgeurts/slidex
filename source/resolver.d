@@ -125,6 +125,10 @@ private:
         // copy master values
         toMaster.columns = fromMaster.columns;
         toMaster.rows = fromMaster.rows;
+        fromMaster.background.match!(
+            (RgbColour c) { toMaster.background = c; },
+            (ast.Image i) { toMaster.background = new slides.Image("backgroundimage",i.path); }
+        );
 
         result.value = toMaster;
         return result;
@@ -133,7 +137,7 @@ private:
     Result!(slides.Item) buildItem(ast.Item fromItem) {
         slides.Item toItem = fromItem.shape.match!(
             (ast.Rect r) => cast(slides.Item) new slides.Rect(fromItem.name, r.fill),
-            (ast.Text t) => new slides.Text(fromItem.name, t.content),
+            (ast.Text t) => new slides.Text(fromItem.name, t.content, t.colour),
             (ast.Image i) => new slides.Image(fromItem.name, i.path),
         );
 

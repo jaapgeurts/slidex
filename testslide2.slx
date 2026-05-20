@@ -13,17 +13,17 @@ master MasterSlide1 begin
     # background can be a color, image
     # default background color is white
     #background = yellow;
-    background = rgb("#6a336a");
-    background = rgb(100,30,127);
+    #background = rgb("#6a336a");
+    background = rgb(230,230,230);
     #background = rgb(40%,15%,50%);
     #background= image("abc.jpg";
 
     rect(fill=rgb("#663366")) at cell(col=1,row=1, colspan=2,rowspan=12);
 
-    title: text({Put your title text here}) at cell(col=4,row=2,colspan=8,rowspan=2);
+    title: text({Put your title text here}, colour=blue) at cell(col=4,row=2,colspan=8,rowspan=2);
 
-    left: text({Put left text here}) at cell(col = 3, row = 4, colspan=4,rowspan=7);
-    right: text({Put right text here}) at cell(col = 8, row = 4, colspan=4,rowspan=7);
+    left: text({Put left text here}, colour=magenta) at cell(col = 3, row = 4, colspan=4,rowspan=7);
+    right: text({Put right text here}) at cell(col = 8, row = 5, colspan=4,rowspan=7);
 
 end master MasterSlide1
 
@@ -47,10 +47,10 @@ slide MasterSlide1 <- Slide1 begin
         - Markup item 2
         - Markup item 3
     };
-    right.content = {
-        *bold text* /italic/ _underlined_
-        https://www.google.com
-    };
+#    right.content = {
+#        *bold text* /italic/ _underlined_
+#        https://www.google.com
+#   };
 
     image(path="centipede.png") at bounds(x=80,y=130, width=120);
 

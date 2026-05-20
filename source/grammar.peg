@@ -56,7 +56,7 @@ SlidexDoc:
     Unit                <- ('s' / '%' / 'cm' / 'fr') WsComment
     String              <- :doublequote ~(!doublequote .)* :doublequote WsComment
     RichText            <~ :LBRACE (!RBRACE .)* :RBRACE
-    NamedColour         <- ('red' / 'green' / 'blue' / 'yellow' / 'cyan' / 'magenta') WsComment
+    NamedColour         <- ('red' / 'green' / 'blue' / 'yellow' / 'cyan' / 'magenta' / 'white' / 'black') WsComment
     Boolean             <- ('true' / 'false' / 'yes' / 'no' / 'on' / 'off' ) WsComment
 
     Identifier          <- identifier WsComment

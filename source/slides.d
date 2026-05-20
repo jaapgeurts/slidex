@@ -3,6 +3,7 @@ module slides;
 import std.sumtype;
 import std.traits;
 import std.typecons;
+import std.sumtype;
 import std.variant;
 
 import types;
@@ -81,6 +82,8 @@ class Master {
     uint columns;
     uint rows;
 
+    SumType!(RgbColour, Image) background = RgbColour(0xff,0xff,0xff);
+
     Item[] items;
     Item[string] itemsMap;
 
@@ -100,9 +103,6 @@ class Master {
 
 class Slide {
     string name;
-
-    @DslField
-    SumType!(RgbColour, Image) background;
 
     Master master;
 
@@ -212,9 +212,14 @@ class Text : Item {
     @DslField
     string content;
 
-    this(string name, string content) {
+    @DslField
+    RgbColour colour;
+
+    this(string name, string content, RgbColour colour) {
         super(name);
         this.content = content;
+        this.colour = colour;
+
     }
 
     mixin DslProperties;

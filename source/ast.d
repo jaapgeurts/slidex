@@ -131,6 +131,8 @@ enum NamedColour {
     Cyan,
     Magenta,
     Yellow,
+    White,
+    Black,
 }
 
 struct Quantity {
@@ -236,6 +238,7 @@ struct Rect {
 
 struct Text {
     string content;
+    RgbColour colour;
 }
 
 struct Image {

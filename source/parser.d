@@ -68,6 +68,10 @@ RgbColour namedColourToRgb(NamedColour colour) {
         return RgbColour(0xff, 0x00, 0xff);
     case NamedColour.Yellow:
         return RgbColour(0xff, 0xff, 0x00);
+    case NamedColour.White:
+        return RgbColour(0xff, 0xff, 0xff);
+    case NamedColour.Black:
+        return RgbColour(0x00, 0x00, 0x00);
     }
 }
 
@@ -337,7 +341,7 @@ private:
             VoidResult r1 = VoidResult(ok: true);
             // writeln("handleValueAssignment(): ", va.ident);
             switch (va.ident) {
-                // TODO: invent better way to avoid code duplication
+                // TODO: detect duplicate assignments
             case "columns":
                 EvalResult res = evalValue(va.value);
                 r1.absorb(res);
@@ -380,6 +384,11 @@ private:
             VoidResult r1;
             // create items
             //  writeln("handlePropertyDeclaration(): ", pd);
+            if (pd.ident in master.itemsMap) {
+                r1.diagnostics ~= Diagnostic(DiagnosticKind.DuplicateDeclaration, Severity.Error, pd.ident.loc, "Name `" ~ pd
+                        .ident ~ "` already used.");
+                return r1;
+            }
             Result!Item res = parseItemDeclaration(pd);
             r1.absorb(res);
             if (res.ok) {
@@ -1030,20 +1039,33 @@ Pass in as root : "SlidexDoc.Identifier"
 
     EvalResult evalText(FuncCall func) {
         EvalResult result;
+        Text text;
         if (func.positionalArgs.length == 1) {
             LocatedVal!DslType val = func.positionalArgs[0];
             EvalResult res = evalValue(val);
             result.absorb(res);
-            Text text;
             if (res.ok && res.value.has!RichText) {
                 text.content = cast(string) res.value.get!RichText;
+                result.ok = true;
             }
             else {
-                result.diagnostics ~= createInvalidTypeDiag(val, "text");
+                result.diagnostics ~= createInvalidTypeDiag(val, "richtext");
             }
-            result.ok = true;
-            result.value = SlidexType(text);
         }
+        if (func.namedArgs.length > 0) {
+            // TODO: must consume all args or fail.
+            if (NamedArg* arg = "colour" in func.namedArgs) {
+                EvalResult res = evalValue(arg.value);
+                result.absorb(res);
+                if (res.ok && res.value.has!RgbColour) {
+                    text.colour = res.value.get!RgbColour;
+                }
+                else {
+                    result.diagnostics ~= createInvalidTypeDiag(arg.value, "colour");
+                }
+            }
+        }
+        result.value = SlidexType(text);
         return result;
     }
 
