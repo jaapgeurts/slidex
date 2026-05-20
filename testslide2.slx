@@ -18,7 +18,7 @@ master MasterSlide1 begin
     #background = rgb(40%,15%,50%);
     #background= image("abc.jpg";
 
-    rect(fill=magenta) at cell(col=1,row=1, colspan=2,rowspan=12);
+    rect(fill=rgb("#663366")) at cell(col=1,row=1, colspan=2,rowspan=12);
 
     title: text({Put your title text here}) at cell(col=4,row=2,colspan=8,rowspan=2);
 

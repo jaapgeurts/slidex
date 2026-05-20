@@ -55,6 +55,7 @@ private:
 
         // build slide items
         foreach (fromItem; fromSlide.items) {
+
             Result!(slides.Item) res = buildItem(fromItem);
             result.absorb(res);
             toSlide.items ~= res.value;
@@ -135,7 +136,10 @@ private:
             (ast.Text t) => new slides.Text(fromItem.name, t.content),
             (ast.Image i) => new slides.Image(fromItem.name, i.path),
         );
+
         toItem.layoutLocation = fromItem.layoutLocation;
+
+
         return Result!(slides.Item)(ok : true, value:
             toItem);
     }

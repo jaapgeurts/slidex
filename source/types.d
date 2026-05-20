@@ -46,9 +46,6 @@ struct RgbColour {
             throw new ArrayIndexError(i, 3, "Valid indexes are 0,1,2 equivalent to r,g,b");
     }
 
-    ubyte[] expand() {
-        return [r, g, b];
-    }
 }
 
 struct CellLocation {

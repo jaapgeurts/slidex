@@ -165,7 +165,7 @@ private:
     // TODO: everywhere return Results so we can propagate errors
     Result!Deck buildSlideDeck(ParseTree root) {
 
-        Result!Deck result = Result!Deck(ok : true);
+        Result!Deck result = Result!Deck(ok: true);
         Deck deck = new Deck();
 
         // find the slide deck.
@@ -210,7 +210,7 @@ private:
     }
 
     VoidResult parseDeck(ParseTree root, Deck deck) {
-        VoidResult result = VoidResult(ok : true);
+        VoidResult result = VoidResult(ok: true);
         foreach (child; root.children) {
             if (child.name == "SlidexDoc.DeckContent") {
                 VoidResult res = parseDeckContent(child, deck);
@@ -221,7 +221,7 @@ private:
     }
 
     VoidResult parseDeckContent(ParseTree root, Deck deck) {
-        VoidResult result = VoidResult(ok : true);
+        VoidResult result = VoidResult(ok: true);
         foreach (child; root.children) {
             if (child.name == "SlidexDoc.ValueAssignment") {
                 LocatedVal!string ident = getQualifiedIdentifier(child[0]);
@@ -264,8 +264,7 @@ private:
     Result!Master parseMaster(ParseTree root) {
         Master master = new Master();
 
-        Result!Master result = Result!Master(ok : true, value:
-            master);
+        Result!Master result = Result!Master(ok: true, value: master);
 
         assert(root.children.length == 7, "Master must contain 7 parse nodes");
 
@@ -302,7 +301,7 @@ private:
 
     Result!Item parseItemDeclaration(PropertyDeclaration pd) {
 
-        Result!Item result = Result!Item(ok : true);
+        Result!Item result = Result!Item(ok: true);
 
         // TODO: check if this symbol is already defined in the master and refuse if so
 
@@ -335,7 +334,7 @@ private:
 
         VoidResult handleValueAssignment(ValueAssignment va) {
             // assign properties
-            VoidResult r1 = VoidResult(ok : true);
+            VoidResult r1 = VoidResult(ok: true);
             // writeln("handleValueAssignment(): ", va.ident);
             switch (va.ident) {
                 // TODO: invent better way to avoid code duplication
@@ -366,7 +365,7 @@ private:
                 else
                     r1.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, va.value.loc, "Invalid type `" ~
                             va.value.typeName ~ "`. Expected colour or image but found `" ~ va.value.get!FuncCall()
-                            .name ~ "`");
+                                .name ~ "`");
                 break;
             default:
                 r1.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, va.value.loc, "No such property `" ~
@@ -380,7 +379,7 @@ private:
         VoidResult handlePropertyDeclaration(PropertyDeclaration pd) {
             VoidResult r1;
             // create items
-            // writeln("handlePropertyDeclaration(): ", pd);
+            //  writeln("handlePropertyDeclaration(): ", pd);
             Result!Item res = parseItemDeclaration(pd);
             r1.absorb(res);
             if (res.ok) {
@@ -392,11 +391,11 @@ private:
         }
 
         // writeln(root);
-        VoidResult result = VoidResult(ok : true);
+        VoidResult result = VoidResult(ok: true);
 
         foreach (child; root.children) {
 
-            // master slides currently only contain statements.
+            // master slides only supports statements.
             assert(child.name == "SlidexDoc.Statement", "Master slide content is not a statement but: " ~
                     child.name);
             Result!Statement stmt = parseStatement(child);
@@ -421,7 +420,7 @@ Pass as root: "SlidexDoc.Slide"
 */
     Result!Slide parseSlide(ParseTree root) {
 
-        Result!Slide result = Result!Slide(ok : true);
+        Result!Slide result = Result!Slide(ok: true);
         Slide slide = new Slide();
 
         foreach (child; root.children) {
@@ -460,12 +459,13 @@ Pass as root: "SlidexDoc.Slide"
             // LATER: currently slides have no fields so can't assign anything either.
             // so keep it for later when the master is resolved.
             slide.assignments ~= va;
-            return VoidResult(ok : true);
+            return VoidResult(ok: true);
         }
 
         VoidResult handlePropertyDeclaration(PropertyDeclaration pd) {
             VoidResult result;
             Result!Item res = parseItemDeclaration(pd);
+
             result.absorb(res);
             if (res.ok) {
                 result.ok = true;
@@ -475,7 +475,7 @@ Pass as root: "SlidexDoc.Slide"
             return result;
         }
 
-        VoidResult result = VoidResult(ok : true);
+        VoidResult result = VoidResult(ok: true);
 
         foreach (child; root.children) {
             switch (child.name) {
@@ -506,7 +506,7 @@ For root pass in "SlidexDoc.Statement"
 */
     Result!Statement parseStatement(ParseTree root) {
 
-        Result!Statement result = Result!Statement(ok : true);
+        Result!Statement result = Result!Statement(ok: true);
 
         foreach (child; root.children) {
             switch (child.name) {
@@ -534,7 +534,7 @@ For root pass in "SlidexDoc.Statement"
   For root pass "SlidexDoc.PropertyDeclaration"
   */
     Result!PropertyDeclaration parsePropertyDeclaration(ParseTree root) {
-        Result!PropertyDeclaration result = Result!PropertyDeclaration(ok : true);
+        Result!PropertyDeclaration result = Result!PropertyDeclaration(ok: true);
 
         // writeln("parsePropertyDeclaration(): ", root);
 
@@ -685,7 +685,7 @@ Pass in as root : "SlidexDoc.Identifier"
             }
         }
 
-        Result!LayoutLocation result = Result!LayoutLocation(ok : true);
+        Result!LayoutLocation result = Result!LayoutLocation(ok: true);
         if (locKind == LocationKind.Cell) {
             CellLocation cell;
             foreach (argname, val; args) {
@@ -884,63 +884,53 @@ Pass in as root : "SlidexDoc.Identifier"
 
     EvalResult evalValue(LocatedVal!DslType val) {
         if (val.value.has!int) {
-            return EvalResult(ok : true, value:
-                SlidexType(val.value.get!int));
+            return EvalResult(ok: true, value: SlidexType(val.value.get!int));
         }
         else if (val.value.has!float) {
-            return EvalResult(ok : true, value:
-                SlidexType(val.value.get!float));
+            return EvalResult(ok: true, value: SlidexType(val.value.get!float));
         }
         else if (val.value.has!bool) {
-            return EvalResult(ok : true, value:
-                SlidexType(val.value.get!bool));
+            return EvalResult(ok: true, value: SlidexType(val.value.get!bool));
         }
         if (val.value.has!string) {
-            return EvalResult(ok : true, value:
-                SlidexType(val.value.get!string));
+            return EvalResult(ok: true, value: SlidexType(val.value.get!string));
         }
         else if (val.value.has!NamedColour) {
-            return EvalResult(ok : true, value:
-                SlidexType(namedColourToRgb(val.value.get!NamedColour)));
+            return EvalResult(ok: true, value: SlidexType(
+                    namedColourToRgb(val.value.get!NamedColour)));
         }
         else if (val.value.has!Quantity) {
             Quantity v = val.value.get!Quantity;
             if (v.unit.value == null)
-                return EvalResult(ok : true, value:
-                    SlidexType(cast(int) v.value.value));
+                return EvalResult(ok: true, value: SlidexType(cast(int) v.value.value));
             else if (v.unit == "s")
-                return EvalResult(ok : true, value:
-                    SlidexType(Seconds(cast(int) v.value.value)));
+                return EvalResult(ok: true, value: SlidexType(Seconds(cast(int) v.value.value)));
             else if (v.unit == "%")
-                return EvalResult(ok : true, value:
-                    SlidexType(Percent(cast(ubyte) v.value.value)));
+                return EvalResult(ok: true, value: SlidexType(Percent(cast(ubyte) v.value.value)));
             else if (v.unit == "cm")
-                return EvalResult(ok : true, value:
-                    SlidexType(Centimeter(cast(int) v.value.value)));
+                return EvalResult(ok: true, value: SlidexType(Centimeter(cast(int) v.value.value)));
             else
                 assert(false, "Quantity not implemented");
         }
         else if (val.value.has!Date) {
             // TODO: handle date parsing exception 
-            return EvalResult(ok : true, value:
-                SlidexType(val.value.get!Date));
+            return EvalResult(ok: true, value: SlidexType(val.value.get!Date));
         }
         else if (val.value.has!RichText) {
-            return EvalResult(ok : true, value:
-                SlidexType(val.value.get!RichText));
+            return EvalResult(ok: true, value: SlidexType(val.value.get!RichText));
         }
         else if (val.value.has!FuncCall) {
             FuncCall v = val.value.get!FuncCall;
             switch (v.name) {
-            case "rgb" : return evalColour(v);
-            case "rect" : return evalRect(v);
-            case "text" : return EvalResult(ok : true, value:
-                    SlidexType(Text("My text content")));
-                break;
-            case "image" : return EvalResult(ok : true, value:
-                    SlidexType(Image("new path")));
-                break;
-            default :  // TODO: replace with error
+            case "rgb":
+                return evalColour(v);
+            case "rect":
+                return evalRect(v);
+            case "text":
+                return evalText(v);
+            case "image":
+                return evalImage(v);
+            default: // TODO: replace with error
                 assert(false, "unimplemented function: " ~ v.name);
             }
         }
@@ -949,6 +939,7 @@ Pass in as root : "SlidexDoc.Identifier"
     }
 
     EvalResult evalColour(FuncCall rgb) {
+        // TODO: value reading should use eval functions
         EvalResult result;
         if (rgb.namedArgs.length > 0) {
             result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, rgb.name.loc, "rgb() colours do not accept named arugments. Expected rgb(r,g,b) or rgb(\"#12ab7f\")");
@@ -985,7 +976,6 @@ Pass in as root : "SlidexDoc.Identifier"
         }
         else if (rgb.positionalArgs.length == 1 && rgb.positionalArgs[0].value.has!string) {
             // parse string
-
             string hexval = rgb.positionalArgs[0].value.get!string;
             bool success = false;
             RgbColour colour;
@@ -1021,18 +1011,70 @@ Pass in as root : "SlidexDoc.Identifier"
     }
 
     EvalResult evalRect(FuncCall func) {
-        EvalResult result = EvalResult(ok : true);
+        EvalResult result;
         if (NamedArg* arg = "fill" in func.namedArgs) {
             EvalResult res = evalValue(arg.value);
+            result.absorb(res);
             Rect rect;
             if (res.ok && res.value.has!RgbColour) {
                 rect.fill = res.value.get!RgbColour;
             }
             else {
-                result.absorb(res);
-                result.diagnostics ~= createInvalidTypeDiag(arg.value, "colour");
+                result.diagnostics ~= createInvalidTypeDiag(arg.value, "rect");
             }
+            result.ok = true;
             result.value = SlidexType(rect);
+        }
+        return result;
+    }
+
+    EvalResult evalText(FuncCall func) {
+        EvalResult result;
+        if (func.positionalArgs.length == 1) {
+            LocatedVal!DslType val = func.positionalArgs[0];
+            EvalResult res = evalValue(val);
+            result.absorb(res);
+            Text text;
+            if (res.ok && res.value.has!RichText) {
+                text.content = cast(string) res.value.get!RichText;
+            }
+            else {
+                result.diagnostics ~= createInvalidTypeDiag(val, "text");
+            }
+            result.ok = true;
+            result.value = SlidexType(text);
+        }
+        return result;
+    }
+
+    EvalResult evalImage(FuncCall func) {
+        EvalResult result;
+        // TODO: these functions need error reporting
+        Image image;
+        if (func.positionalArgs.length == 1) {
+            LocatedVal!DslType val = func.positionalArgs[0];
+            EvalResult res = evalValue(val);
+            result.absorb(res);
+            if (res.ok && res.value.has!string) {
+                image.path = res.value.get!string;
+            }
+            else {
+                result.diagnostics ~= createInvalidTypeDiag(val, "image");
+            }
+            result.ok = true;
+            result.value = SlidexType(image);
+        }
+        else if (NamedArg* arg = "path" in func.namedArgs) {
+            EvalResult res = evalValue(arg.value);
+            result.absorb(res);
+            if (res.ok && res.value.has!string) {
+                image.path = res.value.get!string;
+            }
+            else {
+                result.diagnostics ~= createInvalidTypeDiag(arg.value, "image");
+            }
+            result.ok = true;
+            result.value = SlidexType(image);
         }
         return result;
     }

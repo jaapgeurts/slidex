@@ -87,6 +87,7 @@ class GtkDrawingVisitor : ItemVisitor {
         int x, y, w, h;
         rect.layoutLocation.match!(
             (BoundsLocation bl) {
+
             assert(false, "Rect bounds location not implemented");
         },
             (CellLocation cl) {
@@ -99,7 +100,7 @@ class GtkDrawingVisitor : ItemVisitor {
         with (context) {
             writeln("FILL: ", rect.fill);
             // assert(false, "color parsing needs fix");
-            setSourceRgb(rect.fill.r,rect.fill.g,rect.fill.b);
+            setSourceRgb(rect.fill.r/255.0,rect.fill.g/255.0,rect.fill.b/255.0);
             setLineWidth(5);
             rectangle(x, y, w, h);
             fill();
