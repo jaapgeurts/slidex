@@ -68,6 +68,10 @@ private:
             // writeln("Assignment: " , assignment);
             string[] parts = assignment.ident.value.split('.');
 
+            // TODO: support slide assignments (currently only assignments to master items are supported).
+            if (toSlide.master is null)
+                continue;
+
             // search items in master
             if (auto item = parts[0] in toSlide.master.itemsMap) {
 
@@ -155,6 +159,7 @@ private:
             (ast.Rect r) => cast(slides.Item) new slides.Rect(fromItem.name, r.fill),
             (ast.Text t) => new slides.Text(fromItem.name, t.content, t.colour, t.size),
             (ast.Image i) => new slides.Image(fromItem.name, i.path),
+            (ast.Movie m) => new slides.Movie(fromItem.name, m.path),
         );
 
         toItem.layoutLocation = fromItem.layoutLocation;

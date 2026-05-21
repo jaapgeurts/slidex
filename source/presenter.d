@@ -12,9 +12,11 @@ import gtk.MainWindow;
 import gtk.Main;
 import gtk.Widget;
 
+import gdk.Event;
 import gdk.Keymap;
 import gdk.Keysyms;
-import gdk.Event;
+
+import gstreamer.Pipeline;
 
 import pango.PgCairo;
 import pango.PgLayout;
@@ -22,6 +24,8 @@ import pango.PgLayout;
 import slides;
 import types;
 import pango.PgFontDescription;
+import pango.c.functions;
+import core.stdc.ctype;
 
 class GtkDrawingVisitor : ItemVisitor {
     Context context;
@@ -29,10 +33,11 @@ class GtkDrawingVisitor : ItemVisitor {
     cairo_text_extents_t extents;
 
     bool showDebugOverlay;
-    bool showLastSlideReached;
 
-    int colwidth;
-    int rowheight;
+    float colwidth;
+    float rowheight;
+
+    float factor;
 
     this(Context context, Widget w) {
         this.context = context;
@@ -42,8 +47,8 @@ class GtkDrawingVisitor : ItemVisitor {
 
     void visit(Master master) {
         writeln("TODO: drawing for master data (e.g. setup grid)");
-        colwidth = size.width / master.columns;
-        rowheight = size.height / master.rows;
+        colwidth = size.width / cast(float) master.columns;
+        rowheight = size.height / cast(float) master.rows;
 
         with (context) {
             // set defaults
@@ -93,7 +98,7 @@ class GtkDrawingVisitor : ItemVisitor {
     void visit(Rect rect) {
         writeln("TODO: drawing rect");
 
-        int x, y, w, h;
+        float x, y, w, h;
         rect.layoutLocation.match!(
             (BoundsLocation bl) {
 
@@ -102,8 +107,8 @@ class GtkDrawingVisitor : ItemVisitor {
             (CellLocation cl) {
             x = cl.col * colwidth + cl.dx;
             y = cl.row * rowheight + cl.dy;
-            w = x + cl.colspan * colwidth;
-            h = y + cl.rowspan * rowheight;
+            w = cl.colspan * colwidth;
+            h = cl.rowspan * rowheight;
         });
 
         with (context) {
@@ -117,12 +122,11 @@ class GtkDrawingVisitor : ItemVisitor {
     }
 
     void visit(Image image) {
-        writeln("TODO: drawing image: ", image.path);
+        writeln("Drawing image: ", image.path);
         ImageSurface surface = ImageSurface.createFromPng(image.path);
-        writeln("PRESENT LAYOUT: ", image.layoutLocation);
 
         // factor out
-        int x, y, w, h;
+        float x, y, w, h;
         image.layoutLocation.match!(
             (BoundsLocation bl) { x = bl.x; y = bl.y; w = bl.width; h = bl.height; },
             (CellLocation cl) {
@@ -135,8 +139,8 @@ class GtkDrawingVisitor : ItemVisitor {
 
         with (context) {
             save();
-            translate(x, y);
-            scale(w / img_w, w / img_w);
+            translate(x * factor, y * factor);
+            scale(w / img_w * factor, w / img_w * factor);
             setSourceSurface(surface, 0, 0);
             paint();
             restore();
@@ -144,10 +148,36 @@ class GtkDrawingVisitor : ItemVisitor {
 
     }
 
+    void visit(Movie movie) {
+        writeln("Drawing movie: ", movie.path);
+
+        // factor out
+        float x, y, w, h;
+        movie.layoutLocation.match!(
+            (BoundsLocation bl) { x = bl.x; y = bl.y; w = bl.width; h = bl.height; },
+            (CellLocation cl) {
+            assert(false, "CellLocation is not implemented for Movie");
+        }
+        );
+
+        float img_w = 100; //surface.getWidth();
+        float img_h = 100; //surface.getHeight();
+
+        with (context) {
+
+            if (showDebugOverlay) {
+                setLineWidth(2);
+                rectangle(x, y, w, h);
+                stroke();
+            }
+        }
+
+    }
+
     void visit(Text text) {
         writeln("TODO: drawing text");
 
-        int x, y, w, h;
+        float x, y, w, h;
         text.layoutLocation.match!(
             (BoundsLocation bl) {
             assert(false, "Text bounds location not implemented");
@@ -155,21 +185,36 @@ class GtkDrawingVisitor : ItemVisitor {
             (CellLocation cl) {
             x = cl.col * colwidth + cl.dx;
             y = cl.row * rowheight + cl.dy;
-            w = x + cl.colspan * colwidth;
-            h = y + cl.rowspan * rowheight;
+            w = cl.colspan * colwidth;
+            h = cl.rowspan * rowheight;
         });
 
-        auto layout = PgCairo.createLayout(context);
+        // PgCairo.contextSetResolution(PgCairo.createContext(context),72);
+
+        PgLayout layout = PgCairo.createLayout(context);
+        layout.setWidth(cast(int)(w * PANGO_SCALE));
         layout.setText(text.content);
-        layout.setFontDescription(new PgFontDescription("Latin Modern Sans", text.size));
+        PgFontDescription fd = new PgFontDescription("Roboto", cast(int)(text.size * factor));
+        fd.setWeight(PangoWeight.BOLD);
+        layout.setFontDescription(fd);
+        PangoRectangle inkRect, logicalRect;
+
+        layout.getPixelExtents(inkRect, logicalRect);
 
         with (context) {
             // TODO: auto convert rgb colour to float triplet
             setSourceRgb(text.colour.r / 255.0, text.colour.g / 255.0, text.colour.b / 255.0);
-            textExtents(text.content, &extents);
-            moveTo(x, y);
+            // textExtents(text.content, &extents);
+            // TODO: implement text box alignment
+            moveTo(x + logicalRect.x, y + logicalRect.y);
             // showText(text.content);
             PgCairo.showLayout(context, layout);
+
+            if (showDebugOverlay) {
+                setLineWidth(2);
+                rectangle(x, y, w, h);
+                stroke();
+            }
         }
 
     }
@@ -179,15 +224,59 @@ void presentDeck(string[] args, Deck deck) {
     // writeln("Slide:  ", deck.slides[0].toString);
     // writeln("Master: ", deck.slides[0].master.toString);
     // writeln("DECK: ", deck.slides[0].master.items[0].visible);
-    size_t currentSlide = 0;
-    bool isFullScreen = false;
-    bool isBlanking = false;
     // open the gtk window
 
     Main.init(args);
-    MainWindow projectorWin = new MainWindow("Projector",);
-    projectorWin.setSizeRequest(960, 600);
-    projectorWin.addOnDestroy((Widget w) { quitApp(); });
+
+    Presenter presenter = new Presenter(deck, args);
+
+    Main.run();
+
+}
+
+class Presenter {
+    size_t currentSlide = 0;
+    bool isFullScreen = false;
+    bool isBlanking = false;
+    bool isDebugOverlay = false;
+    float factor = 1.0;
+    // TODO: move this window to local var??
+    MainWindow projectorWin;
+
+    GtkAllocation size;
+
+    Deck deck;
+
+    Keymap keymap;
+
+    this(Deck deck, string[] args) {
+
+        this.deck = deck;
+        isDebugOverlay = args.length > 2 && args[2] == "debug";
+
+        projectorWin = new MainWindow("Projector",);
+        projectorWin.setSizeRequest(960, 600);
+        projectorWin.addOnDestroy(&onQuit);
+
+        projectorWin.addOnDraw(&onDraw);
+        projectorWin.addOnKeyPress(&onKeyPress);
+        projectorWin.addOnButtonPress(&onMousePress);
+        projectorWin.addOnSizeAllocate(&onSizeAllocate);
+
+        projectorWin.showAll();
+
+        // Display myDisplay = Display.getDefault();
+        // Seat seat = myDisplay.getDefaultSeat();
+        // Device keyboard = seat.getKeyboard();
+        keymap = Keymap.getDefault();
+
+    }
+
+    void onQuit(Widget w) {
+
+        writeln("Quitting");
+        Main.quit();
+    }
 
     bool onDraw(Scoped!Context context, Widget w) {
 
@@ -197,10 +286,15 @@ void presentDeck(string[] args, Deck deck) {
             return true;
         }
         GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, w);
-        drawing.showDebugOverlay = args.length > 2 && args[2] == "debug";
+        drawing.showDebugOverlay = isDebugOverlay;
+
+        drawing.factor = factor;
 
         if (deck.slides.length == 0) {
             writeln("No slides to show");
+        }
+        else if (currentSlide == deck.slides.length) {
+            drawEndOfPresentation(context);
         }
         else {
             Slide slide = deck.slides[currentSlide];
@@ -214,12 +308,6 @@ void presentDeck(string[] args, Deck deck) {
         return true;
     }
 
-    Keymap keymap;
-    // Display myDisplay = Display.getDefault();
-    // Seat seat = myDisplay.getDefaultSeat();
-    // Device keyboard = seat.getKeyboard();
-    keymap = Keymap.getDefault();
-
     bool onKeyPress(GdkEventKey* eventKey, Widget widget) {
         string pressedKey;
         int keys;
@@ -229,7 +317,7 @@ void presentDeck(string[] args, Deck deck) {
 
         size_t oldCurrentSlide = currentSlide;
         if (eventKey.keyval == GdkKeysyms.GDK_space || eventKey.keyval == GdkKeysyms.GDK_Right) {
-            if (currentSlide < deck.slides.length - 1)
+            if (currentSlide < deck.slides.length)
                 currentSlide++;
             else
                 writeln("Reached last slide");
@@ -242,6 +330,7 @@ void presentDeck(string[] args, Deck deck) {
         }
         else if (eventKey.keyval == GdkKeysyms.GDK_Escape) {
             if (isFullScreen) {
+                // TODO: move into function
                 projectorWin.unfullscreen();
                 isFullScreen = false;
             }
@@ -251,12 +340,14 @@ void presentDeck(string[] args, Deck deck) {
         }
         else if (eventKey.keyval == GdkKeysyms.GDK_b) {
             if (isFullScreen) {
+                // TODO: move into function
                 isBlanking = !isBlanking;
                 projectorWin.queueDraw();
             }
         }
         else if (eventKey.keyval == GdkKeysyms.GDK_F11) {
             if (!isFullScreen) {
+                // TODO: move into function
                 isBlanking = false;
                 projectorWin.fullscreen();
                 isFullScreen = true;
@@ -276,7 +367,7 @@ void presentDeck(string[] args, Deck deck) {
     bool onMousePress(Event event, Widget widget) {
         bool returnValue = false;
 
-        if (event.type == EventType.BUTTON_PRESS) {
+        if (event.type == gdk.Event.EventType.BUTTON_PRESS) {
             GdkEventButton* mouseEvent = event.button;
             writeln("Mouse click: ", mouseEvent.button);
             returnValue = true;
@@ -286,16 +377,24 @@ void presentDeck(string[] args, Deck deck) {
 
     }
 
-    projectorWin.addOnDraw(&onDraw);
-    projectorWin.addOnKeyPress(&onKeyPress);
-    projectorWin.addOnButtonPress(&onMousePress);
+    void onSizeAllocate(Allocation newSize, Widget) {
 
-    projectorWin.showAll();
-    Main.run();
+        size = *newSize;
+        factor = newSize.width / 920.0;
+    }
 
-}
+    void drawEndOfPresentation(Context context) {
+        cairo_text_extents_t extents;
+        // Set background to black
+        with (context) {
+            setSourceRgb(0, 0, 0);
+            paint();
+            string endMessage = "End of presentation";
+            textExtents(endMessage, &extents);
+            moveTo(size.width / 2 - extents.width / 2, size.height - 20);
+            setSourceRgb(1, 1, 1);
+            showText(endMessage);
+        }
+    }
 
-void quitApp() {
-    writeln("Quitting");
-    Main.quit();
 }
