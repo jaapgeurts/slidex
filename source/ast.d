@@ -8,7 +8,7 @@ import std.typecons;
 import std.variant;
 
 public import types;
-
+import parser;
 
 // TODO: move this to parser.d
 alias DslTypes = AliasSeq!(
@@ -20,13 +20,18 @@ alias DslTypes = AliasSeq!(
     NamedColour,
     Quantity,
     Date,
-    FuncCall
+    FuncCall,
+    DslArray,
 );
 
 alias RichText = Typedef!(string, string.init, "richtext");
 alias Seconds = Typedef!(int, int.init, "seconds");
 alias Percent = Typedef!(ubyte, ubyte.init, "percent");
 alias Centimeter = Typedef!(int, int.init, "centimeter");
+alias Pixel = Typedef!(int, int.init, "pixel");
+alias Fraction = Typedef!(ubyte, ubyte.init, "fraction");
+
+alias ColumnRow = SumType!(int, SlidexArray);
 
 alias DslType = TaggedUnion!DslTypes;
 
@@ -50,7 +55,7 @@ struct TaggedUnion(V...) {
     }
 
     template IndexOf(T, Types...) {
-        enum IndexOf = IndexOfImpl!(T, Types, 0);
+        enum IndexOf = IndexOfImpl!(T, Types);
     }
 
     template IndexOfImpl(T, Types...) {
@@ -77,7 +82,6 @@ struct TaggedUnion(V...) {
 
         return mixin("_" ~ i.stringof);
     }
-
 
     Variant toVariant() {
         final switch (kind) {
@@ -145,6 +149,10 @@ struct Quantity {
     }
 }
 
+struct DslArray {
+    LocatedVal!DslType[] items;
+}
+
 LocatedVal!DslType locatedDslType(T)(T val, SourceLocation loc) {
     LocatedVal!DslType item;
     item.value = DslType(val);
@@ -179,8 +187,8 @@ class Deck {
 class Master {
 
     // TODO: use field annotations for allowable
-    int columns;
-    int rows;
+    ColumnRow columns;
+    ColumnRow rows;
 
     SumType!(RgbColour, Image) background;
 

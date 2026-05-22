@@ -11,13 +11,15 @@ struct SourceLocation {
 }
 
 
-enum Unit {
-    Unspecified,
-    Seconds,
-    Percent,
-    Fraction,
-    Centimeter,
-}
+// enum Unit {
+//     Unspecified,
+//     Seconds,
+//     Percent,
+//     Fraction,
+//     Centimeter,
+//     Pixel,
+// }
+    
 
 struct RgbColour {
     ubyte r;

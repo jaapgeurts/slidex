@@ -25,11 +25,15 @@ mixin(grammar(import("grammar.peg")));
 
 alias LocatedResult(T) = Result!(LocatedVal!T);
 
-alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Movie, Seconds, Percent, Centimeter);
+alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Movie, Seconds, Percent, Centimeter, Fraction, Pixel, SlidexArray);
 
 alias SlidexType = TaggedUnion!SlidexTypes;
 
 alias EvalResult = Result!SlidexType;
+
+struct SlidexArray {
+    LocatedVal!(SlidexType)[] items;
+}
 
 /////////////////////////
 // Helper functions
@@ -43,21 +47,6 @@ SourceLocation sourceLocation(Position pos, string filepath) {
 
 SourceLocation sourceLocation(ParseTree root, string filepath) {
     return sourceLocation(position(root), filepath);
-}
-
-Result!Unit stringToUnit(string str, SourceLocation loc) {
-    Result!Unit result;
-    switch (str) {
-        // dfmt off
-        case "s":  result.value = Unit.Seconds; result.ok = true; break;
-        case "fr": result.value = Unit.Fraction; result.ok = true; break;
-        case "cm": result.value = Unit.Centimeter; result.ok = true; break;
-        case "%":  result.value = Unit.Percent; result.ok = true; break;
-        // dfmt on
-    default:
-        result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidUnit, Severity.Error, loc, "Invalid unit name `" ~ str ~ "` conversion not implemented.");
-    }
-    return result;
 }
 
 RgbColour namedColourToRgb(NamedColour colour) {
@@ -353,10 +342,16 @@ private:
             case "columns":
                 EvalResult res = evalValue(va.value);
                 r1.absorb(res);
-                if (res.ok && res.value.has!int)
+                if (res.ok && res.value.has!int) {
                     master.columns = res.value.get!int;
-                else
-                    r1.diagnostics ~= createInvalidTypeDiag(va.value, "int");
+                }
+                else if (res.ok && res.value.has!SlidexArray) {
+                    master.columns = res.value.get!SlidexArray;
+                    // assert(false, "array of column sizes are not supported yet");
+                }
+                else {
+                    r1.diagnostics ~= createInvalidTypeDiag(va.value, "int or quantity[]");
+                }
                 break;
             case "rows":
                 EvalResult res = evalValue(va.value);
@@ -628,6 +623,8 @@ Pass in as root : "SlidexDoc.Identifier"
         switch (root.name) {
         case "SlidexDoc.String":
             return locatedDslType(root.matches[0], loc);
+        case "SlidexDoc.QualifiedIdentifier":
+            return locatedDslType(root.matches[0], loc);
         case "SlidexDoc.Number":
             return locatedDslType(root.matches[0].to!int, loc);
         case "SlidexDoc.Quantity":
@@ -646,10 +643,10 @@ Pass in as root : "SlidexDoc.Identifier"
                 Date.fromISOExtString(root.matches[0]), loc);
         case "SlidexDoc.FuncCall":
             return locatedDslType(getFuncCall(root), loc);
-        case "SlidexDoc.QualifiedIdentifier":
-            return locatedDslType(root.matches[0], loc);
+        case "SlidexDoc.Array":
+            return locatedDslType(getArray(root), loc);
         default:
-            // writeln(root);
+            writeln(root);
             assert(false, "Type conversion for assignment value `" ~ root
                     .name ~ "` not implemented yet");
         }
@@ -892,10 +889,32 @@ Pass in as root : "SlidexDoc.Identifier"
         return qty;
 
     }
+
+    DslArray getArray(ParseTree root) {
+        DslArray items;
+
+        foreach (node; root.children) {
+            if (node.name == "SlidexDoc.ArrayValues") {
+                foreach (child; node) {
+                    switch (child.name) {
+                    case "SlidexDoc.Value":
+                        items.items ~= getValue(child[0]);
+                        break;
+                    default:
+                        // skip
+                        break;
+                    }
+                }
+            }
+        }
+        return items;
+    }
 }
 
+/// TODO: move to separate file
 /// Evalation functions
-
+/** Evaluates a DslType value and returns a SlidexType value
+*/
 EvalResult evalValue(LocatedVal!DslType val) {
     if (val.value.has!int) {
         return EvalResult(ok: true, value: SlidexType(val.value.get!int));
@@ -940,8 +959,20 @@ EvalResult evalValue(LocatedVal!DslType val) {
             assert(false, "unimplemented function: " ~ v.name);
         }
     }
+    else if (val.value.has!DslArray) {
+        EvalResult result = EvalResult(ok: true);
+        DslArray fromArray = val.value.get!DslArray;
+        SlidexArray toArray;
+        foreach (LocatedVal!DslType item; fromArray.items) {
+            EvalResult res = evalValue(item);
+            result.absorb(res);
+            toArray.items ~= LocatedVal!SlidexType(res.value,item.loc);
+        }
+        result.value = SlidexType(toArray);
+        return result;
+    }
 
-    assert(false, "Unreachable");
+    assert(false, "Evaluation of `" ~ val.value.typeName ~ "` not implemented");
 }
 
 EvalResult evalColour(FuncCall rgb) {
@@ -1025,6 +1056,10 @@ EvalResult evalQuantity(Quantity v) {
         return EvalResult(ok: true, value: SlidexType(Percent(cast(ubyte) v.value.value)));
     else if (v.unit == "cm")
         return EvalResult(ok: true, value: SlidexType(Centimeter(cast(int) v.value.value)));
+    else if (v.unit == "px")
+        return EvalResult(ok: true, value: SlidexType(Pixel(cast(int) v.value.value)));
+    else if (v.unit == "fr")
+        return EvalResult(ok: true, value: SlidexType(Fraction(cast(ubyte) v.value.value)));
 
     EvalResult result = EvalResult(ok: false);
     result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidUnit, Severity.Error, v.unit.loc, "Invalid unit `" ~ v

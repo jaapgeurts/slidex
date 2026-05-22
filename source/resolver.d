@@ -1,5 +1,6 @@
 module resolver;
 
+import std.algorithm;
 import std.array;
 import std.stdio;
 import std.sumtype;
@@ -9,6 +10,24 @@ import ast;
 import parser;
 import slides;
 import common;
+
+// Result!Unit stringToUnit(string str, SourceLocation loc) {
+//     final switch (str) {
+//     case "s":
+//         return Result!Unit(ok: true, value: Unit.Seconds);
+//     case "fr":
+//         return Result!Unit(ok: true, value: Unit.Fraction);
+//     case "cm":
+//         return Result!Unit(ok: true, value: Unit.Centimeter);
+//     case "%":
+//         return Result!Unit(ok: true, value: Unit.Percent);
+//     case "px":
+//         return Result!Unit(ok: true, value: Unit.Pixel);
+//     }
+//     return Result!Unit(ok: false, diagnostics: [
+//         Diagnostic(DiagnosticKind.InvalidUnit, Severity.Error, loc, "Invalid unit name `" ~ str ~ "` conversion not implemented.")
+//     ]);
+// }
 
 struct AbstractTree {
     parser.Deck root;
@@ -131,8 +150,44 @@ private:
     Result!(slides.Master) buildMaster(ast.Master fromMaster) {
         Result!(slides.Master) result = Result!(slides.Master)(ok: true);
 
-        slides.Master toMaster = new slides.Master(fromMaster.name, fromMaster.columns, fromMaster
-                .rows);
+        IntOrLength cols = fromMaster.columns.match!(
+            (int i) { return IntOrLength(i); },
+            (SlidexArray arr) {
+            Length[] lengths;
+            foreach (arg; arr.items) {
+                if (arg.value.has!Pixel)
+                    lengths ~= Length(cast(float) arg.value.get!Pixel, DimensionUnit.Pixel);
+                else if (arg.value.has!Fraction)
+                    lengths ~= Length(cast(float) arg.value.get!Fraction, DimensionUnit.Fraction);
+                else {
+                    result.ok = false;
+                    result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidUnit, Severity.Error, arg.loc, "columns values must specify a unit, or unit not implemented yet");
+                }
+            }
+            return IntOrLength(lengths);
+        });
+
+        IntOrLength rows = fromMaster.rows.match!(
+            (int i) { return IntOrLength(i); },
+            (SlidexArray arr) {
+            Length[] lengths;
+            foreach (arg; arr.items) {
+                if (arg.value.has!Pixel)
+                    lengths ~= Length(cast(float) arg.value.get!Pixel, DimensionUnit.Pixel);
+                else if (arg.value.has!Fraction)
+                    lengths ~= Length(cast(float) arg.value.get!Fraction, DimensionUnit.Fraction);
+                else {
+                    result.ok = false;
+                    result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidUnit, Severity.Error, arg.loc, "columns values must specify a unit, or unit not implemented yet");
+                }
+            }
+            return IntOrLength(lengths);
+        });
+
+        // writeln("COLS: ", cols);
+        // writeln("ROWS: ", rows);
+
+        slides.Master toMaster = new slides.Master(fromMaster.name, cols, rows);
         // build master items
         foreach (fromItem; fromMaster.items) {
             Result!(slides.Item) res = buildItem(fromItem);
@@ -140,9 +195,7 @@ private:
             toMaster.items ~= res.value;
             toMaster.itemsMap[res.value.name] = res.value;
         }
-        // copy master values
-        toMaster.columns = fromMaster.columns;
-        toMaster.rows = fromMaster.rows;
+
         fromMaster.background.match!(
             (RgbColour c) { toMaster.background = c; },
             (ast.Image i) {

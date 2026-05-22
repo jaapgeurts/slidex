@@ -77,20 +77,34 @@ class Deck {
 
 }
 
+enum DimensionUnit {
+    Pixel,
+    Fraction,
+    Percent,
+    Centimeter,
+}
+
+struct Length{
+    float value;
+    DimensionUnit unit;
+}
+
+alias IntOrLength = SumType!(int, Length[]);
+
 class Master {
     string name;
 
-    uint columns;
-    uint rows;
+    IntOrLength columns;
+    IntOrLength rows;
 
-    SumType!(RgbColour, Image) background = RgbColour(0xff,0xff,0xff);
+    SumType!(RgbColour, Image) background = RgbColour(0xff, 0xff, 0xff);
 
     Item[] items;
     Item[string] itemsMap;
 
     mixin DumpFieldsToString;
 
-    this(string name, uint columns, uint rows) {
+    this(string name, IntOrLength columns, IntOrLength rows) {
         this.name = name;
         this.columns = columns;
         this.rows = rows;
@@ -118,6 +132,11 @@ class Slide {
 
     void accept(ItemVisitor visitor) {
         visitor.visit(this);
+
+        foreach (item; master.items)
+            item.accept(visitor);
+        foreach (item; items)
+            item.accept(visitor);
     }
 
 }
