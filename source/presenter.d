@@ -1,6 +1,7 @@
 module presenter;
 
 import std.algorithm.iteration;
+import std.conv;
 import std.stdio;
 import std.sumtype;
 import std.typecons;
@@ -63,24 +64,68 @@ class GtkDrawingVisitor : ItemVisitor {
             colsizes[] = size.width / cast(float) numcols;
         },
             (Length[] dims) {
-                colsizes.length = dims.length;
-                
-                foreach(dim; dims) {
-                    if (dim.unit == DimensionUnit.Pixel) 
-                        colsizes[i++] = dim.value;
+            colsizes.length = dims.length;
+            float fractionSum = 0;
+            float fixedSum = 0;
+            size_t i;
+            foreach (dim; dims) {
+                if (dim.unit == DimensionUnit.Pixel) {
+                    colsizes[i] = dim.value;
+                    fixedSum += dim.value;
                 }
-            writeln("COLS: ", dims);
-            assert(false, "column sizes calculation not implemented yet");
+                else if (dim.unit == DimensionUnit.Fraction) {
+                    fractionSum += dim.value;
+                }
+                else {
+                    assert(false, "Fraction `" ~ dim.unit.to!string ~ "` not implemented for column/row sizes");
+                }
+                i++;
+            }
+            i = 0;
+            foreach (dim; dims) {
+                if (dim.unit == DimensionUnit.Fraction) // TODO: remove hard coded size
+                    colsizes[i] = (size.width - fixedSum) * dim.value / cast(float) fractionSum;
+                i++;
+            }
+
+            writeln("Dims:     ", dims);
+            writeln("Colsizes: ", colsizes);
+            // assert(false, "column sizes calculation not implemented yet");
         }
         );
-        master.columns.match!(
+        master.rows.match!(
             (int numrows) {
             rowsizes.length = numrows;
             rowsizes[] = size.height / cast(float) numrows;
         },
-            (Length[] dims) {
-            writeln("ROWS: ", dims);
-            assert(false, "row sizes calculation not implemented yet");
+             (Length[] dims) {
+            rowsizes.length = dims.length;
+            float fractionSum = 0;
+            float fixedSum = 0;
+            size_t i;
+            foreach (dim; dims) {
+                if (dim.unit == DimensionUnit.Pixel) {
+                    rowsizes[i] = dim.value;
+                    fixedSum += dim.value;
+                }
+                else if (dim.unit == DimensionUnit.Fraction) {
+                    fractionSum += dim.value;
+                }
+                else {
+                    assert(false, "Fraction `" ~ dim.unit.to!string ~ "` not implemented for column/row sizes");
+                }
+                i++;
+            }
+            i = 0;
+            foreach (dim; dims) {
+                if (dim.unit == DimensionUnit.Fraction) // TODO: remove hard coded size
+                    rowsizes[i] = (size.height - fixedSum) * dim.value / cast(float) fractionSum;
+                i++;
+            }
+
+            writeln("Dims:     ", dims);
+            writeln("Rowsizes: ", rowsizes);
+            // assert(false, "column sizes calculation not implemented yet");
         }
         );
 

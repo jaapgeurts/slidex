@@ -150,6 +150,7 @@ private:
     Result!(slides.Master) buildMaster(ast.Master fromMaster) {
         Result!(slides.Master) result = Result!(slides.Master)(ok: true);
 
+        // TODO: verify if columns counts and span match
         IntOrLength cols = fromMaster.columns.match!(
             (int i) { return IntOrLength(i); },
             (SlidexArray arr) {

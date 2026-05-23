@@ -9,7 +9,7 @@ SlidexDoc:
     Master              <- MASTER OpeningIdentifier BEGIN MasterContent END MASTER ClosingIdentifier
 
 # Slide
-    Slide               <- SLIDE MasterIdentifier LEFTARROW OpeningIdentifier BEGIN SlideContent* END SLIDE ClosingIdentifier
+    Slide               <- SLIDE OpeningIdentifier FROM MasterIdentifier BEGIN SlideContent* END SLIDE ClosingIdentifier
 
 # DeckContent
     DeckContent         <- ValueAssignment SEMICOLON
@@ -65,6 +65,7 @@ SlidexDoc:
     DECK                <- 'deck'   WsComment
     MASTER              <- 'master' WsComment
     SLIDE               <- 'slide'  WsComment
+    FROM                <- 'from'   WsComment
     BEGIN               <- 'begin'  WsComment
     END                 <- 'end'    WsComment
     EVENTS              <- 'events' WsComment
@@ -80,7 +81,6 @@ SlidexDoc:
     RSQUARE             <- ']'      WsComment
     LBRACE              <- '{'  # Special case, after open brace, text content follows
     RBRACE              <- '}'      WsComment
-    LEFTARROW           <- '<-'     WsComment
     SEMICOLON           <: ';'      WsComment
     COLON               <- ':'      WsComment
     EQUAL               <- '='      WsComment
