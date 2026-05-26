@@ -230,7 +230,7 @@ class Rect : Item {
 class Text : Item {
 
     @DslField
-    string content;
+    RichText content;
 
     @DslField
     RgbColour colour;
@@ -238,7 +238,7 @@ class Text : Item {
     @DslField
     int size = 32; // default font size
 
-    this(string name, string content, RgbColour colour, int size) {
+    this(string name, RichText content, RgbColour colour, int size) {
         super(name);
         this.content = content;
         this.colour = colour;

@@ -1,3 +1,8 @@
+# ──── Slide DSL ───────────────────────────────────
+# Date: May 2026
+# Author: Jaap Geurts
+# Version: 0.3
+
 SlidexDoc:
 
     SlideDeck           <-  WsComment Deck?  (Master / Slide )* eoi
@@ -36,9 +41,9 @@ SlidexDoc:
     FuncCall            <- Identifier ArgList
     ArgList             <- LPAREN Args? RPAREN
     Args                <- Argument (COMMA Argument)* COMMA?
-    Argument            <- NamedParam / PositionalParam
-    NamedParam          <- Identifier EQUAL Value
-    PositionalParam     <- Value
+    Argument            <- NamedArg / PositionalArg
+    NamedArg            <- Identifier EQUAL Value
+    PositionalArg       <- Value
 
 # General
     OpeningIdentifier   <- Identifier
@@ -55,7 +60,7 @@ SlidexDoc:
     Digits              <~ [0-9] [0-9]* WsComment
     Unit                <- ('s' / '%' / 'cm' / 'fr' / 'px') WsComment
     String              <- :doublequote ~(!doublequote .)* :doublequote WsComment
-    RichText            <~ :LBRACE (!RBRACE .)* :RBRACE
+    RichText            <- :LBRACE RichTextNode* :RBRACE
     NamedColour         <- ('red' / 'green' / 'blue' / 'yellow' / 'cyan' / 'magenta' / 'white' / 'black') WsComment
     Boolean             <- ('true' / 'false' / 'yes' / 'no' / 'on' / 'off' ) WsComment
 
@@ -88,3 +93,64 @@ SlidexDoc:
     WsComment           <- (InlineComment / EolComment / :blank)*
     EolComment          <- '#' ~(!eol .)* :eol
     InlineComment       <- '/#' ~(!'#/' .)* '#/'
+
+
+# ──── End Slide DSL ───────────────────────────────────
+
+
+# ──── RichText ───────────────────────────────────────
+
+    RichTextNode        <- ParaBreak / CodeBlock / ListBlock / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / Word / : blank / :eol
+
+# RichText Inline sugar
+
+    Bold            <- '*' InlineContent '*'
+    Italic          <- '/' InlineContent '/'
+    Underline       <- '_' InlineContent '_'
+    Strike          <- '~' InlineContent '~'
+    SmallCaps       <- '#' InlineContent '#'
+
+# RichText Variable 
+
+    Variable        <- '$' identifier
+
+# RichText Function call
+
+    Func            <- '[' WS FuncName WS FuncArgs WS (':' WS InlineContent)? ']'
+    FuncName        <- identifier
+    FuncArgs        <- FuncArg? (',' FuncArg)*
+    FuncArg         <- RTString / RTNumber / identifier
+
+# # RichText Inline content (recursive)
+    InlineContent   <- InlineNode*
+    InlineNode      <- Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / InlineWord / :blank
+
+#  RichText Lists
+
+    ListBlock       <- ListItem+
+    ListItem        <- ' ' (BulletMarker/NumberMarker) InlineContent eol
+    BulletMarker    <- '-' ' '+
+    NumberMarker    <- [0-9]+ '.' ' '+
+
+# RichText Code block
+
+    CodeBlock       <- BACKTICKS identifier? eol
+                       CodeLine*
+                       BACKTICKS eol?
+    CodeLine        <- !(BACKTICKS) (!eol .)* eol
+    BACKTICKS       <- backquote backquote backquote
+
+
+# RichText Primitives
+
+    Word            <~ (!SpecialChar !blank !eol .)+
+    InlineWord      <~ (!InlineSpecial !blank !eol .)+
+
+    SpecialChar     <- '*' / '/' / '_' / '~' / '#' / '[' / '$' / backquote / '}' / blank / eol
+    InlineSpecial   <- SpecialChar / ']'
+
+    RTNumber          <~ [0-9]+
+    RTString          <- :doublequote ~(!doublequote .)* :doublequote
+
+    ParaBreak       <- eol eol+
+    WS              <- :blank*

@@ -3,6 +3,7 @@ module types;
 import core.exception;
 import std.sumtype;
 import std.typecons;
+import std.variant;
 
 struct SourceLocation {
     string filepath;
@@ -72,3 +73,43 @@ struct BoundsLocation {
 }
 
 alias LayoutLocation = SumType!(CellLocation, BoundsLocation);
+
+
+class RichText {
+    TextItem[] items;
+}
+
+class TextItem {
+}
+
+class Word : TextItem {
+    string text;
+}
+
+class Bold : TextItem {
+    TextItem[] items;
+}
+
+class Italic : TextItem {
+    TextItem[] items;
+}
+
+class Underline : TextItem {
+    TextItem[] items;
+}
+
+class Func : TextItem {
+    string name;
+    // TODO: use union type. Not Variant.
+    Variant[] args;
+    TextItem[] items;
+}
+
+class List : TextItem {
+    // TODO:
+}
+
+class Code : TextItem {
+    string[] lines;
+}
+

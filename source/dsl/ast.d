@@ -1,4 +1,4 @@
-module ast;
+module dsl.ast;
 
 import std.conv;
 import std.datetime;
@@ -8,7 +8,8 @@ import std.typecons;
 import std.variant;
 
 public import types;
-import parser;
+import dsl.parser;
+import types;
 
 // TODO: move this to parser.d
 alias DslTypes = AliasSeq!(
@@ -24,7 +25,7 @@ alias DslTypes = AliasSeq!(
     DslArray,
 );
 
-alias RichText = Typedef!(string, string.init, "richtext");
+// alias RichText = Typedef!(string, string.init, "richtext");
 alias Seconds = Typedef!(int, int.init, "seconds");
 alias Percent = Typedef!(ubyte, ubyte.init, "percent");
 alias Centimeter = Typedef!(int, int.init, "centimeter");
@@ -160,6 +161,11 @@ LocatedVal!DslType locatedDslType(T)(T val, SourceLocation loc) {
     return item;
 }
 
+struct ArgList {
+    NamedArg[string] namedArgs;
+    LocatedVal!DslType[] positionalArgs;
+}
+
 struct NamedArg {
     LocatedVal!string name;
     LocatedVal!DslType value;
@@ -167,8 +173,7 @@ struct NamedArg {
 
 struct FuncCall {
     LocatedVal!string name;
-    NamedArg[string] namedArgs;
-    LocatedVal!DslType[] positionalArgs;
+    ArgList arguments;
 }
 
 class Deck {
@@ -245,7 +250,7 @@ struct Rect {
 }
 
 struct Text {
-    string content;
+    RichText content;
     RgbColour colour;
     int size = 32; // default size
 }

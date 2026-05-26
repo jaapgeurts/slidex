@@ -1,7 +1,7 @@
 import std.file;
 import std.stdio;
 
-import parser;
+import dsl.parser;
 import resolver;
 import slides;
 import common;

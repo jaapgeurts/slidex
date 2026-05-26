@@ -93,6 +93,7 @@ class GtkDrawingVisitor : ItemVisitor {
             // assert(false, "column sizes calculation not implemented yet");
         }
         );
+        writeln("ROWS: ", master.rows);
         master.rows.match!(
             (int numrows) {
             rowsizes.length = numrows;
@@ -143,16 +144,17 @@ class GtkDrawingVisitor : ItemVisitor {
             paint();
 
             if (showDebugOverlay) {
+                // writeln("showdebug");
                 // draw grid
                 setSourceRgb(0.8, 0.8, 0.8);
                 setLineWidth(2);
-                float x;
+                float x=0;
                 for (size_t i = 0; i < colsizes.length - 1; i++) {
                     x += colsizes[i];
                     moveTo(x, 0);
                     lineTo(x, size.height - 1);
                 }
-                float y;
+                float y=0;
                 for (size_t i = 0; i < rowsizes.length - 1; i++) {
                     y += rowsizes[i];
                     moveTo(0, y);
@@ -282,7 +284,8 @@ class GtkDrawingVisitor : ItemVisitor {
 
         PgLayout layout = PgCairo.createLayout(context);
         layout.setWidth(cast(int)(w * PANGO_SCALE));
-        layout.setText(text.content);
+        // TODO: get string for content
+        layout.setText("text.content");
         PgFontDescription fd = new PgFontDescription("Roboto", cast(int)(text.size * factor));
         fd.setWeight(PangoWeight.BOLD);
         layout.setFontDescription(fd);

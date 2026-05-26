@@ -6,10 +6,11 @@ import std.stdio;
 import std.sumtype;
 import std.variant;
 
-import ast;
-import parser;
-import slides;
 import common;
+import dsl.ast;
+import dsl.parser;
+import slides;
+import types;
 
 // Result!Unit stringToUnit(string str, SourceLocation loc) {
 //     final switch (str) {
@@ -30,7 +31,7 @@ import common;
 // }
 
 struct AbstractTree {
-    parser.Deck root;
+    dsl.parser.Deck root;
     string sourceFilePath;
 
     Result!(slides.Deck) resolveAst() {
@@ -54,7 +55,7 @@ struct AbstractTree {
 
 private:
 
-    Result!(slides.Slide) buildSlide(ast.Slide fromSlide) {
+    Result!(slides.Slide) buildSlide(dsl.ast.Slide fromSlide) {
 
         Result!(slides.Slide) result = Result!(slides.Slide)(ok: true);
         slides.Slide toSlide = new slides.Slide(fromSlide.name);
@@ -116,7 +117,8 @@ private:
                     }
                 }
                 else if (var.convertsTo!(RichText)) {
-                    var = cast(string) var.get!RichText;
+                    // RichText nodes are passed on as is.
+                    var = var.get!RichText;
                 }
 
                 if (!item.hasProperty(parts[1])) {
@@ -147,10 +149,12 @@ private:
         return result;
     }
 
-    Result!(slides.Master) buildMaster(ast.Master fromMaster) {
+    Result!(slides.Master) buildMaster(dsl.ast.Master fromMaster) {
         Result!(slides.Master) result = Result!(slides.Master)(ok: true);
 
         // TODO: verify if columns counts and span match
+        // TODO: test for illegal combinations for columns/rows
+        // and positioning
         IntOrLength cols = fromMaster.columns.match!(
             (int i) { return IntOrLength(i); },
             (SlidexArray arr) {
@@ -199,7 +203,7 @@ private:
 
         fromMaster.background.match!(
             (RgbColour c) { toMaster.background = c; },
-            (ast.Image i) {
+            (dsl.ast.Image i) {
             toMaster.background = new slides.Image("backgroundimage", i.path);
         }
         );
@@ -208,12 +212,12 @@ private:
         return result;
     }
 
-    Result!(slides.Item) buildItem(ast.Item fromItem) {
+    Result!(slides.Item) buildItem(dsl.ast.Item fromItem) {
         slides.Item toItem = fromItem.shape.match!(
-            (ast.Rect r) => cast(slides.Item) new slides.Rect(fromItem.name, r.fill),
-            (ast.Text t) => new slides.Text(fromItem.name, t.content, t.colour, t.size),
-            (ast.Image i) => new slides.Image(fromItem.name, i.path),
-            (ast.Movie m) => new slides.Movie(fromItem.name, m.path),
+            (dsl.ast.Rect r) => cast(slides.Item) new slides.Rect(fromItem.name, r.fill),
+            (dsl.ast.Text t) => new slides.Text(fromItem.name, t.content, t.colour, t.size),
+            (dsl.ast.Image i) => new slides.Image(fromItem.name, i.path),
+            (dsl.ast.Movie m) => new slides.Movie(fromItem.name, m.path),
         );
 
         toItem.layoutLocation = fromItem.layoutLocation;
