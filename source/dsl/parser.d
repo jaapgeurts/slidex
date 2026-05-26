@@ -28,7 +28,7 @@ mixin(grammar(import("grammar.peg")));
 
 alias LocatedResult(T) = Result!(LocatedVal!T);
 
-alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Movie, Seconds, Percent, Centimeter, Fraction, Pixel, SlidexArray);
+alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Video, Seconds, Percent, Centimeter, Fraction, Pixel, SlidexArray);
 
 alias SlidexType = TaggedUnion!SlidexTypes;
 
@@ -331,8 +331,8 @@ private:
                 item.shape = val.value.get!Text;
             else if (val.value.has!Image)
                 item.shape = val.value.get!Image;
-            else if (val.value.has!Movie)
-                item.shape = val.value.get!Movie;
+            else if (val.value.has!Video)
+                item.shape = val.value.get!Video;
             else
                 result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, pd.value.loc, "Property elements must be presentation elements such as Text, Image, ...");
 
@@ -1156,8 +1156,8 @@ EvalResult evalValue(LocatedVal!DslType val) {
             return evalText(v);
         case "image":
             return evalImage(v);
-        case "movie":
-            return evalMovie(v);
+        case "video":
+            return evalVideo(v);
         default: // TODO: replace with error
             assert(false, "unimplemented function: " ~ v.name);
         }
@@ -1366,34 +1366,34 @@ EvalResult evalImage(FuncCall func) {
     return result;
 }
 
-EvalResult evalMovie(FuncCall func) {
+EvalResult evalVideo(FuncCall func) {
     EvalResult result;
     // TODO: these functions need error reporting
-    Movie movie;
+    Video video;
     if (func.arguments.positionalArgs.length == 1) {
         LocatedVal!DslType val = func.arguments.positionalArgs[0];
         EvalResult res = evalValue(val);
         result.absorb(res);
         if (res.ok && res.value.has!string) {
-            movie.path = res.value.get!string;
+            video.path = res.value.get!string;
         }
         else {
-            result.diagnostics ~= createInvalidTypeDiag(val, "movie");
+            result.diagnostics ~= createInvalidTypeDiag(val, "video");
         }
         result.ok = true;
-        result.value = SlidexType(movie);
+        result.value = SlidexType(video);
     }
     else if (NamedArg* arg = "path" in func.arguments.namedArgs) {
         EvalResult res = evalValue(arg.value);
         result.absorb(res);
         if (res.ok && res.value.has!string) {
-            movie.path = res.value.get!string;
+            video.path = res.value.get!string;
         }
         else {
-            result.diagnostics ~= createInvalidTypeDiag(arg.value, "movie");
+            result.diagnostics ~= createInvalidTypeDiag(arg.value, "video");
         }
         result.ok = true;
-        result.value = SlidexType(movie);
+        result.value = SlidexType(video);
     }
     return result;
 }

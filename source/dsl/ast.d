@@ -238,7 +238,7 @@ class Item {
 
     LayoutLocation layoutLocation;
 
-    SumType!(Rect, Text, Image, Movie) shape;
+    SumType!(Rect, Text, Image, Video) shape;
 
     this(string name) {
         this.name = name;
@@ -259,7 +259,7 @@ struct Image {
     string path;
 }
 
-struct Movie {
+struct Video {
     string path; // TODO: or URL
 }
 

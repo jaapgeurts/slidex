@@ -217,7 +217,7 @@ private:
             (dsl.ast.Rect r) => cast(slides.Item) new slides.Rect(fromItem.name, r.fill),
             (dsl.ast.Text t) => new slides.Text(fromItem.name, t.content, t.colour, t.size),
             (dsl.ast.Image i) => new slides.Image(fromItem.name, i.path),
-            (dsl.ast.Movie m) => new slides.Movie(fromItem.name, m.path),
+            (dsl.ast.Video m) => new slides.Video(fromItem.name, m.path),
         );
 
         toItem.layoutLocation = fromItem.layoutLocation;

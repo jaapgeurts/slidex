@@ -236,7 +236,7 @@ class GtkDrawingVisitor : ItemVisitor {
 
     }
 
-    void visit(Movie movie) {
+    void visit(Video video) {
         // writeln("Drawing movie: ", movie.path);
 
         // // factor out
@@ -312,7 +312,7 @@ class GtkDrawingVisitor : ItemVisitor {
     }
 }
 
-class MoviePreparationVisitor : ItemVisitor {
+class VideoPreparationVisitor : ItemVisitor {
 
     Element playbin;
     Element gtksink;
@@ -342,7 +342,7 @@ class MoviePreparationVisitor : ItemVisitor {
     void visit(Image image) {
     }
 
-    void visit(Movie movie) {
+    void visit(Video video) {
         writeln("Prepare for movie");
         Value val = new Value();
         gtksink.getProperty("widget", val);
@@ -352,10 +352,10 @@ class MoviePreparationVisitor : ItemVisitor {
         playbin.setProperty("uri", "file:///home/jaapg/projects/slidex/tears-of-steel.mp4");
 
         float x, y, w, h;
-        movie.layoutLocation.match!(
+        video.layoutLocation.match!(
             (BoundsLocation bl) { x = bl.x; y = bl.y; w = bl.width; h = bl.height; },
             (CellLocation cl) {
-            assert(false, "CellLocation is not implemented for Movie");
+            assert(false, "CellLocation is not implemented for Video");
         });
 
         videoWidget.setSizeRequest(cast(int) w, cast(int) h);
@@ -535,7 +535,7 @@ class Presenter : DrawingArea {
 
         if (oldCurrentSlide != currentSlide) {
             // TODO: move next line away from here.
-            firePrepareSlideForMovie();
+            firePrepareSlideForVideo();
             queueDraw();
         }
 
@@ -543,17 +543,17 @@ class Presenter : DrawingArea {
 
     }
 
-    private void firePrepareSlideForMovie() {
+    private void firePrepareSlideForVideo() {
 
-        MoviePreparationVisitor prepmovie = new MoviePreparationVisitor(overlay);
+        VideoPreparationVisitor prepvideo = new VideoPreparationVisitor(overlay);
 
         if (deck.slides.length == 0 || currentSlide == deck.slides.length) {
             writeln("No slides to show");
         }
         else {
             Slide slide = deck.slides[currentSlide];
-            slide.master.accept(prepmovie);
-            slide.accept(prepmovie);
+            slide.master.accept(prepvideo);
+            slide.accept(prepvideo);
         }
     }
 

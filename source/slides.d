@@ -62,7 +62,7 @@ interface ItemVisitor {
     void visit(Item item);
     void visit(Rect rect);
     void visit(Image image);
-    void visit(Movie movie);
+    void visit(Video video);
     void visit(Text text);
 }
 
@@ -265,7 +265,7 @@ class Image : Item {
     mixin ItemAcceptVisitor;
 }
 
-class Movie : Item {
+class Video : Item {
     @DslField
     string path;
 
