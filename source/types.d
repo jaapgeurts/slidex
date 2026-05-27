@@ -11,7 +11,6 @@ struct SourceLocation {
     ulong column;
 }
 
-
 // enum Unit {
 //     Unspecified,
 //     Seconds,
@@ -20,7 +19,6 @@ struct SourceLocation {
 //     Centimeter,
 //     Pixel,
 // }
-    
 
 struct RgbColour {
     ubyte r;
@@ -74,28 +72,83 @@ struct BoundsLocation {
 
 alias LayoutLocation = SumType!(CellLocation, BoundsLocation);
 
+interface RichTextVisitor {
+    void visit(RichText richtext);
+    void visit(TextItem textitem);
+    void visit(Word word);
+    void enter(Bold bold);
+    void leave(Bold bold);
+    void enter(Italic italic);
+    void leave(Italic italic);
+    void enter(Underline underline);
+    void leave(Underline underline);
+    void visit(Func func);
+    void visit(List list);
+    void visit(Code code);
+}
 
 class RichText {
     TextItem[] items;
+    void accept(RichTextVisitor visitor) {
+        visitor.visit(this);
+        foreach (item; items) {
+            item.accept(visitor);
+        }
+    }
 }
 
-class TextItem {
+abstract class TextItem {
+    abstract void accept(RichTextVisitor visitor);
 }
 
 class Word : TextItem {
     string text;
+    this(string text) {
+        this.text = text;
+    }
+
+    override void accept(RichTextVisitor visitor) {
+        visitor.visit(this);
+    }
 }
 
 class Bold : TextItem {
     TextItem[] items;
+    this() {
+    }
+
+    override void accept(RichTextVisitor visitor) {
+        visitor.enter(this);
+        foreach (item; items) {
+            item.accept(visitor);
+        }
+
+        visitor.leave(this);
+    }
 }
 
 class Italic : TextItem {
     TextItem[] items;
+    override void accept(RichTextVisitor visitor) {
+        visitor.enter(this);
+        foreach (item; items) {
+            item.accept(visitor);
+        }
+
+        visitor.leave(this);
+    }
 }
 
 class Underline : TextItem {
     TextItem[] items;
+    override void accept(RichTextVisitor visitor) {
+        visitor.enter(this);
+        foreach (item; items) {
+            item.accept(visitor);
+        }
+
+        visitor.leave(this);
+    }
 }
 
 class Func : TextItem {
@@ -112,4 +165,3 @@ class List : TextItem {
 class Code : TextItem {
     string[] lines;
 }
-

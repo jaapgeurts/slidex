@@ -205,7 +205,6 @@ public:
                 break;
             default:
                 assert(false, "Unknown Node: " ~ child.name);
-                break;
             }
         }
         result.value = deck;
@@ -301,7 +300,6 @@ private:
                 break;
             default:
                 assert(false, "Unknown node: " ~ child.name);
-                break;
             }
         }
 
@@ -403,7 +401,7 @@ private:
         VoidResult handlePropertyDeclaration(PropertyDeclaration pd) {
             VoidResult r1;
             // create items
-            //  writeln("handlePropertyDeclaration(): ", pd);
+            // writeln("handlePropertyDeclaration(): ", pd);
             if (pd.ident in master.itemsMap) {
                 r1.diagnostics ~= Diagnostic(DiagnosticKind.DuplicateDeclaration, Severity.Error, pd.ident.loc, "Name `" ~ pd
                         .ident ~ "` already used.");
@@ -424,19 +422,22 @@ private:
 
         foreach (child; root.children) {
 
-            // master slides only supports statements.
-            assert(child.name == "SlidexDoc.Statement", "Master slide content is not a statement but: " ~
-                    child.name);
-            Result!Statement stmt = parseStatement(child);
-            result.absorb(stmt);
-            if (stmt.ok) {
-                // writeln("parseMasterContent():", stmt);
+            switch (child.name) {
+            case "SlidexDoc.Statement":
+                Result!Statement stmt = parseStatement(child);
+                result.absorb(stmt);
+                if (stmt.ok) {
+                    // writeln("parseMasterContent():", stmt);
 
-                VoidResult res = stmt.value.match!(
-                    handleValueAssignment,
-                    handlePropertyDeclaration,
-                );
-                result.absorb(res);
+                    VoidResult res = stmt.value.match!(
+                        handleValueAssignment,
+                        handlePropertyDeclaration,
+                    );
+                    result.absorb(res);
+                }
+                break;
+            default:
+                assert(false, "Unknown node: " ~ child.name);
             }
         }
 
@@ -548,9 +549,7 @@ For root pass in "SlidexDoc.Statement"
             case "SlidexDoc.ValueAssignment":
                 // writeln("-> Value Assignment");
                 Result!ValueAssignment res = parseValueAssignment(child);
-                result.absorb(res).ifSome((v) { result.value = Statement(v); });
-                break;
-            case "SlidexDoc.WsComment:":
+                result.absorb(res).ifSome((v) { result.value = v; });
                 break;
             default:
                 assert(false, "Unknown node: " ~ child.name);
@@ -574,8 +573,7 @@ For root pass in "SlidexDoc.Statement"
                 result.value.ident = parseQualifiedIdentifier(child);
                 break;
             case "SlidexDoc.FuncCall":
-                // writeln("SlidexDoc.FuncCall");
-                Result!(LocatedVal!DslType) res = parseValue(child);
+                Result!(LocatedVal!DslType) res = parseFuncCall(child);
                 result.absorb(res).ifSome((v) { result.value.value = v; });
                 break;
             case "SlidexDoc.Placement":
@@ -609,7 +607,7 @@ For root pass in "SlidexDoc.Statement"
             case "SlidexDoc.Value":
                 Result!(LocatedVal!DslType) res = parseValue(child);
                 result.absorb(res).ifSome((v) {
-                    result.value.value = v;
+                    assignment.value = v;
                     result.ok = true;
                 });
                 break;
@@ -621,6 +619,7 @@ For root pass in "SlidexDoc.Statement"
                 assert(false, "unknown node: " ~ child.name);
             }
         }
+        result.value = assignment;
         return result;
     }
 
@@ -695,9 +694,6 @@ For root pass in "SlidexDoc.Statement"
                 Result!(LocatedVal!string) res = parseUnit(child);
                 result.absorb(res).ifSome((s) { qty.unit = s; });
                 break;
-            case "SlidexDoc.WsComment":
-                //ignore
-                break;
             default:
                 assert(false, "Unknown node: " ~ child.name);
             }
@@ -723,11 +719,12 @@ For root pass in "SlidexDoc.Statement"
 
     Result!(LocatedVal!DslType) parseRichText(ParseTree root) {
         SourceLocation loc = root.sourceLocation(sourceFilePath);
-        writeln("RichText: ", root);
         RichTextASTBuilder builder = RichTextASTBuilder(this.sourceFilePath);
+        // writeln("RichText CST: ", root);
         Result!RichText res = builder.buildRichText(root);
         Result!(LocatedVal!DslType) result;
         result.absorb(res).ifSome((v) {
+             writeln("RichText AST: ", v);
             result.value = locatedDslType(v, loc);
             result.ok = true;
         });
@@ -831,7 +828,6 @@ For root pass in "SlidexDoc.Statement"
             switch (child.name) {
             case "SlidexDoc.Args":
                 return parseArgs(child);
-                break;
             case "SlidexDoc.WsComment":
             case "SlidexDoc.LPAREN":
             case "SlidexDoc.RPAREN":
@@ -904,10 +900,7 @@ For root pass in "SlidexDoc.Statement"
                 break;
             case "SlidexDoc.Value":
                 Result!(LocatedVal!DslType) res = parseValue(child);
-                result.absorb(res).ifSome((v) {
-                    result.value.value = v;
-                    result.ok = true;
-                });
+                result.absorb(res).ifSome((v) { arg.value = v; result.ok = true; });
                 break;
             case "SlidexDoc.EQUAL":
             case "SlidexDoc.WsComment":
@@ -915,15 +908,14 @@ For root pass in "SlidexDoc.Statement"
                 break;
             default:
                 assert(false, "Unknown node: " ~ child.name);
-                break;
             }
         }
+        result.value = arg;
         return result;
     }
 
     Result!(LocatedVal!DslType) parsePositionalArg(ParseTree root) {
         Result!(LocatedVal!DslType) result;
-        NamedArg arg;
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.Value":
@@ -933,7 +925,6 @@ For root pass in "SlidexDoc.Statement"
                 break;
             default:
                 assert(false, "Unknown node: " ~ child.name);
-                break;
             }
         }
         return result;
@@ -962,7 +953,6 @@ For root pass in "SlidexDoc.Statement"
                 break;
             case "SlidexDoc.BOUNDS":
                 locKind = LocationKind.Bounds;
-                /// TODO: can i use eval here?
                 break;
             case "SlidexDoc.ArgList":
                 Result!ArgList res = parseArgList(child);
@@ -985,66 +975,56 @@ For root pass in "SlidexDoc.Statement"
         if (locKind == LocationKind.Cell) {
             CellLocation cell;
             foreach (argname, val; args) {
+                EvalResult res = evalValue(val.value);
+                result.absorb(res);
+                if (!res.ok)
+                    continue;
                 switch (argname) {
                 case "col":
-                    EvalResult res = evalValue(val.value);
-                    result.absorb(res);
-                    if (res.ok && res.value.has!int)
+                    if (res.value.has!int)
                         cell.col = res.value.get!int - 1;
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                     break;
                 case "row":
-                    EvalResult res = evalValue(val.value);
-                    result.absorb(res);
-                    if (res.ok && res.value.has!int)
+                    if (res.value.has!int)
                         cell.row = res.value.get!int - 1;
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                     break;
                 case "colspan":
-                    EvalResult res = evalValue(val.value);
-                    result.absorb(res);
-                    if (res.ok && res.value.has!int)
+                    if (res.value.has!int)
                         cell.colspan = res.value.get!int;
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                     break;
                 case "rowspan":
-                    EvalResult res = evalValue(val.value);
-                    result.absorb(res);
-                    if (res.ok && res.value.has!int)
+                    if (res.value.has!int)
                         cell.rowspan = res.value.get!int;
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                     break;
                 case "dx":
-                    EvalResult res = evalValue(val.value);
-                    result.absorb(res);
-                    if (res.ok && res.value.has!int)
+                    if (res.value.has!int)
                         cell.dx = res.value.get!int;
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                     break;
                 case "dy":
-                    EvalResult res = evalValue(val.value);
-                    result.absorb(res);
-                    if (res.ok && res.value.has!int)
+                    if (res.value.has!int)
                         cell.dy = res.value.get!int;
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                     break;
                 case "angle":
-                    EvalResult res = evalValue(val.value);
-                    result.absorb(res);
-                    if (res.ok && res.value.has!float)
+                    if (res.value.has!float)
                         cell.angle = res.value.get!float;
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "float");
                     break;
                 default:
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, args[argname]
-                            .name.loc, "Unknown argument name `" ~ argname ~ "`");
+                            .name.loc, "1. Unknown argument name `" ~ argname ~ "`");
                     result.ok = false;
                     break;
                 }
@@ -1056,50 +1036,44 @@ For root pass in "SlidexDoc.Statement"
         else if (locKind == LocationKind.Bounds) {
             BoundsLocation bounds;
             foreach (argname, val; args) {
+                EvalResult res = evalValue(val.value);
+                result.absorb(res);
+                if (!res.ok)
+                    continue;
                 switch (argname) {
                 case "x":
-                    EvalResult res = evalValue(val.value);
-                    result.absorb(res);
-                    if (res.ok && res.value.has!int)
+                    if (res.value.has!int)
                         bounds.x = res.value.get!int;
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                     break;
                 case "y":
-                    EvalResult res = evalValue(val.value);
-                    result.absorb(res);
-                    if (res.ok && res.value.has!int)
+                    if (res.value.has!int)
                         bounds.y = res.value.get!int;
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                     break;
                 case "width":
-                    EvalResult res = evalValue(val.value);
-                    result.absorb(res);
-                    if (res.ok && res.value.has!int)
+                    if (res.value.has!int)
                         bounds.width = res.value.get!int;
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                     break;
                 case "height":
-                    EvalResult res = evalValue(val.value);
-                    result.absorb(res);
-                    if (res.ok && res.value.has!int)
+                    if (res.value.has!int)
                         bounds.height = res.value.get!int;
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                     break;
                 case "angle":
-                    EvalResult res = evalValue(val.value);
-                    result.absorb(res);
-                    if (res.ok && res.value.has!float)
+                    if (res.value.has!float)
                         bounds.angle = res.value.get!float;
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "float");
                     break;
                 default:
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, args[argname]
-                            .name.loc, "Unknown argument name `" ~ argname ~ "`");
+                            .name.loc, "2. Unknown argument name `" ~ argname ~ "`");
                     result.ok = false;
                     break;
                 }

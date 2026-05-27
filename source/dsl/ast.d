@@ -90,6 +90,8 @@ struct TaggedUnion(V...) {
         case i:
                 return Variant(mixin("_" ~ i.stringof));
             }
+        case size_t.max:
+            break;
         }
         assert(false, "toVariant(): This TaggedUnion contains an unregistered kind.");
     }
@@ -105,8 +107,10 @@ struct TaggedUnion(V...) {
                 else
                     return mixin("_" ~ i.stringof).to!string;
             }
+        case size_t.max:
+            break;
         }
-        assert(false, "toString(): This TaggedUnion contains an unregistered kind.");
+        assert(false, "toString(): This TaggedUnion contains an unregistered kind. This happens when no value was assigned.");
     }
 
     string typeName() {
@@ -115,8 +119,10 @@ struct TaggedUnion(V...) {
         case i:
                 return T.stringof;
             }
+        case size_t.max:
+            break;
         }
-        assert(false, "typeName(): This TaggedUnion contains an unregistered kind.");
+        assert(false, "typeName(): This TaggedUnion contains an unregistered kind. This happens when no value was assigned.");
     }
 
 }

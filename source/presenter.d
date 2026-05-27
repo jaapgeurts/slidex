@@ -35,8 +35,54 @@ import pango.PgLayout;
 
 import slides;
 import types;
+import std.bitmanip;
 
 bool isVideo;
+
+class RichTextToPangoConvertorVistor : RichTextVisitor {
+    import std.array;
+    Appender!string result;
+
+    void visit(RichText richtext) {
+        result = appender!string;
+    }
+
+    void visit(TextItem textitem) {
+    }
+
+    void visit(Word word) {
+        result ~= word.text ~ " ";
+    }
+
+    void enter(Bold bold) {
+        result ~= "<b>";
+    }
+    void leave(Bold bold) {
+        result ~= "</b>";
+    }
+    void enter(Italic italic) {
+        result ~= "<i>";
+    }
+    void leave(Italic italic) {
+        result ~= "</i>";
+    }
+    void enter(Underline underline) {
+        result ~= "<u>";
+    }
+    void leave(Underline underline) {
+        result ~= "</u>";
+    }
+
+    void visit(Func func) {
+    }
+
+    void visit(List list) {
+    }
+
+    void visit(Code code) {
+    }
+
+}
 
 class GtkDrawingVisitor : ItemVisitor {
     Context context;
@@ -99,7 +145,7 @@ class GtkDrawingVisitor : ItemVisitor {
             rowsizes.length = numrows;
             rowsizes[] = size.height / cast(float) numrows;
         },
-             (Length[] dims) {
+            (Length[] dims) {
             rowsizes.length = dims.length;
             float fractionSum = 0;
             float fixedSum = 0;
@@ -148,13 +194,13 @@ class GtkDrawingVisitor : ItemVisitor {
                 // draw grid
                 setSourceRgb(0.8, 0.8, 0.8);
                 setLineWidth(2);
-                float x=0;
+                float x = 0;
                 for (size_t i = 0; i < colsizes.length - 1; i++) {
                     x += colsizes[i];
                     moveTo(x, 0);
                     lineTo(x, size.height - 1);
                 }
-                float y=0;
+                float y = 0;
                 for (size_t i = 0; i < rowsizes.length - 1; i++) {
                     y += rowsizes[i];
                     moveTo(0, y);
@@ -284,8 +330,14 @@ class GtkDrawingVisitor : ItemVisitor {
 
         PgLayout layout = PgCairo.createLayout(context);
         layout.setWidth(cast(int)(w * PANGO_SCALE));
-        // TODO: get string for content
-        layout.setText("text.content");
+
+        // TODO: move out of this visitor
+        RichTextToPangoConvertorVistor rtv = new RichTextToPangoConvertorVistor();
+        text.content.accept(rtv);
+        string content = rtv.result.data();
+        writeln("CONTENT: ", content);
+
+        layout.setText(content);
         PgFontDescription fd = new PgFontDescription("Roboto", cast(int)(text.size * factor));
         fd.setWeight(PangoWeight.BOLD);
         layout.setFontDescription(fd);
