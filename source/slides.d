@@ -66,6 +66,18 @@ interface ItemVisitor {
     void visit(Text text);
 }
 
+class ItemVisitorAdapter : ItemVisitor {
+    // dfmt off
+    void visit(Slide slide) {}
+    void visit(Master master) {}
+    void visit(Item item) {}
+    void visit(Rect rect) {}
+    void visit(Image image) {}
+    void visit(Video video) {}
+    void visit(Text text) {}
+    // dfmt on
+}
+
 mixin template ItemAcceptVisitor() {
     override void accept(ItemVisitor visitor) {
         visitor.visit(this);
@@ -84,7 +96,7 @@ enum DimensionUnit {
     Centimeter,
 }
 
-struct Length{
+struct Length {
     float value;
     DimensionUnit unit;
 }

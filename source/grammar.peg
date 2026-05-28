@@ -100,7 +100,7 @@ SlidexDoc:
 
 # ──── RichText ───────────────────────────────────────
 
-    RichTextNode        <- ParaBreak / CodeBlock / ListBlock / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / Word / : blank / :eol
+    RichTextNode        <- ParaBreak / CodeBlock / ListBlock / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / Word / :blank / :eol
 
 # RichText Inline sugar
 

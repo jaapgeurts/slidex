@@ -34,7 +34,6 @@ public:
 
 private:
     Result!TextItem parseRichTextNode(ParseTree root) {
-
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.ParaBreak":
@@ -50,13 +49,11 @@ private:
                 assert(false, "Not implemented func");
                 break;
             case "SlidexDoc.Bold":
-                return cast(Result!TextItem) parseBold(child);
+                return parseBold(child);
             case "SlidexDoc.Italic":
-                return cast(Result!TextItem) parseItalic(child);
-                break;
+                return parseItalic(child);
             case "SlidexDoc.Underline":
-                assert(false, "Not implemented underline");
-                break;
+                return parseUnderline(child);
             case "SlidexDoc.Strike":
                 assert(false, "Not implemented strike");
                 break;
@@ -64,10 +61,9 @@ private:
                 assert(false, "Not implemented smallcaps");
                 break;
             case "SlidexDoc.Variable":
-                assert(false, "Not implemented variable");
-                break;
+                return parseVariable(child);
             case "SlidexDoc.Word":
-                return cast(Result!TextItem) parseWord(child);
+                return parseWord(child);
             default:
                 assert(false, "Unknown node: " ~ child.name);
             }
@@ -83,9 +79,9 @@ private:
     // }
     // Result!parseFunc(ParseTree root) {
     // }
-    Result!Bold parseBold(ParseTree root) {
-        Result!Bold result = Result!Bold(ok: true);
-        Bold bold = new Bold();
+    Result!TextItem parseBold(ParseTree root) {
+        Result!TextItem result = Result!TextItem(ok: true);
+        Bold bold;
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.InlineContent":
@@ -100,9 +96,9 @@ private:
         return result;
     }
 
-    Result!Italic parseItalic(ParseTree root) {
-        Result!Italic result = Result!Italic(ok: true);
-        Italic italic = new Italic();
+    Result!TextItem parseItalic(ParseTree root) {
+        Result!TextItem result = Result!TextItem(ok: true);
+        Italic italic;
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.InlineContent":
@@ -116,17 +112,35 @@ private:
         result.value = italic;
         return result;
     }
-    // Result!parseUnderline(ParseTree root) {
-    // }
+
+    Result!TextItem parseUnderline(ParseTree root) {
+        Result!TextItem result = Result!TextItem(ok: true);
+        Underline underline;
+        foreach (child; root.children) {
+            switch (child.name) {
+            case "SlidexDoc.InlineContent":
+                Result!(TextItem[]) res = parseInlineContent(child);
+                result.absorb(res).ifSome((ti) { underline.items ~= ti; });
+                break;
+            default:
+                assert(false, "Unknown node: " ~ child.name);
+            }
+        }
+        result.value = underline;
+        return result;
+    }
     // Result!parseStrike(ParseTree root) {
     // }
     // Result!parseSmallCaps(ParseTree root) {
     // }
-    // Result!parseVariable(ParseTree root) {
-    // }
+    Result!TextItem parseVariable(ParseTree root) {
+        TextItem v = Variable(root.matches[1]);
+        return Result!TextItem(ok: true, value: v);
+    }
 
-    Result!Word parseWord(ParseTree root) {
-        return Result!Word(ok: true, value: new Word(root.matches[0]));
+    Result!TextItem parseWord(ParseTree root) {
+        TextItem w = Word(root.matches[0]);
+        return Result!TextItem(ok: true, value: w);
     }
 
     // Result!parseFuncName(ParseTree root) {
@@ -153,16 +167,16 @@ private:
     }
 
     Result!TextItem parseInlineNode(ParseTree root) {
+
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.Func":
                 assert(false, "func not implemented");
                 break;
             case "SlidexDoc.Bold":
-                return cast(Result!TextItem) parseBold(child);
+                return parseBold(child);
             case "SlidexDoc.Italic":
-                assert(false, "italic not implemented");
-                break;
+                return parseItalic(child);
             case "SlidexDoc.Underline":
                 assert(false, "underline not implemented");
                 break;
@@ -173,10 +187,9 @@ private:
                 assert(false, "smallcaps not implemented");
                 break;
             case "SlidexDoc.Variable":
-                assert(false, "variable not implemented");
-                break;
+                return parseVariable(child);
             case "SlidexDoc.InlineWord":
-                return cast(Result!TextItem) parseInlineWord(child);
+                return parseInlineWord(child);
             default:
                 assert(false, "Unknown node: " ~ child.name);
             }
@@ -192,7 +205,8 @@ private:
     // Result!parseCodeLine(ParseTree root) {
     // }
     Result!TextItem parseInlineWord(ParseTree root) {
-        return Result!TextItem(ok: true, value: new Word(root.matches[0]));
+        TextItem ti = Word(root.matches[0]);
+        return Result!TextItem(ok: true, value: ti);
     }
     // Result!parseRTNumber(ParseTree root) {
     // }

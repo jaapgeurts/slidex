@@ -82,6 +82,7 @@ interface RichTextVisitor {
     void leave(Italic italic);
     void enter(Underline underline);
     void leave(Underline underline);
+    void visit(Variable variable);
     void visit(Func func);
     void visit(List list);
     void visit(Code code);
@@ -89,79 +90,72 @@ interface RichTextVisitor {
 
 class RichText {
     TextItem[] items;
+    private void applyVisitor(RichTextVisitor visitor, TextItem[] items) {
+        foreach (item; items) {
+            item.match!(
+                (Word w) => visitor.visit(w),
+                (Bold b) {
+                visitor.enter(b);
+                applyVisitor(visitor, b.items);
+                visitor.leave(b);
+            },
+                (Italic i) {
+                visitor.enter(i);
+                applyVisitor(visitor, i.items);
+                visitor.leave(i);
+            },
+                (Underline u) {
+                visitor.enter(u);
+                applyVisitor(visitor, u.items);
+                visitor.leave(u);
+            },
+                (Variable v) => visitor.visit(v),
+                (Func f) => visitor.visit(f),
+                (List l) => visitor.visit(l),
+                (Code c) => visitor.visit(c),
+            );
+        }
+    }
+
     void accept(RichTextVisitor visitor) {
         visitor.visit(this);
-        foreach (item; items) {
-            item.accept(visitor);
-        }
+        applyVisitor(visitor, items);
     }
 }
 
-abstract class TextItem {
-    abstract void accept(RichTextVisitor visitor);
-}
+alias TextItem = SumType!(Word, Bold, Italic, Underline, Variable, Func, List, Code);
 
-class Word : TextItem {
+struct Word {
     string text;
-    this(string text) {
-        this.text = text;
-    }
-
-    override void accept(RichTextVisitor visitor) {
-        visitor.visit(this);
-    }
 }
 
-class Bold : TextItem {
+struct Bold {
     TextItem[] items;
-    this() {
-    }
-
-    override void accept(RichTextVisitor visitor) {
-        visitor.enter(this);
-        foreach (item; items) {
-            item.accept(visitor);
-        }
-
-        visitor.leave(this);
-    }
 }
 
-class Italic : TextItem {
+struct Italic {
     TextItem[] items;
-    override void accept(RichTextVisitor visitor) {
-        visitor.enter(this);
-        foreach (item; items) {
-            item.accept(visitor);
-        }
-
-        visitor.leave(this);
-    }
 }
 
-class Underline : TextItem {
+struct Underline {
     TextItem[] items;
-    override void accept(RichTextVisitor visitor) {
-        visitor.enter(this);
-        foreach (item; items) {
-            item.accept(visitor);
-        }
-
-        visitor.leave(this);
-    }
 }
 
-class Func : TextItem {
+struct Variable {
+    string name;
+}
+
+struct Func {
     string name;
     // TODO: use union type. Not Variant.
     Variant[] args;
     TextItem[] items;
 }
 
-class List : TextItem {
+struct List {
     // TODO:
 }
 
-class Code : TextItem {
+struct Code {
     string[] lines;
 }

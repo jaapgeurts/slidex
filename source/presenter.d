@@ -1,6 +1,7 @@
 module presenter;
 
 import std.algorithm.iteration;
+import std.array;
 import std.conv;
 import std.stdio;
 import std.sumtype;
@@ -28,7 +29,8 @@ import gstreamer.GStreamer;
 import gstreamer.Element;
 import gstreamer.ElementFactory;
 
-import pango.c.functions;
+import pango.PgAttribute;
+import pango.PgAttributeList;
 import pango.PgCairo;
 import pango.PgFontDescription;
 import pango.PgLayout;
@@ -40,11 +42,22 @@ import std.bitmanip;
 bool isVideo;
 
 class RichTextToPangoConvertorVistor : RichTextVisitor {
-    import std.array;
     Appender!string result;
+    uint count;
+    PgAttributeList attrList;
+    PgAttribute currentAttr;
+    uint slidenum;
+    uint totalnum;
+
+    string[string] vartable;
+
+    this(string[string] vartable) {
+        this.vartable = vartable;
+    }
 
     void visit(RichText richtext) {
         result = appender!string;
+        attrList = new PgAttributeList();
     }
 
     void visit(TextItem textitem) {
@@ -52,25 +65,47 @@ class RichTextToPangoConvertorVistor : RichTextVisitor {
 
     void visit(Word word) {
         result ~= word.text ~ " ";
+        count += word.text.length + 1;
     }
 
     void enter(Bold bold) {
-        result ~= "<b>";
+        currentAttr = PgAttribute.weightNew(PangoWeight.BOLD);
+        currentAttr.getPgAttributeStruct().startIndex = count;
     }
+
     void leave(Bold bold) {
-        result ~= "</b>";
+        currentAttr.getPgAttributeStruct().endIndex = count;
+        attrList.insert(currentAttr);
+        currentAttr = null;
     }
+
     void enter(Italic italic) {
-        result ~= "<i>";
+        currentAttr = PgAttribute.styleNew(PangoStyle.ITALIC);
+        currentAttr.getPgAttributeStruct().startIndex = count;
     }
+
     void leave(Italic italic) {
-        result ~= "</i>";
+        currentAttr.getPgAttributeStruct().endIndex = count;
+        attrList.insert(currentAttr);
+        // currentAttr.destroy();
+        currentAttr = null;
     }
+
     void enter(Underline underline) {
-        result ~= "<u>";
+        currentAttr = PgAttribute.underlineNew(PangoUnderline.SINGLE);
+        currentAttr.getPgAttributeStruct().startIndex = count;
     }
+
     void leave(Underline underline) {
-        result ~= "</u>";
+        currentAttr.getPgAttributeStruct().endIndex = count;
+        attrList.insert(currentAttr);
+        // currentAttr.destroy();
+        currentAttr = null;
+    }
+
+    void visit(Variable variable) {
+        writeln("Variable: ", variable);
+        result ~= vartable[variable.name] ~ " ";
     }
 
     void visit(Func func) {
@@ -94,10 +129,13 @@ class GtkDrawingVisitor : ItemVisitor {
     float[] colsizes;
     float[] rowsizes;
 
+    string[string] vartable;
+
     float factor;
 
-    this(Context context, Widget w) {
+    this(Context context, Widget w, string[string] vartable) {
         this.context = context;
+        this.vartable = vartable;
         w.getAllocation(size);
     }
 
@@ -332,14 +370,15 @@ class GtkDrawingVisitor : ItemVisitor {
         layout.setWidth(cast(int)(w * PANGO_SCALE));
 
         // TODO: move out of this visitor
-        RichTextToPangoConvertorVistor rtv = new RichTextToPangoConvertorVistor();
+        RichTextToPangoConvertorVistor rtv = new RichTextToPangoConvertorVistor(vartable);
         text.content.accept(rtv);
         string content = rtv.result.data();
         writeln("CONTENT: ", content);
 
         layout.setText(content);
+        layout.setAttributes(rtv.attrList);
         PgFontDescription fd = new PgFontDescription("Roboto", cast(int)(text.size * factor));
-        fd.setWeight(PangoWeight.BOLD);
+        // fd.setWeight(PangoWeight.BOLD);
         layout.setFontDescription(fd);
         PangoRectangle inkRect, logicalRect;
 
@@ -476,6 +515,8 @@ class Presenter : DrawingArea {
     bool isDebugOverlay = false;
     float factor = 1.0;
 
+    string[string] vartable;
+
     Overlay overlay;
     GtkAllocation size;
     Keymap keymap;
@@ -501,6 +542,9 @@ class Presenter : DrawingArea {
         // Device keyboard = seat.getKeyboard();
         keymap = Keymap.getDefault();
 
+        vartable["total"] = deck.slides.length.to!string;
+        vartable["slide"] = currentSlide.to!string;
+
     }
 
     bool onDraw(Scoped!Context context, Widget w) {
@@ -513,7 +557,7 @@ class Presenter : DrawingArea {
             context.paint();
             return true;
         }
-        GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, w);
+        GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, w, vartable);
         drawing.showDebugOverlay = isDebugOverlay;
 
         drawing.factor = factor;
@@ -586,6 +630,7 @@ class Presenter : DrawingArea {
         }
 
         if (oldCurrentSlide != currentSlide) {
+            vartable["slide"] = currentSlide.to!string;
             // TODO: move next line away from here.
             firePrepareSlideForVideo();
             queueDraw();
