@@ -28,6 +28,7 @@ import pango.PgLayout;
 
 import slides;
 import types;
+
 // import std.bitmanip;
 
 bool isVideo;
@@ -145,8 +146,8 @@ class GtkDrawingVisitor : ItemVisitor {
             size_t i;
             foreach (dim; dims) {
                 if (dim.unit == DimensionUnit.Pixel) {
-                    colsizes[i] = dim.value;
-                    fixedSum += dim.value;
+                    colsizes[i] = dim.value * factor;
+                    fixedSum += dim.value * factor;
                 }
                 else if (dim.unit == DimensionUnit.Fraction) {
                     fractionSum += dim.value;
@@ -159,16 +160,16 @@ class GtkDrawingVisitor : ItemVisitor {
             i = 0;
             foreach (dim; dims) {
                 if (dim.unit == DimensionUnit.Fraction) // TODO: remove hard coded size
-                    colsizes[i] = (size.width - fixedSum) * dim.value / cast(float) fractionSum;
+                    colsizes[i] = (size.width - fixedSum) * dim.value / fractionSum;
                 i++;
             }
 
-            writeln("Dims:     ", dims);
-            writeln("Colsizes: ", colsizes);
+            // writeln("Dims:     ", dims);
+            // writeln("Colsizes: ", colsizes);
             // assert(false, "column sizes calculation not implemented yet");
         }
         );
-        writeln("ROWS: ", master.rows);
+        // writeln("ROWS: ", master.rows);
         master.rows.match!(
             (int numrows) {
             rowsizes.length = numrows;
@@ -181,8 +182,8 @@ class GtkDrawingVisitor : ItemVisitor {
             size_t i;
             foreach (dim; dims) {
                 if (dim.unit == DimensionUnit.Pixel) {
-                    rowsizes[i] = dim.value;
-                    fixedSum += dim.value;
+                    rowsizes[i] = dim.value * factor;
+                    fixedSum += dim.value * factor;
                 }
                 else if (dim.unit == DimensionUnit.Fraction) {
                     fractionSum += dim.value;
@@ -195,12 +196,12 @@ class GtkDrawingVisitor : ItemVisitor {
             i = 0;
             foreach (dim; dims) {
                 if (dim.unit == DimensionUnit.Fraction) // TODO: remove hard coded size
-                    rowsizes[i] = (size.height - fixedSum) * dim.value / cast(float) fractionSum;
+                    rowsizes[i] = (size.height - fixedSum) * dim.value / fractionSum;
                 i++;
             }
 
-            writeln("Dims:     ", dims);
-            writeln("Rowsizes: ", rowsizes);
+            // writeln("Dims:     ", dims);
+            // writeln("Rowsizes: ", rowsizes);
             // assert(false, "column sizes calculation not implemented yet");
         }
         );
@@ -385,7 +386,7 @@ class GtkDrawingVisitor : ItemVisitor {
             PgCairo.showLayout(context, layout);
 
             if (showDebugOverlay) {
-                setLineWidth(2);
+                setLineWidth(1);
                 rectangle(x, y, w, h);
                 stroke();
             }

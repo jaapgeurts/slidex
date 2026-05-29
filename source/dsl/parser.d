@@ -24,7 +24,9 @@ import types;
 import richtext.parser;
 import core.internal.abort;
 
-mixin(grammar(import("grammar.peg")));
+import slxgrammar;
+// see gengrammar.d
+// mixin(grammar(import("grammar.peg")));
 
 alias LocatedResult(T) = Result!(LocatedVal!T);
 
@@ -836,7 +838,7 @@ For root pass in "SlidexDoc.Statement"
                 assert(false, "Unknown node: " ~ child.name);
             }
         }
-        assert(false, "unreachable");
+        return Result!ArgList(ok:true); // empty list
     }
 
     /** parses a "SlidexDoc.Args" */
