@@ -6,6 +6,7 @@ import std.conv;
 import std.stdio;
 import std.sumtype;
 import std.typecons;
+import std.variant;
 
 import core.stdc.ctype;
 
@@ -49,9 +50,9 @@ class RichTextToPangoConvertorVistor : RichTextVisitor {
     uint slidenum;
     uint totalnum;
 
-    string[string] vartable;
+    Variant[string] vartable;
 
-    this(string[string] vartable) {
+    this(Variant[string] vartable) {
         this.vartable = vartable;
     }
 
@@ -105,7 +106,7 @@ class RichTextToPangoConvertorVistor : RichTextVisitor {
 
     void visit(Variable variable) {
         writeln("Variable: ", variable);
-        result ~= vartable[variable.name] ~ " ";
+        result ~= vartable[variable.name].to!string ~ " ";
     }
 
     void visit(Func func) {
@@ -129,11 +130,11 @@ class GtkDrawingVisitor : ItemVisitor {
     float[] colsizes;
     float[] rowsizes;
 
-    string[string] vartable;
+    Variant[string] vartable;
 
     float factor;
 
-    this(Context context, Widget w, string[string] vartable) {
+    this(Context context, Widget w, Variant[string] vartable) {
         this.context = context;
         this.vartable = vartable;
         w.getAllocation(size);
@@ -515,7 +516,7 @@ class Presenter : DrawingArea {
     bool isDebugOverlay = false;
     float factor = 1.0;
 
-    string[string] vartable;
+    Variant[string] vartable;
 
     Overlay overlay;
     GtkAllocation size;
@@ -542,8 +543,8 @@ class Presenter : DrawingArea {
         // Device keyboard = seat.getKeyboard();
         keymap = Keymap.getDefault();
 
-        vartable["total"] = deck.slides.length.to!string;
-        vartable["slide"] = currentSlide.to!string;
+        vartable["total"] = deck.slides.length;
+        vartable["slide"] = currentSlide+1;
 
     }
 
@@ -630,7 +631,7 @@ class Presenter : DrawingArea {
         }
 
         if (oldCurrentSlide != currentSlide) {
-            vartable["slide"] = currentSlide.to!string;
+            vartable["slide"] = currentSlide+1;
             // TODO: move next line away from here.
             firePrepareSlideForVideo();
             queueDraw();
