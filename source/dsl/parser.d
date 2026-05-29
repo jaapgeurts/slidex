@@ -25,7 +25,8 @@ import richtext.parser;
 import core.internal.abort;
 
 import slxgrammar;
-// see gengrammar.d
+
+// see tools/gengrammar.d
 // mixin(grammar(import("grammar.peg")));
 
 alias LocatedResult(T) = Result!(LocatedVal!T);
@@ -195,15 +196,19 @@ public:
                 break;
             case "SlidexDoc.Master":
                 Result!Master res = parseMaster(child);
-                deck.masters ~= res.value;
-                deck.masterMap[res.value.name] = res.value;
                 result.absorb(res);
+                if (res.ok) {
+                    deck.masters ~= res.value;
+                    deck.masterMap[res.value.name] = res.value;
+                }
                 break;
             case "SlidexDoc.Slide":
                 Result!Slide res = parseSlide(child);
                 result.absorb(res);
-                deck.slides ~= res.value;
-                deck.slideMap[res.value.name] = res.value;
+                if (res.ok) {
+                    deck.slides ~= res.value;
+                    deck.slideMap[res.value.name] = res.value;
+                }
                 break;
             default:
                 assert(false, "Unknown Node: " ~ child.name);
@@ -274,18 +279,17 @@ private:
     Result!Master parseMaster(ParseTree root) {
         Master master = new Master();
 
-        Result!Master result = Result!Master(ok: true, value: master);
-
-        assert(root.children.length == 7, "Master must contain 7 parse nodes");
+        Result!Master result = Result!Master(ok: true);
 
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.OpeningIdentifier":
-                master.name = child[0].matches[0];
+                master.name = parseIdentifier(child[0]);
                 break;
             case "SlidexDoc.ClosingIdentifier":
                 string foundname = child[0].matches[0];
                 if (foundname != master.name) {
+                    result.ok = false;
                     result.diagnostics ~= Diagnostic(DiagnosticKind.NameMismatch, Severity.Warning, child[0].sourceLocation(sourceFilePath),
                         "Expected master name `" ~ master.name ~ "` but got `" ~ foundname ~ "`");
                 }
@@ -304,6 +308,7 @@ private:
                 assert(false, "Unknown node: " ~ child.name);
             }
         }
+        result.value = master;
 
         return result;
     }
@@ -333,8 +338,11 @@ private:
                 item.shape = val.value.get!Image;
             else if (val.value.has!Video)
                 item.shape = val.value.get!Video;
-            else
+            else {
+                result.ok = false;
+
                 result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, pd.value.loc, "Property elements must be presentation elements such as Text, Image, ...");
+            }
 
             result.value = item;
 
@@ -401,18 +409,18 @@ private:
         }
 
         VoidResult handlePropertyDeclaration(PropertyDeclaration pd) {
-            VoidResult r1;
+            VoidResult r1 = VoidResult(ok: true);
             // create items
             // writeln("handlePropertyDeclaration(): ", pd);
             if (pd.ident in master.itemsMap) {
                 r1.diagnostics ~= Diagnostic(DiagnosticKind.DuplicateDeclaration, Severity.Error, pd.ident.loc, "Name `" ~ pd
                         .ident ~ "` already used.");
+                r1.ok = false;
                 return r1;
             }
             Result!Item res = parseItemDeclaration(pd);
             r1.absorb(res);
             if (res.ok) {
-                r1.ok = true;
                 master.items ~= res.value;
                 master.itemsMap[res.value.name] = res.value;
             }
@@ -458,17 +466,18 @@ Pass as root: "SlidexDoc.Slide"
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.MasterIdentifier":
-                slide.masterName = LocatedVal!string(child[0].matches[0], child.sourceLocation(
+                // TODO: do i need to store a located value here?
+                slide.masterName = LocatedVal!string(parseIdentifier(child[0]), child.sourceLocation(
                         sourceFilePath));
                 break;
             case "SlidexDoc.OpeningIdentifier":
-                slide.name = child[0].matches[0];
+                slide.name = parseIdentifier(child[0]);
                 break;
             case "SlidexDoc.ClosingIdentifier":
-                string foundname = child[0].matches[0];
+                string foundname = parseIdentifier(child[0]);
                 if (foundname != slide.name) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.NameMismatch, Severity.Warning, child[0].sourceLocation(sourceFilePath), "Expected slide name `" ~ slide
-                            .name ~ "` but got `" ~ child[0].matches[0] ~ "`");
+                            .name ~ "` but got `" ~ parseIdentifier(child[0]) ~ "`");
                     result.ok = false;
                 }
                 break;
@@ -726,7 +735,7 @@ For root pass in "SlidexDoc.Statement"
         Result!RichText res = builder.buildRichText(root);
         Result!(LocatedVal!DslType) result;
         result.absorb(res).ifSome((v) {
-             writeln("RichText AST: ", v);
+            writeln("RichText AST: ", v);
             result.value = locatedDslType(v, loc);
             result.ok = true;
         });
@@ -838,7 +847,7 @@ For root pass in "SlidexDoc.Statement"
                 assert(false, "Unknown node: " ~ child.name);
             }
         }
-        return Result!ArgList(ok:true); // empty list
+        return Result!ArgList(ok: true); // empty list
     }
 
     /** parses a "SlidexDoc.Args" */
@@ -1268,7 +1277,7 @@ EvalResult evalRect(FuncCall func) {
 }
 
 EvalResult evalText(FuncCall func) {
-    EvalResult result;
+    EvalResult result = EvalResult(ok: true);
     Text text;
     if (func.arguments.positionalArgs.length == 1) {
         LocatedVal!DslType val = func.arguments.positionalArgs[0];
@@ -1276,9 +1285,9 @@ EvalResult evalText(FuncCall func) {
         result.absorb(res);
         if (res.ok && res.value.has!RichText) {
             text.content = res.value.get!RichText;
-            result.ok = true;
         }
         else {
+            result.ok = false;
             result.diagnostics ~= createInvalidTypeDiag(val, "richtext");
         }
     }
@@ -1292,6 +1301,7 @@ EvalResult evalText(FuncCall func) {
                 text.colour = res.value.get!RgbColour;
             }
             else {
+                result.ok = false;
                 result.diagnostics ~= createInvalidTypeDiag(arg.value, "colour");
             }
         }
@@ -1302,6 +1312,7 @@ EvalResult evalText(FuncCall func) {
                 text.size = res.value.get!int;
             }
             else {
+                result.ok = false;
                 result.diagnostics ~= createInvalidTypeDiag(arg.value, "int");
             }
         }

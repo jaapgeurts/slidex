@@ -201,7 +201,7 @@ class Master {
     ColumnRow columns;
     ColumnRow rows;
 
-    SumType!(RgbColour, Image) background;
+    SumType!(RgbColour, Image) background = RgbColour(0xff,0xff,0xff);
 
     string name;
 

@@ -64,8 +64,9 @@ private:
         if (auto fromMaster = fromSlide.masterName.value in root.masterMap) {
             Result!(slides.Master) res = buildMaster(*fromMaster);
             result.absorb(res);
-            if (res.ok)
+            if (res.ok) {
                 toSlide.master = res.value;
+            }
         }
         else {
             result.ok = false;
@@ -78,8 +79,10 @@ private:
 
             Result!(slides.Item) res = buildItem(fromItem);
             result.absorb(res);
-            toSlide.items ~= res.value;
-            toSlide.itemsMap[res.value.name] = res.value;
+            if (res.ok) {
+                toSlide.items ~= res.value;
+                toSlide.itemsMap[res.value.name] = res.value;
+            }
         }
 
         // TODO: check if symbols are duplicated between master and slide
@@ -197,8 +200,10 @@ private:
         foreach (fromItem; fromMaster.items) {
             Result!(slides.Item) res = buildItem(fromItem);
             result.absorb(res);
-            toMaster.items ~= res.value;
-            toMaster.itemsMap[res.value.name] = res.value;
+            if (res.ok) {
+                toMaster.items ~= res.value;
+                toMaster.itemsMap[res.value.name] = res.value;
+            }
         }
 
         fromMaster.background.match!(
