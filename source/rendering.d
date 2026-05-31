@@ -354,6 +354,7 @@ class GtkDrawingVisitor : ItemVisitor {
             y = rowsizes[0 .. cl.row].sum;
             h = rowsizes[cl.row .. cl.row + cl.rowspan].sum;
             y += cl.dy;
+
         });
 
         // PgCairo.contextSetResolution(PgCairo.createContext(context),72);
@@ -375,6 +376,38 @@ class GtkDrawingVisitor : ItemVisitor {
         PangoRectangle inkRect, logicalRect;
 
         layout.getPixelExtents(inkRect, logicalRect);
+        writeln(i"Planned:    x:$(x),y:$(y),w:$(w),h:$(h)");
+        writeln(i"inkt rect:  x:$(inkRect.x),y:$(inkRect.y),w:$(inkRect.width),h:$(inkRect.height)");
+        writeln(i"logic rect: x:$(logicalRect.x),y:$(logicalRect.y),w:$(logicalRect.width),h:$(
+                logicalRect.height)");
+        // if (text.alignment == Alignment.Left)
+        //     layout.setAlignment(PangoAlignment.LEFT);
+        // else if (text.alignment == Alignment.Center)
+        //     layout.setAlignment(PangoAlignment.CENTER);
+        // else if (text.alignment == Alignment.Right)
+        //     layout.setAlignment(PangoAlignment.RIGHT);
+        // else
+        //     assert(false,"Only left,center and right alignments are implemented");
+
+        text.layoutLocation.match!(
+            (BoundsLocation bl) {
+            assert(false, "Text bounds location not implemented");
+        },
+            (CellLocation cl) {
+            // TODO: change to final switch
+            switch (cl.alignment) {
+            case CellAlignment.TopLeft:
+            // default calculation is TopLeft
+                break;
+            case CellAlignment.Center:
+                x += (w - logicalRect.width) / 2;
+                y += (h - logicalRect.height) / 2;
+                break;
+            default:
+                assert(false, "Cell alignment other than center not implemented");
+            }
+
+        });
 
         with (context) {
             // TODO: auto convert rgb colour to float triplet
@@ -387,7 +420,7 @@ class GtkDrawingVisitor : ItemVisitor {
 
             if (showDebugOverlay) {
                 setLineWidth(1);
-                rectangle(x, y, w, h);
+                rectangle(x, y, logicalRect.width, logicalRect.height);
                 stroke();
             }
         }

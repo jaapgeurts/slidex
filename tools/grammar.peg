@@ -50,7 +50,7 @@ SlidexDoc:
     ClosingIdentifier   <- Identifier
     MasterIdentifier    <- Identifier
 
-    Value               <- String / Array / Date / Quantity / RichText / Boolean / NamedColour / FuncCall / QualifiedIdentifier
+    Value               <- String / Array / Date / Quantity / RichText / Boolean / NamedColour / Alignment / FuncCall / QualifiedIdentifier
 
     Array               <- LSQUARE ArrayValues? RSQUARE
     ArrayValues         <- Value (COMMA Value)*
@@ -62,6 +62,7 @@ SlidexDoc:
     String              <- :doublequote ~(!doublequote .)* :doublequote WsComment
     RichText            <- :LBRACE RichTextNode* :RBRACE
     NamedColour         <- ('red' / 'green' / 'blue' / 'yellow' / 'cyan' / 'magenta' / 'white' / 'black') WsComment
+    Alignment           <- ('topleft' / 'top' / 'topright' / 'left' / 'center' / 'right' / 'bottomleft' / 'bottom' / 'bottomright' ) WsComment
     Boolean             <- ('true' / 'false' / 'yes' / 'no' / 'on' / 'off' ) WsComment
 
     Identifier          <- identifier WsComment

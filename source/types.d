@@ -46,7 +46,25 @@ struct RgbColour {
         else
             throw new ArrayIndexError(i, 3, "Valid indexes are 0,1,2 equivalent to r,g,b");
     }
+}
 
+
+enum CellAlignment {
+    TopLeft,
+    Top,
+    TopRight,
+    Left,
+    Center,
+    Right,
+    BottomLeft,
+    Bottom,
+    BottomRight
+}
+
+enum TextAlignment {
+    Left,
+    Center,
+    Right
 }
 
 struct CellLocation {
@@ -59,6 +77,8 @@ struct CellLocation {
     int dy = 0;
     // rotation
     float angle = 0;
+
+    CellAlignment alignment = CellAlignment.TopLeft;
 }
 
 struct BoundsLocation {

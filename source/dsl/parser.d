@@ -3,6 +3,7 @@ module dsl.parser;
 import std.algorithm.iteration;
 import std.algorithm.searching;
 import std.array;
+import std.uni; // tolower
 import std.conv;
 import std.datetime;
 import std.file;
@@ -31,7 +32,7 @@ import slxgrammar;
 
 alias LocatedResult(T) = Result!(LocatedVal!T);
 
-alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Video, Seconds, Percent, Centimeter, Fraction, Pixel, SlidexArray);
+alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Video, Seconds, Percent, Centimeter, Fraction, Pixel, CellAlignment, SlidexArray);
 
 alias SlidexType = TaggedUnion!SlidexTypes;
 
@@ -74,6 +75,30 @@ RgbColour namedColourToRgb(NamedColour colour) {
     case NamedColour.Black:
         return RgbColour(0x00, 0x00, 0x00);
     }
+}
+
+CellAlignment alignmentToCellAlignment(Alignment alignment) {
+    final switch (alignment) {
+    case Alignment.TopLeft:
+        return CellAlignment.TopLeft;
+    case Alignment.Top:
+        return CellAlignment.Top;
+    case Alignment.TopRight:
+        return CellAlignment.TopRight;
+    case Alignment.Left:
+        return CellAlignment.Left;
+    case Alignment.Center:
+        return CellAlignment.Center;
+    case Alignment.Right:
+        return CellAlignment.Right;
+    case Alignment.BottomLeft:
+        return CellAlignment.BottomLeft;
+    case Alignment.Bottom:
+        return CellAlignment.Bottom;
+    case Alignment.BottomRight:
+        return CellAlignment.BottomRight;
+    }
+    assert(false, "unreachable");
 }
 
 // TODO: should print the read value string, instead of a reconstructed string
@@ -652,6 +677,8 @@ For root pass in "SlidexDoc.Statement"
                 return parseQuantity(child);
             case "SlidexDoc.NamedColour":
                 return parseNamedColour(child);
+            case "SlidexDoc.Alignment":
+                return parseAlignment(child);
             case "SlidexDoc.Boolean":
                 return parseBoolean(child);
             case "SlidexDoc.RichText":
@@ -719,6 +746,24 @@ For root pass in "SlidexDoc.Statement"
         SourceLocation loc = root.sourceLocation(sourceFilePath);
         return Result!(LocatedVal!DslType)(ok: true, value: locatedDslType(
                 root.matches[0].asCapitalized.array.to!NamedColour, loc));
+    }
+
+    Result!(LocatedVal!DslType) parseAlignment(ParseTree root) {
+        SourceLocation loc = root.sourceLocation(sourceFilePath);
+        static immutable AlignmentValues = [
+            "topleft": Alignment.TopLeft,
+            "top": Alignment.Top,
+            "topright": Alignment.TopRight,
+            "left": Alignment.Left,
+            "center": Alignment.Center,
+            "right": Alignment.Right,
+            "bottomleft": Alignment.BottomLeft,
+            "bottom": Alignment.Bottom,
+            "bottomright": Alignment.BottomRight
+        ];
+        Alignment t = AlignmentValues[root.matches[0].toLower.array.to!string];
+        writeln("dsl: ",t);
+        return Result!(LocatedVal!DslType)(ok: true, value: locatedDslType(t, loc));
     }
 
     Result!(LocatedVal!DslType) parseBoolean(ParseTree root) {
@@ -1033,6 +1078,12 @@ For root pass in "SlidexDoc.Statement"
                     else
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "float");
                     break;
+                case "align":
+                    if (res.value.has!CellAlignment)
+                        cell.alignment = res.value.get!CellAlignment;
+                    else
+                        result.diagnostics ~= createInvalidTypeDiag(val.value, "call alignment");
+                    break;
                 default:
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, args[argname]
                             .name.loc, "1. Unknown argument name `" ~ argname ~ "`");
@@ -1119,6 +1170,10 @@ EvalResult evalValue(LocatedVal!DslType val) {
     else if (val.value.has!NamedColour) {
         return EvalResult(ok: true, value: SlidexType(
                 namedColourToRgb(val.value.get!NamedColour)));
+    }
+    else if (val.value.has!Alignment) {
+        return EvalResult(ok: true, value: SlidexType(
+                alignmentToCellAlignment(val.value.get!Alignment)));
     }
     else if (val.value.has!Quantity) {
         return evalQuantity(val.value.get!Quantity);

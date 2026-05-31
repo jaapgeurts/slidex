@@ -250,12 +250,14 @@ class Text : Item {
     @DslField
     int size = 32; // default font size
 
+    @DslField
+    TextAlignment alignment = TextAlignment.Left;
+
     this(string name, RichText content, RgbColour colour, int size) {
         super(name);
         this.content = content;
         this.colour = colour;
         this.size = size;
-
     }
 
     mixin DslProperties;

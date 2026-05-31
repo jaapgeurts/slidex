@@ -19,6 +19,7 @@ alias DslTypes = AliasSeq!(
     bool,
     RichText,
     NamedColour,
+    Alignment,
     Quantity,
     Date,
     FuncCall,
@@ -146,6 +147,18 @@ enum NamedColour {
     Black,
 }
 
+enum Alignment {
+    TopLeft,
+    Top,
+    TopRight,
+    Left,
+    Center,
+    Right,
+    BottomLeft,
+    Bottom,
+    BottomRight
+}
+
 struct Quantity {
     // TODO: Make distinction between int and float values
     LocatedVal!float value;
@@ -259,6 +272,7 @@ struct Text {
     RichText content;
     RgbColour colour;
     int size = 32; // default size
+    // Alignment alignment = Alignment.TopLeft;
 }
 
 struct Image {

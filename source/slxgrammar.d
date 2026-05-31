@@ -53,7 +53,7 @@ SlidexDoc:
     ClosingIdentifier   <- Identifier
     MasterIdentifier    <- Identifier
 
-    Value               <- String / Array / Date / Quantity / RichText / Boolean / NamedColour / FuncCall / QualifiedIdentifier
+    Value               <- String / Array / Date / Quantity / RichText / Boolean / NamedColour / Alignment / FuncCall / QualifiedIdentifier
 
     Array               <- LSQUARE ArrayValues? RSQUARE
     ArrayValues         <- Value (COMMA Value)*
@@ -65,6 +65,7 @@ SlidexDoc:
     String              <- :doublequote ~(!doublequote .)* :doublequote WsComment
     RichText            <- :LBRACE RichTextNode* :RBRACE
     NamedColour         <- ('red' / 'green' / 'blue' / 'yellow' / 'cyan' / 'magenta' / 'white' / 'black') WsComment
+    Alignment           <- ('topleft' / 'top' / 'topright' / 'left' / 'center' / 'right' / 'bottomleft' / 'bottom' / 'bottomright' ) WsComment
     Boolean             <- ('true' / 'false' / 'yes' / 'no' / 'on' / 'off' ) WsComment
 
     Identifier          <- identifier WsComment
@@ -215,6 +216,7 @@ import std.functional: toDelegate;
         rules["String"] = toDelegate(&String);
         rules["RichText"] = toDelegate(&RichText);
         rules["NamedColour"] = toDelegate(&NamedColour);
+        rules["Alignment"] = toDelegate(&Alignment);
         rules["Boolean"] = toDelegate(&Boolean);
         rules["Identifier"] = toDelegate(&Identifier);
         rules["QualifiedIdentifier"] = toDelegate(&QualifiedIdentifier);
@@ -1201,7 +1203,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.or!(String, Array, Date, Quantity, RichText, Boolean, NamedColour, FuncCall, QualifiedIdentifier), "SlidexDoc.Value")(p);
+            return         pegged.peg.defined!(pegged.peg.or!(String, Array, Date, Quantity, RichText, Boolean, NamedColour, Alignment, FuncCall, QualifiedIdentifier), "SlidexDoc.Value")(p);
         }
         else
         {
@@ -1209,7 +1211,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(String, Array, Date, Quantity, RichText, Boolean, NamedColour, FuncCall, QualifiedIdentifier), "SlidexDoc.Value"), "Value")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(String, Array, Date, Quantity, RichText, Boolean, NamedColour, Alignment, FuncCall, QualifiedIdentifier), "SlidexDoc.Value"), "Value")(p);
                 memo[tuple(`Value`, p.end)] = result;
                 return result;
             }
@@ -1220,12 +1222,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.or!(String, Array, Date, Quantity, RichText, Boolean, NamedColour, FuncCall, QualifiedIdentifier), "SlidexDoc.Value")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.or!(String, Array, Date, Quantity, RichText, Boolean, NamedColour, Alignment, FuncCall, QualifiedIdentifier), "SlidexDoc.Value")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.or!(String, Array, Date, Quantity, RichText, Boolean, NamedColour, FuncCall, QualifiedIdentifier), "SlidexDoc.Value"), "Value")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.or!(String, Array, Date, Quantity, RichText, Boolean, NamedColour, Alignment, FuncCall, QualifiedIdentifier), "SlidexDoc.Value"), "Value")(TParseTree("", false,[], s));
         }
     }
     static string Value(GetName g)
@@ -1591,6 +1593,42 @@ import std.functional: toDelegate;
     static string NamedColour(GetName g)
     {
         return "SlidexDoc.NamedColour";
+    }
+
+    static TParseTree Alignment(TParseTree p)
+    {
+        if(__ctfe)
+        {
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.keywords!("topleft", "top", "topright", "left", "center", "right", "bottomleft", "bottom", "bottomright"), WsComment), "SlidexDoc.Alignment")(p);
+        }
+        else
+        {
+            if (auto m = tuple(`Alignment`, p.end) in memo)
+                return *m;
+            else
+            {
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.keywords!("topleft", "top", "topright", "left", "center", "right", "bottomleft", "bottom", "bottomright"), WsComment), "SlidexDoc.Alignment"), "Alignment")(p);
+                memo[tuple(`Alignment`, p.end)] = result;
+                return result;
+            }
+        }
+    }
+
+    static TParseTree Alignment(string s)
+    {
+        if(__ctfe)
+        {
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.keywords!("topleft", "top", "topright", "left", "center", "right", "bottomleft", "bottom", "bottomright"), WsComment), "SlidexDoc.Alignment")(TParseTree("", false,[], s));
+        }
+        else
+        {
+            forgetMemo();
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.keywords!("topleft", "top", "topright", "left", "center", "right", "bottomleft", "bottom", "bottomright"), WsComment), "SlidexDoc.Alignment"), "Alignment")(TParseTree("", false,[], s));
+        }
+    }
+    static string Alignment(GetName g)
+    {
+        return "SlidexDoc.Alignment";
     }
 
     static TParseTree Boolean(TParseTree p)
