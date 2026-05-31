@@ -51,13 +51,13 @@ struct RgbColour {
 
 enum CellAlignment {
     TopLeft,
-    Top,
+    TopCenter,
     TopRight,
-    Left,
+    CenterLeft,
     Center,
-    Right,
+    CenterRight,
     BottomLeft,
-    Bottom,
+    BottomCenter,
     BottomRight
 }
 

@@ -81,20 +81,20 @@ CellAlignment alignmentToCellAlignment(Alignment alignment) {
     final switch (alignment) {
     case Alignment.TopLeft:
         return CellAlignment.TopLeft;
-    case Alignment.Top:
-        return CellAlignment.Top;
+    case Alignment.TopCenter:
+        return CellAlignment.TopCenter;
     case Alignment.TopRight:
         return CellAlignment.TopRight;
-    case Alignment.Left:
-        return CellAlignment.Left;
+    case Alignment.CenterLeft:
+        return CellAlignment.CenterLeft;
     case Alignment.Center:
         return CellAlignment.Center;
-    case Alignment.Right:
-        return CellAlignment.Right;
+    case Alignment.CenterRight:
+        return CellAlignment.CenterRight;
     case Alignment.BottomLeft:
         return CellAlignment.BottomLeft;
-    case Alignment.Bottom:
-        return CellAlignment.Bottom;
+    case Alignment.BottomCenter:
+        return CellAlignment.BottomCenter;
     case Alignment.BottomRight:
         return CellAlignment.BottomRight;
     }
@@ -122,8 +122,8 @@ public Result!ConcreteTree parseDocument(string sourceFilePath) {
         diag.kind = DiagnosticKind.ParseError;
         diag.severity = Severity.Error;
         diag.loc = SourceLocation(sourceFilePath, pos.line, pos.col);
-        diag.message = "Unexpected symbol near `\x1b[31m" ~ left ~ "\x1b[1;31m" ~ right[0] ~ right[1 .. $].until('\n')
-            .array.to!string ~ "\x1b[0m`.";
+        diag.message = "Unexpected symbol near " ~ left ~ "\x1b[1;31m" ~ right[0] ~ "\x1b[0m" ~ right[1 .. $].until('\n')
+            .array.to!string ~ "`.";
         result.diagnostics ~= diag;
         return diag.message;
     }
@@ -752,17 +752,16 @@ For root pass in "SlidexDoc.Statement"
         SourceLocation loc = root.sourceLocation(sourceFilePath);
         static immutable AlignmentValues = [
             "topleft": Alignment.TopLeft,
-            "top": Alignment.Top,
+            "topcenter": Alignment.TopCenter,
             "topright": Alignment.TopRight,
-            "left": Alignment.Left,
+            "centerleft": Alignment.CenterLeft,
             "center": Alignment.Center,
-            "right": Alignment.Right,
+            "centerright": Alignment.CenterRight,
             "bottomleft": Alignment.BottomLeft,
-            "bottom": Alignment.Bottom,
+            "bottomcenter": Alignment.BottomCenter,
             "bottomright": Alignment.BottomRight
         ];
         Alignment t = AlignmentValues[root.matches[0].toLower.array.to!string];
-        writeln("dsl: ",t);
         return Result!(LocatedVal!DslType)(ok: true, value: locatedDslType(t, loc));
     }
 

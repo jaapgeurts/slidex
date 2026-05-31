@@ -62,7 +62,7 @@ SlidexDoc:
     String              <- :doublequote ~(!doublequote .)* :doublequote WsComment
     RichText            <- :LBRACE RichTextNode* :RBRACE
     NamedColour         <- ('red' / 'green' / 'blue' / 'yellow' / 'cyan' / 'magenta' / 'white' / 'black') WsComment
-    Alignment           <- ('topleft' / 'top' / 'topright' / 'left' / 'center' / 'right' / 'bottomleft' / 'bottom' / 'bottomright' ) WsComment
+    Alignment           <- ('topleft' / 'topcenter' / 'topright' / 'centerleft' / 'centerright' / 'center' / 'bottomleft' / 'bottomcenter' / 'bottomright' ) WsComment
     Boolean             <- ('true' / 'false' / 'yes' / 'no' / 'on' / 'off' ) WsComment
 
     Identifier          <- identifier WsComment

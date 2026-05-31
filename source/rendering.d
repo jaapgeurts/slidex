@@ -394,17 +394,38 @@ class GtkDrawingVisitor : ItemVisitor {
             assert(false, "Text bounds location not implemented");
         },
             (CellLocation cl) {
-            // TODO: change to final switch
-            switch (cl.alignment) {
+            final switch (cl.alignment) {
             case CellAlignment.TopLeft:
-            // default calculation is TopLeft
+                // default calculation is TopLeft
+                break;
+            case CellAlignment.TopCenter:
+                x += (w - logicalRect.width) / 2.0;
+                break;
+            case CellAlignment.TopRight:
+                x += w - logicalRect.width;
+                break;
+            case CellAlignment.CenterLeft:
+                y += (h - logicalRect.height) / 2.0;
                 break;
             case CellAlignment.Center:
-                x += (w - logicalRect.width) / 2;
-                y += (h - logicalRect.height) / 2;
+                x += (w - logicalRect.width) / 2.0;
+                y += (h - logicalRect.height) / 2.0;
                 break;
-            default:
-                assert(false, "Cell alignment other than center not implemented");
+            case CellAlignment.CenterRight:
+                x += w - logicalRect.width;
+                y += (h - logicalRect.height) / 2.0;
+                break;
+            case CellAlignment.BottomLeft:
+                y += h - logicalRect.height;
+                break;
+            case CellAlignment.BottomCenter:
+                x += (w - logicalRect.width) / 2.0;
+                y += h - logicalRect.height;
+                break;
+            case CellAlignment.BottomRight:
+                x += w - logicalRect.width;
+                y += h - logicalRect.height;
+                break;
             }
 
         });

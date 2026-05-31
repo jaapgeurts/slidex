@@ -149,13 +149,13 @@ enum NamedColour {
 
 enum Alignment {
     TopLeft,
-    Top,
+    TopCenter,
     TopRight,
-    Left,
+    CenterLeft,
     Center,
-    Right,
+    CenterRight,
     BottomLeft,
-    Bottom,
+    BottomCenter,
     BottomRight
 }
 
