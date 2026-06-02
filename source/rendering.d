@@ -7,24 +7,25 @@ import std.stdio;
 import std.sumtype;
 import std.variant;
 
-import cairo.Context;
-import cairo.ImageSurface;
-import cairo.Surface;
+import cairo.context;
+import cairo.surface;
+import cairo.types;
 
-import gstreamer.GStreamer;
-import gstreamer.Element;
-import gstreamer.ElementFactory;
+// import gst.types;
+// import gst1.gstreamer;
+import gst.element;
+import gst.element_factory;
 
-import gtk.Overlay;
-import gtk.Widget;
+import gtk.overlay;
+import gtk.widget;
+import gtk.types;
 
-import gobject.Value;
+import gobject.value;
 
-import pango.PgAttribute;
-import pango.PgAttributeList;
-import pango.PgCairo;
-import pango.PgFontDescription;
-import pango.PgLayout;
+import pango.attribute;
+import pango.attr_list;
+import pango.font_description;
+import pango.layout;
 
 import slides;
 import types;
@@ -32,6 +33,9 @@ import types;
 // import std.bitmanip;
 
 bool isVideo;
+
+// enum BULLET = "➤ ";
+enum BULLET = "• ";
 
 struct Size {
     float x;
@@ -44,9 +48,9 @@ class RichTextDrawingVisitor : RichTextVisitor {
     Appender!string result;
     uint count;
     bool showDebugOverlay;
-    PgLayout layout;
-    PgAttributeList attrList;
-    PgAttribute currentAttr;
+    Layout layout;
+    AttrList attrList;
+    Attribute currentAttr;
     Context context;
     float offsety = 0;
     float offsetx = 0;
@@ -281,7 +285,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
         layout.setIndent(-40 * PANGO_SCALE);
         layout.setWidth(cast(int)((size.w - listitem.level * 15) * PANGO_SCALE));
 
-        result ~= "➤ ";
+        result ~= BULLET;
     }
 
     void leave(ListItem listitem) {
@@ -300,8 +304,8 @@ class RichTextDrawingVisitor : RichTextVisitor {
 
 class GtkDrawingVisitor : ItemVisitor {
     Context context;
-    GtkAllocation size;
-    cairo_text_extents_t extents;
+    Allocation size;
+    TextExtents extents;
 
     bool showDebugOverlay;
 

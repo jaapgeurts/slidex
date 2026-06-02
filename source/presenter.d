@@ -10,58 +10,78 @@ import std.variant;
 
 import core.stdc.ctype;
 
-import cairo.Context;
+import cairo.context;
 
-import gtk.DrawingArea;
-import gtk.Main;
-import gtk.MainWindow;
-import gtk.Overlay;
-import gtk.Widget;
+import gio.types : ApplicationFlags;
+import gio.application;
 
-import gstreamer.GStreamer;
+import gtk.application;
+import gtk.application_window;
+import gtk.drawing_area;
+import gtk.event_controller;
+import gtk.overlay;
+import gtk.types;
+import gtk.widget;
 
-import gobject.Value;
+// import gobject.Value;
 
-import gdk.Event;
-import gdk.Keymap;
-import gdk.Keysyms;
+// import gdk.event;
+// import gdk.keymap;
+// import gdk.keysyms;
 
 import rendering;
 
 import slides;
+import core.sys.posix.sys.socket;
+import gtk.gesture_click;
 
+class PresenterWindow : ApplicationWindow {
+    this(gtk.application.Application app) {
+        super(app);
+        setTitle("Main Window");
+        setDefaultSize(600, 800);
+        setShowMenubar = true;
+    }
+}
 
+class SlidexApplication : gtk.application.Application {
 
-void presentDeck(string[] args, Deck deck) {
-    // writeln("Slide:  ", deck.slides[0].toString);
-    // writeln("Master: ", deck.slides[0].master.toString);
-    // writeln("DECK: ", deck.slides[0].master.items[0].visible);
-    // open the gtk window
+    PresenterWindow presenter;
+    Deck deck;
 
-    Main.init(args);
+    this(Deck deck) {
+        super("personal.slidex", ApplicationFlags.DefaultFlags);
 
-    GStreamer.init(args);
+        this.deck = deck;
 
-    MainWindow projectorWin = new MainWindow("Projector",);
-    projectorWin.setSizeRequest(960, 600);
+        connectActivate(&onActivate);
 
-    Overlay overlay = new Overlay();
-    projectorWin.add(overlay);
+        // connectStartup(&onstartUp
+        // GStreamer.init(args);
 
-    Presenter presenter = new Presenter(overlay, deck, args);
-    presenter.setSizeRequest(960, 600);
-    presenter.onFullsceen = (widget) { projectorWin.fullscreen(); };
-    presenter.onUnFullsceen = (widget) { projectorWin.unfullscreen(); };
+        // Overlay overlay = new Overlay();
+        // projectorWin.add(overlay);
 
-    overlay.add(presenter);
+        // Presenter presenter = new Presenter(overlay, deck, args);
+        // presenter.setSizeRequest(960, 600);
+        // presenter.onFullsceen = (widget) { projectorWin.fullscreen(); };
+        // presenter.onUnFullsceen = (widget) { projectorWin.unfullscreen(); };
 
-    projectorWin.addOnDestroy((Widget w) { writeln("Quitting"); Main.quit(); });
-    projectorWin.addOnKeyPress(&presenter.onKeyPress);
+        // overlay.add(presenter);
 
-    projectorWin.showAll();
+        // projectorWin.addOnDestroy((Widget w) { writeln("Quitting"); Main.quit(); });
+        // projectorWin.addOnKeyPress(&presenter.onKeyPress);
 
-    Main.run();
+        // projectorWin.showAll();
 
+    }
+
+    void onActivate() {
+        if (!presenter)
+            presenter = new PresenterWindow(this);
+        presenter.present();
+
+    }
 }
 
 class Presenter : DrawingArea {
@@ -74,8 +94,8 @@ class Presenter : DrawingArea {
     Variant[string] vartable;
 
     Overlay overlay;
-    GtkAllocation size;
-    Keymap keymap;
+    Allocation size;
+    // Keymap keymap;
 
     void delegate(Widget w) onFullsceen;
     void delegate(Widget w) onUnFullsceen;
@@ -88,30 +108,42 @@ class Presenter : DrawingArea {
         this.deck = deck;
         isDebugOverlay = args.length > 2 && args[2] == "debug";
 
-        addOnDraw(&onDraw);
-        addOnButtonPress(&onMousePress);
-        addOnSizeAllocate(&onSizeAllocate);
+        setDrawFunc(&onDraw);
+
+        GestureClick clicked = new GestureClick();
+        clicked.connectPressed((int nPress, double x, double y, GestureClick gestureClick) {
+            writeln("Clicked"); 
+            assert(false,"mouse clicks not handled");
+            // onMousePress()
+        });
+        addController(clicked);
+
+        connectResize((int width, int height, DrawingArea drawingArea) {
+            writeln("resized");
+            assert(false,"resize not handled");
+        // addOnSizeAllocate(&onSizeAllocate);
+            });
 
         // projectorWin.getRootWindow().flush();
         // Display myDisplay = Display.getDefault();
         // Seat seat = myDisplay.getDefaultSeat();
         // Device keyboard = seat.getKeyboard();
-        keymap = Keymap.getDefault();
+        // keymap = Keymap.getDefault();
 
         vartable["total"] = deck.slides.length;
-        vartable["slide"] = currentSlide+1;
+        vartable["slide"] = currentSlide + 1;
 
     }
 
-    bool onDraw(Scoped!Context context, Widget w) {
+    void onDraw(DrawingArea drawingArea, Context context, int width, int height) {
 
         if (isVideo)
-            return true;
+            return;
 
         if (isBlanking) {
             context.setSourceRgb(0, 0, 0);
             context.paint();
-            return true;
+            return;
         }
         GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, w, vartable);
         drawing.showDebugOverlay = isDebugOverlay;
@@ -129,72 +161,72 @@ class Presenter : DrawingArea {
             slide.master.accept(drawing);
             slide.accept(drawing);
         }
-        return true;
+        return;
     }
 
-    bool onKeyPress(GdkEventKey* eventKey, Widget widget) {
-        string pressedKey;
-        int keys;
+    // bool onKeyPress() { // (EventKey* eventKey, Widget widget) {
+    //     string pressedKey;
+    //     int keys;
 
-        pressedKey = keymap.keyvalName(eventKey.keyval);
-        // writeln("The keyval is: ", eventKey.keyval, " which means the ", pressedKey, " was pressed.");
+    //     // pressedKey = keymap.keyvalName(eventKey.keyval);
+    //     // writeln("The keyval is: ", eventKey.keyval, " which means the ", pressedKey, " was pressed.");
 
-        size_t oldCurrentSlide = currentSlide;
-        if (eventKey.keyval == GdkKeysyms.GDK_space || eventKey.keyval == GdkKeysyms.GDK_Right) {
-            if (currentSlide < deck.slides.length)
-                currentSlide++;
-            else
-                writeln("Reached last slide");
-        }
-        else if (eventKey.keyval == GdkKeysyms.GDK_Left) {
-            if (currentSlide > 0)
-                currentSlide--;
-            else
-                writeln("Reached first slide");
-        }
-        else if (eventKey.keyval == GdkKeysyms.GDK_Escape) {
-            if (isFullScreen) {
-                // TODO: move into function
-                if (onUnFullsceen !is null)
-                    onUnFullsceen(this);
-                isFullScreen = false;
-            }
-            else {
-                Main.quit();
-            }
-        }
-        else if (eventKey.keyval == GdkKeysyms.GDK_b) {
-            if (isFullScreen) {
-                // TODO: move into function
-                isBlanking = !isBlanking;
-                queueDraw();
-            }
-        }
-        else if (eventKey.keyval == GdkKeysyms.GDK_F11) {
-            if (!isFullScreen) {
-                // TODO: move into function
-                isBlanking = false;
-                if (onFullsceen !is null)
-                    onFullsceen(this);
-                isFullScreen = true;
-            }
-            else {
-                if (onUnFullsceen !is null)
-                    onUnFullsceen(this);
-                isFullScreen = false;
-            }
-        }
+    //     size_t oldCurrentSlide = currentSlide;
+    //     if (eventKey.keyval == GdkKeysyms.GDK_space || eventKey.keyval == GdkKeysyms.GDK_Right) {
+    //         if (currentSlide < deck.slides.length)
+    //             currentSlide++;
+    //         else
+    //             writeln("Reached last slide");
+    //     }
+    //     else if (eventKey.keyval == GdkKeysyms.GDK_Left) {
+    //         if (currentSlide > 0)
+    //             currentSlide--;
+    //         else
+    //             writeln("Reached first slide");
+    //     }
+    //     else if (eventKey.keyval == GdkKeysyms.GDK_Escape) {
+    //         if (isFullScreen) {
+    //             // TODO: move into function
+    //             if (onUnFullsceen !is null)
+    //                 onUnFullsceen(this);
+    //             isFullScreen = false;
+    //         }
+    //         else {
+    //             Main.quit();
+    //         }
+    //     }
+    //     else if (eventKey.keyval == GdkKeysyms.GDK_b) {
+    //         if (isFullScreen) {
+    //             // TODO: move into function
+    //             isBlanking = !isBlanking;
+    //             queueDraw();
+    //         }
+    //     }
+    //     else if (eventKey.keyval == GdkKeysyms.GDK_F11) {
+    //         if (!isFullScreen) {
+    //             // TODO: move into function
+    //             isBlanking = false;
+    //             if (onFullsceen !is null)
+    //                 onFullsceen(this);
+    //             isFullScreen = true;
+    //         }
+    //         else {
+    //             if (onUnFullsceen !is null)
+    //                 onUnFullsceen(this);
+    //             isFullScreen = false;
+    //         }
+    //     }
 
-        if (oldCurrentSlide != currentSlide) {
-            vartable["slide"] = currentSlide+1;
-            // TODO: move next line away from here.
-            firePrepareSlideForVideo();
-            queueDraw();
-        }
+    //     if (oldCurrentSlide != currentSlide) {
+    //         vartable["slide"] = currentSlide + 1;
+    //         // TODO: move next line away from here.
+    //         firePrepareSlideForVideo();
+    //         queueDraw();
+    //     }
 
-        return true;
+    //     return true;
 
-    }
+    // }
 
     private void firePrepareSlideForVideo() {
 
@@ -210,22 +242,22 @@ class Presenter : DrawingArea {
         }
     }
 
-    bool onMousePress(Event event, Widget widget) {
-        bool returnValue = false;
+    // bool onMousePress() { //(Event event, Widget widget) {
+    //     bool returnValue = false;
 
-        if (event.type == gdk.Event.EventType.BUTTON_PRESS) {
-            GdkEventButton* mouseEvent = event.button;
-            writeln("Mouse click: ", mouseEvent.button);
-            returnValue = true;
-        }
+    //     if (event.type == gdk.Event.EventType.BUTTON_PRESS) {
+    //         GdkEventButton* mouseEvent = event.button;
+    //         writeln("Mouse click: ", mouseEvent.button);
+    //         returnValue = true;
+    //     }
 
-        return (returnValue);
+    //     return (returnValue);
 
-    }
+    // }
 
     void onSizeAllocate(Allocation newSize, Widget) {
 
-        size = *newSize;
+        size = newSize;
         factor = newSize.width / 920.0;
     }
 
