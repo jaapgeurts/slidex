@@ -43,11 +43,13 @@ struct Size {
 class RichTextDrawingVisitor : RichTextVisitor {
     Appender!string result;
     uint count;
+    bool showDebugOverlay;
     PgLayout layout;
     PgAttributeList attrList;
     PgAttribute currentAttr;
     Context context;
     float offsety = 0;
+    float offsetx = 0;
     float factor;
     uint slidenum;
     uint totalnum;
@@ -88,7 +90,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
 
         writeln("SIZE: ", size);
 
-        float x = size.x;
+        float x = size.x + offsetx;
         float y = size.y + offsety;
         float w = size.w;
         float h = size.h;
@@ -155,11 +157,12 @@ class RichTextDrawingVisitor : RichTextVisitor {
             // showText(text.content);
             PgCairo.showLayout(context, layout);
 
-            // if (showDebugOverlay) {
+            if (showDebugOverlay) {
                 setLineWidth(1);
                 rectangle(x, y, logicalRect.width, logicalRect.height);
+                setSourceRgb(0.85, 0.6, 0.6);
                 stroke();
-            // }
+            }
         }
 
         offsety += logicalRect.height;
@@ -273,7 +276,10 @@ class RichTextDrawingVisitor : RichTextVisitor {
         outputLayout(result.data());
         result = appender!string();
         startLayout();
-        layout.setIndent(-50);
+        // TODO: instead of offsetx and offsetx, can I use translate instead?
+        offsetx = listitem.level * 15;
+        layout.setIndent(-40 * PANGO_SCALE);
+        layout.setWidth(cast(int)((size.w - listitem.level * 15) * PANGO_SCALE));
 
         result ~= "➤ ";
     }
@@ -282,6 +288,9 @@ class RichTextDrawingVisitor : RichTextVisitor {
         outputLayout(result.data());
         result = appender!string();
         startLayout();
+        offsetx = listitem.level * 15;
+        layout.setIndent(listitem.level > 1 ? -40 * PANGO_SCALE : 0);
+        layout.setWidth(cast(int)((size.w - listitem.level * 15) * PANGO_SCALE));
     }
 
     void visit(Code code) {
@@ -547,6 +556,7 @@ class GtkDrawingVisitor : ItemVisitor {
         });
 
         RichTextDrawingVisitor rtv = new RichTextDrawingVisitor(text, Size(x, y, w, h), factor, vartable);
+        rtv.showDebugOverlay = showDebugOverlay;
         rtv.paint(context);
 
     }
