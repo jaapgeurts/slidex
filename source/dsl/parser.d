@@ -704,7 +704,7 @@ For root pass in "SlidexDoc.Statement"
     Result!(LocatedVal!DslType) parseNumber(ParseTree root) {
         SourceLocation loc = root.sourceLocation(sourceFilePath);
         return Result!(LocatedVal!DslType)(ok: true, value: locatedDslType(
-                root.matches[0].to!int, loc));
+                root.matches.join().to!int, loc));
     }
 
     Result!(LocatedVal!string) parseUnit(ParseTree root) {
@@ -1038,44 +1038,58 @@ For root pass in "SlidexDoc.Statement"
                 case "col":
                     if (res.value.has!int)
                         cell.col = res.value.get!int - 1;
-                    else
+                    else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
+                        result.ok = false;
+                    }
                     break;
                 case "row":
                     if (res.value.has!int)
                         cell.row = res.value.get!int - 1;
-                    else
+                    else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
+                        result.ok = false;
+                    }
                     break;
                 case "colspan":
                     if (res.value.has!int)
                         cell.colspan = res.value.get!int;
-                    else
+                    else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
+                        result.ok = false;
+                    }
                     break;
                 case "rowspan":
                     if (res.value.has!int)
                         cell.rowspan = res.value.get!int;
-                    else
+                    else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
+                        result.ok = false;
+                    }
                     break;
                 case "dx":
                     if (res.value.has!int)
                         cell.dx = res.value.get!int;
-                    else
+                    else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
+                        result.ok = false;
+                    }
                     break;
                 case "dy":
                     if (res.value.has!int)
                         cell.dy = res.value.get!int;
-                    else
+                    else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
+                        result.ok = false;
+                    }
                     break;
                 case "angle":
-                    if (res.value.has!float)
-                        cell.angle = res.value.get!float;
-                    else
-                        result.diagnostics ~= createInvalidTypeDiag(val.value, "float");
+                    if (res.value.has!int)
+                        cell.angle = res.value.get!int * 0.0174532925;
+                    else {
+                        result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
+                        result.ok = false;
+                    }
                     break;
                 case "align":
                     if (res.value.has!CellAlignment)
@@ -1105,32 +1119,43 @@ For root pass in "SlidexDoc.Statement"
                 case "x":
                     if (res.value.has!int)
                         bounds.x = res.value.get!int;
-                    else
+                    else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
+                        result.ok = false;
+                    }
                     break;
                 case "y":
                     if (res.value.has!int)
                         bounds.y = res.value.get!int;
-                    else
+                    else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
+                        result.ok = false;
+                    }
                     break;
                 case "width":
                     if (res.value.has!int)
                         bounds.width = res.value.get!int;
-                    else
+                    else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
+                        result.ok = false;
+                    }
                     break;
                 case "height":
                     if (res.value.has!int)
                         bounds.height = res.value.get!int;
-                    else
+                    else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
+                        result.ok = false;
+                    }
                     break;
                 case "angle":
-                    if (res.value.has!float)
-                        bounds.angle = res.value.get!float;
-                    else
-                        result.diagnostics ~= createInvalidTypeDiag(val.value, "float");
+                    if (res.value.has!int) {
+                        writeln("specced angle");
+                        bounds.angle = res.value.get!int * 0.0174532925;
+                    } else { 
+                        result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
+                        result.ok = false;
+                    }
                     break;
                 default:
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, args[argname]

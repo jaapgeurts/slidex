@@ -55,7 +55,7 @@ SlidexDoc:
     Array               <- LSQUARE ArrayValues? RSQUARE
     ArrayValues         <- Value (COMMA Value)*
     Date                <~ [1-9][0-9][0-9][0-9] '-' [0-9][0-9] '-' [0-9][0-9] WsComment
-    Number              <- Digits
+    Number              <- '-'? Digits
     Quantity            <- Number Unit?
     Digits              <~ [0-9] [0-9]* WsComment
     Unit                <- ('s' / '%' / 'cm' / 'fr' / 'px') WsComment
@@ -101,7 +101,8 @@ SlidexDoc:
 
 # ──── RichText ───────────────────────────────────────
 
-    RichTextNode        <- ParaBreak / CodeBlock / ListBlock / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / Word / :blank / :eol
+## TODO: factor out these parts?
+    RichTextNode        <- EscapedChar / ParaBreak / CodeBlock / ListBlock / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / Word / :blank / :eol
 
 # RichText Inline sugar
 
@@ -124,14 +125,17 @@ SlidexDoc:
 
 # # RichText Inline content (recursive)
     InlineContent   <- InlineNode*
-    InlineNode      <- Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / InlineWord / :blank
+    InlineNode      <- EscapedChar / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / InlineWord / :blank
+
+    ListItemContent   <- ListItemNode*
+    ListItemNode      <- EscapedChar / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / InlineWord / :' '*
 
 #  RichText Lists
 
     ListBlock       <- ListItem+
-    ListItem        <- ' ' (BulletMarker/NumberMarker) InlineContent eol
-    BulletMarker    <- '-' ' '+
-    NumberMarker    <- [0-9]+ '.' ' '+
+    ListItem        <- (BulletMarker/NumberMarker) ListItemContent eol
+    BulletMarker    <- ' '* '-' ' '+
+    NumberMarker    <- ' '* [0-9]+ '.' ' '+
 
 # RichText Code block
 
@@ -147,11 +151,13 @@ SlidexDoc:
     Word            <~ (!SpecialChar !blank !eol .)+
     InlineWord      <~ (!InlineSpecial !blank !eol .)+
 
-    SpecialChar     <- '*' / '/' / '_' / '~' / '#' / '[' / '$' / backquote / '}' / blank / eol
+    SpecialChar     <- '\\' / '*' / '/' / '-' / '_' / '~' / '#' / '[' / '$' / backquote / '}' / blank / eol
     InlineSpecial   <- SpecialChar / ']'
 
     RTNumber          <~ [0-9]+
     RTString          <- :doublequote ~(!doublequote .)* :doublequote
+
+    EscapedChar       <- '\\' . 
 
     ParaBreak       <- eol eol+
     WS              <- :blank*

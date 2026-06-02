@@ -58,7 +58,7 @@ SlidexDoc:
     Array               <- LSQUARE ArrayValues? RSQUARE
     ArrayValues         <- Value (COMMA Value)*
     Date                <~ [1-9][0-9][0-9][0-9] '-' [0-9][0-9] '-' [0-9][0-9] WsComment
-    Number              <- Digits
+    Number              <- '-'? Digits
     Quantity            <- Number Unit?
     Digits              <~ [0-9] [0-9]* WsComment
     Unit                <- ('s' / '%' / 'cm' / 'fr' / 'px') WsComment
@@ -104,7 +104,8 @@ SlidexDoc:
 
 # ──── RichText ───────────────────────────────────────
 
-    RichTextNode        <- ParaBreak / CodeBlock / ListBlock / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / Word / :blank / :eol
+## TODO: factor out these parts?
+    RichTextNode        <- EscapedChar / ParaBreak / CodeBlock / ListBlock / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / Word / :blank / :eol
 
 # RichText Inline sugar
 
@@ -127,14 +128,17 @@ SlidexDoc:
 
 # # RichText Inline content (recursive)
     InlineContent   <- InlineNode*
-    InlineNode      <- Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / InlineWord / :blank
+    InlineNode      <- EscapedChar / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / InlineWord / :blank
+
+    ListItemContent   <- ListItemNode*
+    ListItemNode      <- EscapedChar / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / InlineWord / :' '*
 
 #  RichText Lists
 
     ListBlock       <- ListItem+
-    ListItem        <- ' ' (BulletMarker/NumberMarker) InlineContent eol
-    BulletMarker    <- '-' ' '+
-    NumberMarker    <- [0-9]+ '.' ' '+
+    ListItem        <- (BulletMarker/NumberMarker) ListItemContent eol
+    BulletMarker    <- ' '* '-' ' '+
+    NumberMarker    <- ' '* [0-9]+ '.' ' '+
 
 # RichText Code block
 
@@ -150,11 +154,13 @@ SlidexDoc:
     Word            <~ (!SpecialChar !blank !eol .)+
     InlineWord      <~ (!InlineSpecial !blank !eol .)+
 
-    SpecialChar     <- '*' / '/' / '_' / '~' / '#' / '[' / '$' / backquote / '}' / blank / eol
+    SpecialChar     <- '\\' / '*' / '/' / '-' / '_' / '~' / '#' / '[' / '$' / backquote / '}' / blank / eol
     InlineSpecial   <- SpecialChar / ']'
 
     RTNumber          <~ [0-9]+
     RTString          <- :doublequote ~(!doublequote .)* :doublequote
+
+    EscapedChar       <- '\\' . 
 
     ParaBreak       <- eol eol+
     WS              <- :blank*
@@ -259,6 +265,8 @@ import std.functional: toDelegate;
         rules["FuncArg"] = toDelegate(&FuncArg);
         rules["InlineContent"] = toDelegate(&InlineContent);
         rules["InlineNode"] = toDelegate(&InlineNode);
+        rules["ListItemContent"] = toDelegate(&ListItemContent);
+        rules["ListItemNode"] = toDelegate(&ListItemNode);
         rules["ListBlock"] = toDelegate(&ListBlock);
         rules["ListItem"] = toDelegate(&ListItem);
         rules["BulletMarker"] = toDelegate(&BulletMarker);
@@ -272,6 +280,7 @@ import std.functional: toDelegate;
         rules["InlineSpecial"] = toDelegate(&InlineSpecial);
         rules["RTNumber"] = toDelegate(&RTNumber);
         rules["RTString"] = toDelegate(&RTString);
+        rules["EscapedChar"] = toDelegate(&EscapedChar);
         rules["ParaBreak"] = toDelegate(&ParaBreak);
         rules["WS"] = toDelegate(&WS);
         rules["Spacing"] = toDelegate(&Spacing);
@@ -1347,7 +1356,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(Digits, "SlidexDoc.Number")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.option!(pegged.peg.literal!("-")), Digits), "SlidexDoc.Number")(p);
         }
         else
         {
@@ -1355,7 +1364,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(Digits, "SlidexDoc.Number"), "Number")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.option!(pegged.peg.literal!("-")), Digits), "SlidexDoc.Number"), "Number")(p);
                 memo[tuple(`Number`, p.end)] = result;
                 return result;
             }
@@ -1366,12 +1375,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(Digits, "SlidexDoc.Number")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.option!(pegged.peg.literal!("-")), Digits), "SlidexDoc.Number")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(Digits, "SlidexDoc.Number"), "Number")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.option!(pegged.peg.literal!("-")), Digits), "SlidexDoc.Number"), "Number")(TParseTree("", false,[], s));
         }
     }
     static string Number(GetName g)
@@ -2679,7 +2688,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.or!(ParaBreak, CodeBlock, ListBlock, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, Word, pegged.peg.discard!(blank), pegged.peg.discard!(eol)), "SlidexDoc.RichTextNode")(p);
+            return         pegged.peg.defined!(pegged.peg.or!(EscapedChar, ParaBreak, CodeBlock, ListBlock, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, Word, pegged.peg.discard!(blank), pegged.peg.discard!(eol)), "SlidexDoc.RichTextNode")(p);
         }
         else
         {
@@ -2687,7 +2696,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(ParaBreak, CodeBlock, ListBlock, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, Word, pegged.peg.discard!(blank), pegged.peg.discard!(eol)), "SlidexDoc.RichTextNode"), "RichTextNode")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(EscapedChar, ParaBreak, CodeBlock, ListBlock, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, Word, pegged.peg.discard!(blank), pegged.peg.discard!(eol)), "SlidexDoc.RichTextNode"), "RichTextNode")(p);
                 memo[tuple(`RichTextNode`, p.end)] = result;
                 return result;
             }
@@ -2698,12 +2707,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.or!(ParaBreak, CodeBlock, ListBlock, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, Word, pegged.peg.discard!(blank), pegged.peg.discard!(eol)), "SlidexDoc.RichTextNode")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.or!(EscapedChar, ParaBreak, CodeBlock, ListBlock, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, Word, pegged.peg.discard!(blank), pegged.peg.discard!(eol)), "SlidexDoc.RichTextNode")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.or!(ParaBreak, CodeBlock, ListBlock, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, Word, pegged.peg.discard!(blank), pegged.peg.discard!(eol)), "SlidexDoc.RichTextNode"), "RichTextNode")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.or!(EscapedChar, ParaBreak, CodeBlock, ListBlock, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, Word, pegged.peg.discard!(blank), pegged.peg.discard!(eol)), "SlidexDoc.RichTextNode"), "RichTextNode")(TParseTree("", false,[], s));
         }
     }
     static string RichTextNode(GetName g)
@@ -3111,7 +3120,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.or!(Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, InlineWord, pegged.peg.discard!(blank)), "SlidexDoc.InlineNode")(p);
+            return         pegged.peg.defined!(pegged.peg.or!(EscapedChar, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, InlineWord, pegged.peg.discard!(blank)), "SlidexDoc.InlineNode")(p);
         }
         else
         {
@@ -3119,7 +3128,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, InlineWord, pegged.peg.discard!(blank)), "SlidexDoc.InlineNode"), "InlineNode")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(EscapedChar, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, InlineWord, pegged.peg.discard!(blank)), "SlidexDoc.InlineNode"), "InlineNode")(p);
                 memo[tuple(`InlineNode`, p.end)] = result;
                 return result;
             }
@@ -3130,17 +3139,89 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.or!(Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, InlineWord, pegged.peg.discard!(blank)), "SlidexDoc.InlineNode")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.or!(EscapedChar, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, InlineWord, pegged.peg.discard!(blank)), "SlidexDoc.InlineNode")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.or!(Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, InlineWord, pegged.peg.discard!(blank)), "SlidexDoc.InlineNode"), "InlineNode")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.or!(EscapedChar, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, InlineWord, pegged.peg.discard!(blank)), "SlidexDoc.InlineNode"), "InlineNode")(TParseTree("", false,[], s));
         }
     }
     static string InlineNode(GetName g)
     {
         return "SlidexDoc.InlineNode";
+    }
+
+    static TParseTree ListItemContent(TParseTree p)
+    {
+        if(__ctfe)
+        {
+            return         pegged.peg.defined!(pegged.peg.zeroOrMore!(ListItemNode), "SlidexDoc.ListItemContent")(p);
+        }
+        else
+        {
+            if (auto m = tuple(`ListItemContent`, p.end) in memo)
+                return *m;
+            else
+            {
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.zeroOrMore!(ListItemNode), "SlidexDoc.ListItemContent"), "ListItemContent")(p);
+                memo[tuple(`ListItemContent`, p.end)] = result;
+                return result;
+            }
+        }
+    }
+
+    static TParseTree ListItemContent(string s)
+    {
+        if(__ctfe)
+        {
+            return         pegged.peg.defined!(pegged.peg.zeroOrMore!(ListItemNode), "SlidexDoc.ListItemContent")(TParseTree("", false,[], s));
+        }
+        else
+        {
+            forgetMemo();
+            return hooked!(pegged.peg.defined!(pegged.peg.zeroOrMore!(ListItemNode), "SlidexDoc.ListItemContent"), "ListItemContent")(TParseTree("", false,[], s));
+        }
+    }
+    static string ListItemContent(GetName g)
+    {
+        return "SlidexDoc.ListItemContent";
+    }
+
+    static TParseTree ListItemNode(TParseTree p)
+    {
+        if(__ctfe)
+        {
+            return         pegged.peg.defined!(pegged.peg.or!(EscapedChar, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, InlineWord, pegged.peg.discard!(pegged.peg.zeroOrMore!(pegged.peg.literal!(" ")))), "SlidexDoc.ListItemNode")(p);
+        }
+        else
+        {
+            if (auto m = tuple(`ListItemNode`, p.end) in memo)
+                return *m;
+            else
+            {
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(EscapedChar, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, InlineWord, pegged.peg.discard!(pegged.peg.zeroOrMore!(pegged.peg.literal!(" ")))), "SlidexDoc.ListItemNode"), "ListItemNode")(p);
+                memo[tuple(`ListItemNode`, p.end)] = result;
+                return result;
+            }
+        }
+    }
+
+    static TParseTree ListItemNode(string s)
+    {
+        if(__ctfe)
+        {
+            return         pegged.peg.defined!(pegged.peg.or!(EscapedChar, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, InlineWord, pegged.peg.discard!(pegged.peg.zeroOrMore!(pegged.peg.literal!(" ")))), "SlidexDoc.ListItemNode")(TParseTree("", false,[], s));
+        }
+        else
+        {
+            forgetMemo();
+            return hooked!(pegged.peg.defined!(pegged.peg.or!(EscapedChar, Func, Bold, Italic, Underline, Strike, SmallCaps, Variable, InlineWord, pegged.peg.discard!(pegged.peg.zeroOrMore!(pegged.peg.literal!(" ")))), "SlidexDoc.ListItemNode"), "ListItemNode")(TParseTree("", false,[], s));
+        }
+    }
+    static string ListItemNode(GetName g)
+    {
+        return "SlidexDoc.ListItemNode";
     }
 
     static TParseTree ListBlock(TParseTree p)
@@ -3183,7 +3264,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!(" "), pegged.peg.or!(BulletMarker, NumberMarker), InlineContent, eol), "SlidexDoc.ListItem")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.or!(BulletMarker, NumberMarker), ListItemContent, eol), "SlidexDoc.ListItem")(p);
         }
         else
         {
@@ -3191,7 +3272,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!(" "), pegged.peg.or!(BulletMarker, NumberMarker), InlineContent, eol), "SlidexDoc.ListItem"), "ListItem")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.or!(BulletMarker, NumberMarker), ListItemContent, eol), "SlidexDoc.ListItem"), "ListItem")(p);
                 memo[tuple(`ListItem`, p.end)] = result;
                 return result;
             }
@@ -3202,12 +3283,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!(" "), pegged.peg.or!(BulletMarker, NumberMarker), InlineContent, eol), "SlidexDoc.ListItem")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.or!(BulletMarker, NumberMarker), ListItemContent, eol), "SlidexDoc.ListItem")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!(" "), pegged.peg.or!(BulletMarker, NumberMarker), InlineContent, eol), "SlidexDoc.ListItem"), "ListItem")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.or!(BulletMarker, NumberMarker), ListItemContent, eol), "SlidexDoc.ListItem"), "ListItem")(TParseTree("", false,[], s));
         }
     }
     static string ListItem(GetName g)
@@ -3219,7 +3300,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("-"), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.BulletMarker")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.zeroOrMore!(pegged.peg.literal!(" ")), pegged.peg.literal!("-"), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.BulletMarker")(p);
         }
         else
         {
@@ -3227,7 +3308,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("-"), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.BulletMarker"), "BulletMarker")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.zeroOrMore!(pegged.peg.literal!(" ")), pegged.peg.literal!("-"), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.BulletMarker"), "BulletMarker")(p);
                 memo[tuple(`BulletMarker`, p.end)] = result;
                 return result;
             }
@@ -3238,12 +3319,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("-"), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.BulletMarker")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.zeroOrMore!(pegged.peg.literal!(" ")), pegged.peg.literal!("-"), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.BulletMarker")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("-"), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.BulletMarker"), "BulletMarker")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.zeroOrMore!(pegged.peg.literal!(" ")), pegged.peg.literal!("-"), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.BulletMarker"), "BulletMarker")(TParseTree("", false,[], s));
         }
     }
     static string BulletMarker(GetName g)
@@ -3255,7 +3336,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.oneOrMore!(pegged.peg.charRange!('0', '9')), pegged.peg.literal!("."), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.NumberMarker")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.zeroOrMore!(pegged.peg.literal!(" ")), pegged.peg.oneOrMore!(pegged.peg.charRange!('0', '9')), pegged.peg.literal!("."), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.NumberMarker")(p);
         }
         else
         {
@@ -3263,7 +3344,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.oneOrMore!(pegged.peg.charRange!('0', '9')), pegged.peg.literal!("."), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.NumberMarker"), "NumberMarker")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.zeroOrMore!(pegged.peg.literal!(" ")), pegged.peg.oneOrMore!(pegged.peg.charRange!('0', '9')), pegged.peg.literal!("."), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.NumberMarker"), "NumberMarker")(p);
                 memo[tuple(`NumberMarker`, p.end)] = result;
                 return result;
             }
@@ -3274,12 +3355,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.oneOrMore!(pegged.peg.charRange!('0', '9')), pegged.peg.literal!("."), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.NumberMarker")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.zeroOrMore!(pegged.peg.literal!(" ")), pegged.peg.oneOrMore!(pegged.peg.charRange!('0', '9')), pegged.peg.literal!("."), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.NumberMarker")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.oneOrMore!(pegged.peg.charRange!('0', '9')), pegged.peg.literal!("."), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.NumberMarker"), "NumberMarker")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.zeroOrMore!(pegged.peg.literal!(" ")), pegged.peg.oneOrMore!(pegged.peg.charRange!('0', '9')), pegged.peg.literal!("."), pegged.peg.oneOrMore!(pegged.peg.literal!(" "))), "SlidexDoc.NumberMarker"), "NumberMarker")(TParseTree("", false,[], s));
         }
     }
     static string NumberMarker(GetName g)
@@ -3471,7 +3552,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.or!(pegged.peg.literal!("*"), pegged.peg.literal!("/"), pegged.peg.literal!("_"), pegged.peg.literal!("~"), pegged.peg.literal!("#"), pegged.peg.literal!("["), pegged.peg.literal!("$"), backquote, pegged.peg.literal!("}"), blank, eol), "SlidexDoc.SpecialChar")(p);
+            return         pegged.peg.defined!(pegged.peg.or!(pegged.peg.literal!("\\"), pegged.peg.literal!("*"), pegged.peg.literal!("/"), pegged.peg.literal!("-"), pegged.peg.literal!("_"), pegged.peg.literal!("~"), pegged.peg.literal!("#"), pegged.peg.literal!("["), pegged.peg.literal!("$"), backquote, pegged.peg.literal!("}"), blank, eol), "SlidexDoc.SpecialChar")(p);
         }
         else
         {
@@ -3479,7 +3560,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(pegged.peg.literal!("*"), pegged.peg.literal!("/"), pegged.peg.literal!("_"), pegged.peg.literal!("~"), pegged.peg.literal!("#"), pegged.peg.literal!("["), pegged.peg.literal!("$"), backquote, pegged.peg.literal!("}"), blank, eol), "SlidexDoc.SpecialChar"), "SpecialChar")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(pegged.peg.literal!("\\"), pegged.peg.literal!("*"), pegged.peg.literal!("/"), pegged.peg.literal!("-"), pegged.peg.literal!("_"), pegged.peg.literal!("~"), pegged.peg.literal!("#"), pegged.peg.literal!("["), pegged.peg.literal!("$"), backquote, pegged.peg.literal!("}"), blank, eol), "SlidexDoc.SpecialChar"), "SpecialChar")(p);
                 memo[tuple(`SpecialChar`, p.end)] = result;
                 return result;
             }
@@ -3490,12 +3571,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.or!(pegged.peg.literal!("*"), pegged.peg.literal!("/"), pegged.peg.literal!("_"), pegged.peg.literal!("~"), pegged.peg.literal!("#"), pegged.peg.literal!("["), pegged.peg.literal!("$"), backquote, pegged.peg.literal!("}"), blank, eol), "SlidexDoc.SpecialChar")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.or!(pegged.peg.literal!("\\"), pegged.peg.literal!("*"), pegged.peg.literal!("/"), pegged.peg.literal!("-"), pegged.peg.literal!("_"), pegged.peg.literal!("~"), pegged.peg.literal!("#"), pegged.peg.literal!("["), pegged.peg.literal!("$"), backquote, pegged.peg.literal!("}"), blank, eol), "SlidexDoc.SpecialChar")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.or!(pegged.peg.literal!("*"), pegged.peg.literal!("/"), pegged.peg.literal!("_"), pegged.peg.literal!("~"), pegged.peg.literal!("#"), pegged.peg.literal!("["), pegged.peg.literal!("$"), backquote, pegged.peg.literal!("}"), blank, eol), "SlidexDoc.SpecialChar"), "SpecialChar")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.or!(pegged.peg.literal!("\\"), pegged.peg.literal!("*"), pegged.peg.literal!("/"), pegged.peg.literal!("-"), pegged.peg.literal!("_"), pegged.peg.literal!("~"), pegged.peg.literal!("#"), pegged.peg.literal!("["), pegged.peg.literal!("$"), backquote, pegged.peg.literal!("}"), blank, eol), "SlidexDoc.SpecialChar"), "SpecialChar")(TParseTree("", false,[], s));
         }
     }
     static string SpecialChar(GetName g)
@@ -3609,6 +3690,42 @@ import std.functional: toDelegate;
     static string RTString(GetName g)
     {
         return "SlidexDoc.RTString";
+    }
+
+    static TParseTree EscapedChar(TParseTree p)
+    {
+        if(__ctfe)
+        {
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("\\"), pegged.peg.any), "SlidexDoc.EscapedChar")(p);
+        }
+        else
+        {
+            if (auto m = tuple(`EscapedChar`, p.end) in memo)
+                return *m;
+            else
+            {
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("\\"), pegged.peg.any), "SlidexDoc.EscapedChar"), "EscapedChar")(p);
+                memo[tuple(`EscapedChar`, p.end)] = result;
+                return result;
+            }
+        }
+    }
+
+    static TParseTree EscapedChar(string s)
+    {
+        if(__ctfe)
+        {
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("\\"), pegged.peg.any), "SlidexDoc.EscapedChar")(TParseTree("", false,[], s));
+        }
+        else
+        {
+            forgetMemo();
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("\\"), pegged.peg.any), "SlidexDoc.EscapedChar"), "EscapedChar")(TParseTree("", false,[], s));
+        }
+    }
+    static string EscapedChar(GetName g)
+    {
+        return "SlidexDoc.EscapedChar";
     }
 
     static TParseTree ParaBreak(TParseTree p)

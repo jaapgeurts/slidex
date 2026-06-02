@@ -48,7 +48,6 @@ struct RgbColour {
     }
 }
 
-
 enum CellAlignment {
     TopLeft,
     TopCenter,
@@ -102,10 +101,15 @@ interface RichTextVisitor {
     void leave(Italic italic);
     void enter(Underline underline);
     void leave(Underline underline);
+    void enter(ListBlock listblock);
+    void leave(ListBlock listblock);
+    void enter(ListItem listitem);
+    void leave(ListItem listitem);
     void visit(Variable variable);
     void visit(Func func);
-    void visit(List list);
     void visit(Code code);
+    void visit(EscapedChar ec);
+    void visit(ParaBreak pb);
 }
 
 class RichText {
@@ -131,8 +135,18 @@ class RichText {
             },
                 (Variable v) => visitor.visit(v),
                 (Func f) => visitor.visit(f),
-                (List l) => visitor.visit(l),
+                (ListBlock l) {
+                visitor.enter(l);
+                foreach (li; l.items) {
+                    visitor.enter(li);
+                    applyVisitor(visitor, li.content);
+                    visitor.leave(li);
+                }
+                visitor.leave(l);
+            },
                 (Code c) => visitor.visit(c),
+                (EscapedChar ec) => visitor.visit(ec),
+                (ParaBreak pb) => visitor.visit(pb),
             );
         }
     }
@@ -143,11 +157,18 @@ class RichText {
     }
 }
 
-alias TextItem = SumType!(Word, Bold, Italic, Underline, Variable, Func, List, Code);
+alias TextItem = SumType!(Word, EscapedChar, ParaBreak, Bold, Italic, Underline, Variable, Func, ListBlock, Code);
 
 struct Word {
     string text;
 }
+
+struct EscapedChar {
+    char letter;
+}
+
+alias Seconds = Typedef!(int, int.init, "seconds");
+alias ParaBreak = Typedef!(ubyte, ubyte.init, "parabreak");
 
 struct Bold {
     TextItem[] items;
@@ -172,8 +193,14 @@ struct Func {
     TextItem[] items;
 }
 
-struct List {
-    // TODO:
+struct ListBlock {
+    ListItem[] items;
+}
+
+struct ListItem {
+    int level;
+    char bullet;
+    TextItem[] content;
 }
 
 struct Code {

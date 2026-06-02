@@ -37,14 +37,13 @@ private:
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.ParaBreak":
-                assert(false, "Not implemented parabreak");
-                break;
+                ParaBreak pb;
+                return Result!TextItem(ok: true, value: TextItem(pb));
             case "SlidexDoc.CodeBlock":
                 assert(false, "Not implemented codeblock");
                 break;
             case "SlidexDoc.ListBlock":
-                assert(false, "Not implemented listblock");
-                break;
+                return parseListBlock(child);
             case "SlidexDoc.Func":
                 assert(false, "Not implemented func");
                 break;
@@ -64,6 +63,8 @@ private:
                 return parseVariable(child);
             case "SlidexDoc.Word":
                 return parseWord(child);
+            case "SlidexDoc.EscapedChar":
+                return parseEscapedChar(child);
             default:
                 assert(false, "Unknown node: " ~ child.name);
             }
@@ -74,8 +75,6 @@ private:
     // Result!parseParaBreak(ParseTree root) {
     // }
     // Result!parseCodeBLock(ParseTree root) {
-    // }
-    // Result!parseListBlock(ParseTree root) {
     // }
     // Result!parseFunc(ParseTree root) {
     // }
@@ -143,6 +142,12 @@ private:
         return Result!TextItem(ok: true, value: w);
     }
 
+    Result!TextItem parseEscapedChar(ParseTree root) {
+        // TODO: this may cause unicode problems
+        TextItem ec = EscapedChar(root.matches[1][0]);
+        return Result!TextItem(ok: true, value: ec);
+    }
+
     // Result!parseFuncName(ParseTree root) {
     // }
     // Result!parseFuncArgs(ParseTree root) {
@@ -194,10 +199,81 @@ private:
                 assert(false, "Unknown node: " ~ child.name);
             }
         }
+        writeln("parseInlineNode(): ", root);
         assert(false, "Unreachable");
     }
-    // Result!parseListItem(ParseTree root) {
-    // }
+
+    Result!TextItem parseListBlock(ParseTree root) {
+        Result!TextItem result = Result!TextItem(ok: true);
+        ListBlock block;
+
+        // writeln("ListBlock: ", root);
+        foreach (child; root.children) {
+            switch (child.name) {
+            case "SlidexDoc.ListItem":
+                Result!ListItem res = parseListItem(child);
+                result.absorb(res).ifSome((li) { block.items ~= li; });
+                break;
+            default:
+                assert(false, "Unknown node: " ~ child.name);
+            }
+        }
+        // normalize indents
+        uint minspaces = uint.max;
+        foreach (item; block.items) {
+            if (minspaces > item.level)
+                minspaces = item.level;
+        }
+        foreach (ref item; block.items) {
+            item.level -= minspaces;
+        }
+        result.value = block;
+        return result;
+
+    }
+
+    Result!ListItem parseListItem(ParseTree root) {
+        Result!ListItem result = Result!ListItem(ok: true);
+        ListItem item;
+        foreach (child; root.children) {
+            switch (child.name) {
+            case "SlidexDoc.BulletMarker":
+                size_t i = 0;
+                while (i < child.matches.length && child.matches[i] == " ") {
+                    item.level++;
+                    i++;
+                }
+                item.bullet = child.matches[i][0];
+                break;
+            case "SlidexDoc.ListItemContent":
+                Result!(TextItem[]) res = parseListItemContent(child);
+                result.absorb(res).ifSome((ti) { item.content = ti; });
+                break;
+            default:
+                assert(false, "Unknown node: " ~ child.name);
+            }
+        }
+        result.value = item;
+        return result;
+    }
+
+    Result!(TextItem[]) parseListItemContent(ParseTree root) {
+        Result!(TextItem[]) result = Result!(TextItem[])(ok: true);
+        TextItem[] items;
+        foreach (child; root.children) {
+            switch (child.name) {
+            case "SlidexDoc.ListItemNode":
+                Result!TextItem res = parseInlineNode(child);
+                result.absorb(res).ifSome((ti) { items ~= ti; });
+                break;
+            default:
+                assert(false, "Unknown node: " ~ child.name);
+            }
+        }
+        result.value = items;
+        return result;
+    }
+
     // Result!parseBulletMarker(ParseTree root) {
     // }
     // Result!parseNumberMarker(ParseTree root) {

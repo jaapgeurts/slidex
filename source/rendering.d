@@ -33,26 +33,183 @@ import types;
 
 bool isVideo;
 
-class RichTextToPangoConvertorVistor : RichTextVisitor {
+struct Size {
+    float x;
+    float y;
+    float w;
+    float h;
+}
+
+class RichTextDrawingVisitor : RichTextVisitor {
     Appender!string result;
     uint count;
+    PgLayout layout;
     PgAttributeList attrList;
     PgAttribute currentAttr;
+    Context context;
+    float offsety = 0;
+    float factor;
     uint slidenum;
     uint totalnum;
 
+    Text text;
+    Size size;
     Variant[string] vartable;
 
-    this(Variant[string] vartable) {
+    this(Text text, Size size, float factor, Variant[string] vartable) {
+
+        this.text = text;
+        this.size = size;
+        this.factor = factor;
         this.vartable = vartable;
+
+        // PgCairo.contextSetResolution(PgCairo.createContext(context),72);
+
+    }
+
+    void startLayout() {
+        // create the first layout
+        layout = PgCairo.createLayout(context);
+        layout.setWidth(cast(int)(size.w * PANGO_SCALE));
+        // TODO: get default font from master.
+        PgFontDescription fd = new PgFontDescription("Roboto", cast(int)(text.size * factor));
+        // fd.setWeight(PangoWeight.BOLD);
+        layout.setFontDescription(fd);
+        if (attrList)
+            attrList.destroy();
+        attrList = new PgAttributeList();
+    }
+
+    // Add more parameters instead of using class fields.
+    void outputLayout(string text) {
+
+        if (text.length == 0)
+            return;
+
+        writeln("SIZE: ", size);
+
+        float x = size.x;
+        float y = size.y + offsety;
+        float w = size.w;
+        float h = size.h;
+
+        // when done print the text.
+        layout.setText(text);
+        layout.setAttributes(attrList);
+
+        PangoRectangle inkRect, logicalRect;
+
+        layout.getPixelExtents(inkRect, logicalRect);
+        writeln(i"Planned:    x:$(x),y:$(y),w:$(w),h:$(h)");
+        writeln(i"inkt rect:  x:$(inkRect.x),y:$(inkRect.y),w:$(inkRect.width),h:$(inkRect.height)");
+        writeln(i"logic rect: x:$(logicalRect.x),y:$(logicalRect.y),w:$(logicalRect.width),h:$(
+                logicalRect.height)");
+
+        this.text.layoutLocation.match!(
+            (BoundsLocation bl) {
+            assert(false, "Text bounds location not implemented");
+        },
+            (CellLocation cl) {
+            final switch (cl.alignment) {
+            case CellAlignment.TopLeft:
+                // default calculation is TopLeft
+                break;
+            case CellAlignment.TopCenter:
+                x += (w - logicalRect.width) / 2.0;
+                break;
+            case CellAlignment.TopRight:
+                x += w - logicalRect.width;
+                break;
+            case CellAlignment.CenterLeft:
+                y += (h - logicalRect.height) / 2.0;
+                break;
+            case CellAlignment.Center:
+                x += (w - logicalRect.width) / 2.0;
+                y += (h - logicalRect.height) / 2.0;
+                break;
+            case CellAlignment.CenterRight:
+                x += w - logicalRect.width;
+                y += (h - logicalRect.height) / 2.0;
+                break;
+            case CellAlignment.BottomLeft:
+                y += h - logicalRect.height;
+                break;
+            case CellAlignment.BottomCenter:
+                x += (w - logicalRect.width) / 2.0;
+                y += h - logicalRect.height;
+                break;
+            case CellAlignment.BottomRight:
+                x += w - logicalRect.width;
+                y += h - logicalRect.height;
+                break;
+            }
+
+        });
+
+        with (context) {
+            // TODO: auto convert rgb colour to float triplet
+            setSourceRgb(this.text.colour.r / 255.0, this.text.colour.g / 255.0, this.text.colour.b / 255.0);
+            // textExtents(text.content, &extents);
+            // TODO: implement text box alignment
+            moveTo(x + logicalRect.x, y + logicalRect.y);
+            // showText(text.content);
+            PgCairo.showLayout(context, layout);
+
+            // if (showDebugOverlay) {
+                setLineWidth(1);
+                rectangle(x, y, logicalRect.width, logicalRect.height);
+                stroke();
+            // }
+        }
+
+        offsety += logicalRect.height;
+
+    }
+
+    void paint(Context context) {
+        this.context = context;
+
+        // create a new layout
+        startLayout();
+
+        text.content.accept(this);
+
+        outputLayout(result.data());
+
+        // if (text.alignment == Alignment.Left)
+        //     layout.setAlignment(PangoAlignment.LEFT);
+        // else if (text.alignment == Alignment.Center)
+        //     layout.setAlignment(PangoAlignment.CENTER);
+        // else if (text.alignment == Alignment.Right)
+        //     layout.setAlignment(PangoAlignment.RIGHT);
+        // else
+        //     assert(false,"Only left,center and right alignments are implemented");
+
     }
 
     void visit(RichText richtext) {
         result = appender!string;
-        attrList = new PgAttributeList();
+
     }
 
     void visit(TextItem textitem) {
+    }
+
+    void visit(EscapedChar ec) {
+        switch (ec.letter) {
+        case 'n':
+            result ~= char(0x0a); // Line feed
+            break;
+        default:
+            result ~= ec.letter ~ " ";
+        }
+    }
+
+    void visit(ParaBreak pb) {
+        outputLayout(result.data());
+        result = appender!string();
+        offsety += 18 * factor; // 10 pixels between paragraphs
+        startLayout();
     }
 
     void visit(Word word) {
@@ -103,7 +260,28 @@ class RichTextToPangoConvertorVistor : RichTextVisitor {
     void visit(Func func) {
     }
 
-    void visit(List list) {
+    void enter(ListBlock listblock) {
+    }
+
+    void leave(ListBlock listblock) {
+        outputLayout(result.data());
+        result = appender!string();
+        startLayout();
+    }
+
+    void enter(ListItem listitem) {
+        outputLayout(result.data());
+        result = appender!string();
+        startLayout();
+        layout.setIndent(-50);
+
+        result ~= "➤ ";
+    }
+
+    void leave(ListItem listitem) {
+        outputLayout(result.data());
+        result = appender!string();
+        startLayout();
     }
 
     void visit(Code code) {
@@ -290,20 +468,31 @@ class GtkDrawingVisitor : ItemVisitor {
         ImageSurface surface = ImageSurface.createFromPng(image.path);
 
         // factor out
-        float x, y, w, h;
+        float x, y, w, h, a;
         image.layoutLocation.match!(
-            (BoundsLocation bl) { x = bl.x; y = bl.y; w = bl.width; h = bl.height; },
+            (BoundsLocation bl) {
+            x = bl.x;
+            y = bl.y;
+            w = bl.width;
+            h = bl.height;
+            a = bl.angle;
+        },
             (CellLocation cl) {
             assert(false, "CellLocation is not implemented for Image");
         }
         );
+        writeln(i"Image pos: x:$(x), y:$(y), w:$(w), h:$(h), a:$(a)");
 
         float img_w = surface.getWidth();
         float img_h = surface.getHeight();
 
         with (context) {
             save();
-            translate(x * factor, y * factor);
+            float midpointx = w / 2.0;
+            float midpointy = h / 2.0;
+            translate(x * factor + midpointx, y * factor + midpointy);
+            rotate(a);
+            translate(-midpointx, -midpointy);
             scale(w / img_w * factor, w / img_w * factor);
             setSourceSurface(surface, 0, 0);
             paint();
@@ -357,94 +546,8 @@ class GtkDrawingVisitor : ItemVisitor {
 
         });
 
-        // PgCairo.contextSetResolution(PgCairo.createContext(context),72);
-
-        PgLayout layout = PgCairo.createLayout(context);
-        layout.setWidth(cast(int)(w * PANGO_SCALE));
-
-        // TODO: move out of this visitor
-        RichTextToPangoConvertorVistor rtv = new RichTextToPangoConvertorVistor(vartable);
-        text.content.accept(rtv);
-        string content = rtv.result.data();
-        writeln("CONTENT: ", content);
-
-        layout.setText(content);
-        layout.setAttributes(rtv.attrList);
-        PgFontDescription fd = new PgFontDescription("Roboto", cast(int)(text.size * factor));
-        // fd.setWeight(PangoWeight.BOLD);
-        layout.setFontDescription(fd);
-        PangoRectangle inkRect, logicalRect;
-
-        layout.getPixelExtents(inkRect, logicalRect);
-        writeln(i"Planned:    x:$(x),y:$(y),w:$(w),h:$(h)");
-        writeln(i"inkt rect:  x:$(inkRect.x),y:$(inkRect.y),w:$(inkRect.width),h:$(inkRect.height)");
-        writeln(i"logic rect: x:$(logicalRect.x),y:$(logicalRect.y),w:$(logicalRect.width),h:$(
-                logicalRect.height)");
-        // if (text.alignment == Alignment.Left)
-        //     layout.setAlignment(PangoAlignment.LEFT);
-        // else if (text.alignment == Alignment.Center)
-        //     layout.setAlignment(PangoAlignment.CENTER);
-        // else if (text.alignment == Alignment.Right)
-        //     layout.setAlignment(PangoAlignment.RIGHT);
-        // else
-        //     assert(false,"Only left,center and right alignments are implemented");
-
-        text.layoutLocation.match!(
-            (BoundsLocation bl) {
-            assert(false, "Text bounds location not implemented");
-        },
-            (CellLocation cl) {
-            final switch (cl.alignment) {
-            case CellAlignment.TopLeft:
-                // default calculation is TopLeft
-                break;
-            case CellAlignment.TopCenter:
-                x += (w - logicalRect.width) / 2.0;
-                break;
-            case CellAlignment.TopRight:
-                x += w - logicalRect.width;
-                break;
-            case CellAlignment.CenterLeft:
-                y += (h - logicalRect.height) / 2.0;
-                break;
-            case CellAlignment.Center:
-                x += (w - logicalRect.width) / 2.0;
-                y += (h - logicalRect.height) / 2.0;
-                break;
-            case CellAlignment.CenterRight:
-                x += w - logicalRect.width;
-                y += (h - logicalRect.height) / 2.0;
-                break;
-            case CellAlignment.BottomLeft:
-                y += h - logicalRect.height;
-                break;
-            case CellAlignment.BottomCenter:
-                x += (w - logicalRect.width) / 2.0;
-                y += h - logicalRect.height;
-                break;
-            case CellAlignment.BottomRight:
-                x += w - logicalRect.width;
-                y += h - logicalRect.height;
-                break;
-            }
-
-        });
-
-        with (context) {
-            // TODO: auto convert rgb colour to float triplet
-            setSourceRgb(text.colour.r / 255.0, text.colour.g / 255.0, text.colour.b / 255.0);
-            // textExtents(text.content, &extents);
-            // TODO: implement text box alignment
-            moveTo(x + logicalRect.x, y + logicalRect.y);
-            // showText(text.content);
-            PgCairo.showLayout(context, layout);
-
-            if (showDebugOverlay) {
-                setLineWidth(1);
-                rectangle(x, y, logicalRect.width, logicalRect.height);
-                stroke();
-            }
-        }
+        RichTextDrawingVisitor rtv = new RichTextDrawingVisitor(text, Size(x, y, w, h), factor, vartable);
+        rtv.paint(context);
 
     }
 }
