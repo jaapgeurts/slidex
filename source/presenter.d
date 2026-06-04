@@ -23,14 +23,13 @@ import gtk.widget;
 import gtk.types;
 import gtk.window;
 import gtk.global;
+import gtk.event_controller_key;
+import gtk.gesture_click;
 
 import gobject.value;
 
 import gdk.c.types;
 import gdk.event;
-import gdk.event_button;
-import gdk.event_key;
-import gdk.keymap;
 import gdk.types;
 
 import rendering;
@@ -40,51 +39,49 @@ import slides;
 class SlidexWindow : Window {
     Deck deck;
 
-    this(Deck deck) {
-        super(gtk.types.WindowType.Toplevel);
+    this(Deck deck, bool debug_) {
+        super();
 
         setTitle("Projector");
         setDefaultSize(960, 600);
 
         Overlay overlay = new Overlay();
-        add(overlay);
+        overlay.setSizeRequest(960, 600);
+        child = overlay;
 
-        Presenter presenter = new Presenter(overlay, deck);
+        Presenter presenter = new Presenter(overlay, deck, debug_);
         presenter.setSizeRequest(960, 600);
         presenter.onFullsceen = (widget) { fullscreen(); };
         presenter.onUnFullsceen = (widget) { unfullscreen(); };
 
-        overlay.add(presenter);
-        connectKeyPressEvent(&presenter.onKeyPress, No.After);
-
-        // connectKeyPressEvent((EventKey eventKey, Widget widget) {
-        //     writeln("Eventkey: ", eventKey);
-        //     writeln("Widget:  ", widget);
-        //     return true;
-        // });
+        overlay.child = presenter;
+        EventControllerKey eventController = new EventControllerKey();
+        eventController.connectKeyPressed(&presenter.onKeyPress);
+        addController(eventController);
     }
 }
 
 class SlidexApplication : gtk.application.Application {
     SlidexWindow window;
     Deck deck;
+    bool debug_;
 
-    this(Deck deck) {
+    this(Deck deck, bool debug_) {
         super("com.slidex.presenter", ApplicationFlags.DefaultFlags);
 
         this.deck = deck;
+        this.debug_ = debug_;
 
         connectActivate(&onActivate);
     }
 
     void onActivate() {
         if (!window) {
-            window = new SlidexWindow(deck);
+            window = new SlidexWindow(deck, debug_);
             addWindow(window);
         }
 
-        window.showAll();
-
+        window.present();
     }
 }
 
@@ -93,8 +90,8 @@ void presentDeck(string[] args, Deck deck) {
     // writeln("Master: ", deck.slides[0].master.toString);
     // writeln("DECK: ", deck.slides[0].master.items[0].visible);
     // open the gtk window
-
-    SlidexApplication app = new SlidexApplication(deck);
+    bool debug_ = args.length > 2 && args[2] == "debug";
+    SlidexApplication app = new SlidexApplication(deck, debug_);
     app.run([args[0]]);
 
 }
@@ -110,47 +107,54 @@ class Presenter : DrawingArea {
 
     Overlay overlay;
     Allocation size;
-    Keymap keymap;
 
     void delegate(Widget w) onFullsceen;
     void delegate(Widget w) onUnFullsceen;
 
     Deck deck;
 
-    this(Overlay overlay, Deck deck) {
+    this(Overlay overlay, Deck deck, bool debug_) {
 
         this.overlay = overlay;
         this.deck = deck;
 
-        // enable click events.
-        addEvents(GdkEventMask.ButtonPressMask);
+        isDebugOverlay = debug_;
 
-        connectDraw(&onDraw);
-        connectButtonPressEvent(&onMousePress);
-        connectSizeAllocate(&onSizeAllocate);
+        setDrawFunc(&onDraw);
+
+        // enable click events.
+        // TODO: remove
+        // addEvents(GdkEventMask.ButtonPressMask);
+
+        GestureClick clicked = new GestureClick();
+        clicked.connectPressed(&onMousePress);
+        addController(clicked);
+
+        connectResize(&onSizeAllocate);
 
         // projectorWin.getRootWindow().flush();
         // Display myDisplay = Display.getDefault();
         // Seat seat = myDisplay.getDefaultSeat();
         // Device keyboard = seat.getKeyboard();
-        keymap = Keymap.getDefault();
+        // keymap = Keymap.getDefault();
 
         vartable["total"] = deck.slides.length;
         vartable["slide"] = currentSlide + 1;
 
     }
 
-    bool onDraw(Context context, Widget w) {
+    void onDraw(DrawingArea drawingArea, Context context, int width, int height) {
 
         if (isVideo)
-            return true;
+            return;
 
         if (isBlanking) {
+            writeln("blanking");
             context.setSourceRgb(0, 0, 0);
             context.paint();
-            return true;
+            return;
         }
-        GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, w, vartable);
+        GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, Allocation(0, 0, width, height), vartable);
         drawing.showDebugOverlay = isDebugOverlay;
 
         drawing.factor = factor;
@@ -166,51 +170,42 @@ class Presenter : DrawingArea {
             slide.master.accept(drawing);
             slide.accept(drawing);
         }
-        return true;
     }
 
-    bool onKeyPress(EventKey eventKey, Widget widget) {
-        // string pressedKey;
-        int keys;
-        // TODO: why is eventkey null
-        if (eventKey is null)
-            return false;
+    bool onKeyPress(uint keyval, uint keycode, ModifierType state, EventControllerKey eventControllerKey) {
 
-        // pressedKey = keymap.keyvalName(eventKey.keyval);
-        // writeln("The keyval is: ", eventKey.keyval, " which means the ", pressedKey, " was pressed.");
+        // pressedKey = keymap.keyvalName(keyval);
+        writeln("The keyval is: ", keyval, " which means the ", keycode, " was pressed.");
 
         size_t oldCurrentSlide = currentSlide;
-        if (eventKey.keyval == KEY_space || eventKey.keyval == KEY_Right) {
+        if (keyval == KEY_space || keyval == KEY_Right || keyval == KEY_Next) {
             if (currentSlide < deck.slides.length)
                 currentSlide++;
             else
                 writeln("Reached last slide");
         }
-        else if (eventKey.keyval == KEY_Left) {
+        else if (keyval == KEY_Left || keyval == KEY_Prior) {
             if (currentSlide > 0)
                 currentSlide--;
             else
                 writeln("Reached first slide");
         }
-        else if (eventKey.keyval == KEY_Escape) {
+        else if (keyval == KEY_Escape) {
             if (isFullScreen) {
                 // TODO: move into function
                 if (onUnFullsceen !is null)
                     onUnFullsceen(this);
                 isFullScreen = false;
             }
-            else {
-                mainQuit();
-            }
         }
-        else if (eventKey.keyval == KEY_b) {
+        else if (keyval == KEY_b || keyval == KEY_B) {
             if (isFullScreen) {
                 // TODO: move into function
                 isBlanking = !isBlanking;
                 queueDraw();
             }
         }
-        else if (eventKey.keyval == KEY_F11) {
+        else if (keyval == KEY_F11) {
             if (!isFullScreen) {
                 // TODO: move into function
                 isBlanking = false;
@@ -250,22 +245,16 @@ class Presenter : DrawingArea {
         }
     }
 
-    bool onMousePress(EventButton event, Widget widget) {
-        bool returnValue = false;
+    void onMousePress(int nPress, double x, double y, GestureClick gestureClick) {
 
-        if (event.type == EventType.ButtonPress) {
-            writeln("Mouse click: ", event.button);
-            returnValue = true;
-        }
-
-        return (returnValue);
+        writeln("Mouse click: ", gestureClick.getCurrentButton());
 
     }
 
-    void onSizeAllocate(Allocation newSize, Widget) {
+    void onSizeAllocate(int width, int height, DrawingArea drawingArea) {
 
-        size = newSize;
-        factor = newSize.width / 920.0;
+        size = Allocation(width, height);
+        factor = width / 920.0;
     }
 
     void drawEndOfPresentation(Context context) {

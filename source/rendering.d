@@ -29,16 +29,19 @@ import pango.attribute;
 import pango.font_description;
 import pango.layout;
 import pango.types;
+import pango.global;
 
 import pangocairo.global;
 
 import slides;
 import types;
-import pango.global;
 
 // import std.bitmanip;
 
 bool isVideo;
+
+// enum BULLET = "➤ ";
+enum BULLET = "• ";
 
 struct Size {
     float x;
@@ -288,7 +291,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
         layout.setIndent(-40 * SCALE);
         layout.setWidth(cast(int)((size.w - listitem.level * 15) * SCALE));
 
-        result ~= "➤ ";
+        result ~= BULLET;
     }
 
     void leave(ListItem listitem) {
@@ -319,10 +322,10 @@ class GtkDrawingVisitor : ItemVisitor {
 
     float factor;
 
-    this(Context context, Widget w, std.variant.Variant[string] vartable) {
+    this(Context context, Allocation size, std.variant.Variant[string] vartable) {
         this.context = context;
         this.vartable = vartable;
-        w.getAllocation(size);
+        this.size = size;
     }
 
     void visit(Master master) {
