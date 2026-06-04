@@ -16,7 +16,7 @@ import cairo.global;
 // import gst.gstreamer;
 import gst.element;
 import gst.element_factory;
-import gst.c.types: GstState;
+import gst.c.types : GstState;
 
 import gtk.overlay;
 import gtk.widget;
@@ -63,6 +63,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
     float factor;
     uint slidenum;
     uint totalnum;
+    uint lineIdx;
 
     Text text;
     Size size;
@@ -117,6 +118,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
         writeln(i"logic rect: x:$(logicalRect.x),y:$(logicalRect.y),w:$(logicalRect.width),h:$(
                 logicalRect.height)");
 
+// TODO: pull out into function.
         this.text.layoutLocation.match!(
             (BoundsLocation bl) {
             assert(false, "Text bounds location not implemented");
@@ -303,7 +305,27 @@ class RichTextDrawingVisitor : RichTextVisitor {
         layout.setWidth(cast(int)((size.w - listitem.level * 15) * SCALE));
     }
 
+    void enter(Code code) {
+        lineIdx = 0;
+
+        outputLayout(result.data());
+        result = appender!string();
+        startLayout();
+
+        FontDescription fd = new FontDescription();
+        fd.setFamily("Liberation Mono");
+        fd.setSize(cast(int)(text.size * factor * 0.8 * SCALE));
+        layout.setFontDescription(fd);
+    }
     void visit(Code code) {
+        result ~= code.lines[lineIdx];
+        lineIdx++;
+    }
+    void leave(Code code) {
+
+        outputLayout(result.data());
+        result = appender!string();
+        startLayout();
     }
 
 }
@@ -314,6 +336,7 @@ class GtkDrawingVisitor : ItemVisitor {
     TextExtents extents;
 
     bool showDebugOverlay;
+    string rootpath;
 
     float[] colsizes;
     float[] rowsizes;
@@ -322,10 +345,11 @@ class GtkDrawingVisitor : ItemVisitor {
 
     float factor;
 
-    this(Context context, Allocation size, std.variant.Variant[string] vartable) {
+    this(Context context, Allocation size, std.variant.Variant[string] vartable, string rootpath) {
         this.context = context;
         this.vartable = vartable;
         this.size = size;
+        this.rootpath = rootpath;
     }
 
     void visit(Master master) {
@@ -483,36 +507,56 @@ class GtkDrawingVisitor : ItemVisitor {
     }
 
     void visit(Image image) {
-        // writeln("Drawing image: ", image.path);
-        Surface surface = imageSurfaceCreateFromPng(image.path);
+        writeln("Drawing image: ", rootpath ~ "/" ~ image.path);
+
+        Surface surface = imageSurfaceCreateFromPng(rootpath ~ "/" ~ image.path);
+        float img_w = imageSurfaceGetWidth(surface);
+        float img_h = imageSurfaceGetHeight(surface);
 
         // factor out
-        float x, y, w, h, a;
+        float x, y, w, h, a = 0;
+        float sfx, sfy; // scale factor x and y
         image.layoutLocation.match!(
             (BoundsLocation bl) {
-            x = bl.x;
-            y = bl.y;
-            w = bl.width;
-            h = bl.height;
+            x = bl.x * factor;
+            y = bl.y * factor;
+            w = bl.width * factor;
+            h = bl.height * factor;
             a = bl.angle;
+            sfx = sfy = w / img_w;
         },
             (CellLocation cl) {
-            assert(false, "CellLocation is not implemented for Image");
+            x = colsizes[0 .. cl.col].sum;
+            w = colsizes[cl.col .. cl.col + cl.colspan].sum;
+            x += cl.dx;
+
+            y = rowsizes[0 .. cl.row].sum;
+            h = rowsizes[cl.row .. cl.row + cl.rowspan].sum;
+            y += cl.dy;
+
+            sfx = w / img_w;
+            sfy = h / img_h;
+            if (sfx < sfy)
+                sfy = sfx;
+            else
+                sfx = sfy;
         }
         );
         writeln(i"Image pos: x:$(x), y:$(y), w:$(w), h:$(h), a:$(a)");
 
-        float img_w = imageSurfaceGetWidth(surface);
-        float img_h = imageSurfaceGetHeight(surface);
+        writeln(i"Surface size: w:$(img_w), h:$(img_h)");
 
         with (context) {
             save();
-            float midpointx = w / 2.0;
-            float midpointy = h / 2.0;
-            translate(x * factor + midpointx, y * factor + midpointy);
-            rotate(a);
-            translate(-midpointx, -midpointy);
-            scale(w / img_w * factor, w / img_w * factor);
+            translate(x, y);
+            if (a != 0) {
+                float midpointx = w / 2.0;
+                float midpointy = h / 2.0;
+                translate(midpointx, midpointy);
+                rotate(a);
+                translate(-midpointx, -midpointy);
+            }
+            scale(sfx, sfy);
             setSourceSurface(surface, 0, 0);
             paint();
             restore();
@@ -619,7 +663,7 @@ class VideoPreparationVisitor : ItemVisitor {
         });
 
         videoWidget.setSizeRequest(cast(int) w, cast(int) h);
-        overlay.connectGetChildPosition((Widget widget,out Allocation alloc, Overlay self) {
+        overlay.connectGetChildPosition((Widget widget, out Allocation alloc, Overlay self) {
             if (widget is videoWidget) {
                 writeln("set player size: x:", x, ", y:", y, ", w:", w, ", h:", h);
                 alloc.x = cast(int)(x);

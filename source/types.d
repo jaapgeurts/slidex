@@ -105,9 +105,11 @@ interface RichTextVisitor {
     void leave(ListBlock listblock);
     void enter(ListItem listitem);
     void leave(ListItem listitem);
+    void enter(Code code);
+    void visit(Code code);
+    void leave(Code code);
     void visit(Variable variable);
     void visit(Func func);
-    void visit(Code code);
     void visit(EscapedChar ec);
     void visit(ParaBreak pb);
 }
@@ -144,7 +146,13 @@ class RichText {
                 }
                 visitor.leave(l);
             },
-                (Code c) => visitor.visit(c),
+                (Code c) {
+                visitor.enter(c);
+                for (size_t i = 0; i < c.lines.length; ++i) {
+                    visitor.visit(c);
+                }
+                visitor.leave(c);
+            },
                 (EscapedChar ec) => visitor.visit(ec),
                 (ParaBreak pb) => visitor.visit(pb),
             );

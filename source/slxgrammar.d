@@ -142,11 +142,11 @@ SlidexDoc:
 
 # RichText Code block
 
-    CodeBlock       <- BACKTICKS identifier? eol
+    CodeBlock       <- BACKTICKS identifier? :eol
                        CodeLine*
-                       BACKTICKS eol?
-    CodeLine        <- !(BACKTICKS) (!eol .)* eol
-    BACKTICKS       <- backquote backquote backquote
+                       BACKTICKS :eol?
+    CodeLine        <~ (!BACKTICKS !eol .)* eol
+    BACKTICKS       <~ backquote backquote backquote
 
 
 # RichText Primitives
@@ -3372,7 +3372,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(BACKTICKS, pegged.peg.option!(identifier), eol, pegged.peg.zeroOrMore!(CodeLine), BACKTICKS, pegged.peg.option!(eol)), "SlidexDoc.CodeBlock")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(BACKTICKS, pegged.peg.option!(identifier), pegged.peg.discard!(eol), pegged.peg.zeroOrMore!(CodeLine), BACKTICKS, pegged.peg.discard!(pegged.peg.option!(eol))), "SlidexDoc.CodeBlock")(p);
         }
         else
         {
@@ -3380,7 +3380,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(BACKTICKS, pegged.peg.option!(identifier), eol, pegged.peg.zeroOrMore!(CodeLine), BACKTICKS, pegged.peg.option!(eol)), "SlidexDoc.CodeBlock"), "CodeBlock")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(BACKTICKS, pegged.peg.option!(identifier), pegged.peg.discard!(eol), pegged.peg.zeroOrMore!(CodeLine), BACKTICKS, pegged.peg.discard!(pegged.peg.option!(eol))), "SlidexDoc.CodeBlock"), "CodeBlock")(p);
                 memo[tuple(`CodeBlock`, p.end)] = result;
                 return result;
             }
@@ -3391,12 +3391,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(BACKTICKS, pegged.peg.option!(identifier), eol, pegged.peg.zeroOrMore!(CodeLine), BACKTICKS, pegged.peg.option!(eol)), "SlidexDoc.CodeBlock")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(BACKTICKS, pegged.peg.option!(identifier), pegged.peg.discard!(eol), pegged.peg.zeroOrMore!(CodeLine), BACKTICKS, pegged.peg.discard!(pegged.peg.option!(eol))), "SlidexDoc.CodeBlock")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(BACKTICKS, pegged.peg.option!(identifier), eol, pegged.peg.zeroOrMore!(CodeLine), BACKTICKS, pegged.peg.option!(eol)), "SlidexDoc.CodeBlock"), "CodeBlock")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(BACKTICKS, pegged.peg.option!(identifier), pegged.peg.discard!(eol), pegged.peg.zeroOrMore!(CodeLine), BACKTICKS, pegged.peg.discard!(pegged.peg.option!(eol))), "SlidexDoc.CodeBlock"), "CodeBlock")(TParseTree("", false,[], s));
         }
     }
     static string CodeBlock(GetName g)
@@ -3408,7 +3408,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.negLookahead!(BACKTICKS), pegged.peg.zeroOrMore!(pegged.peg.and!(pegged.peg.negLookahead!(eol), pegged.peg.any)), eol), "SlidexDoc.CodeLine")(p);
+            return         pegged.peg.defined!(pegged.peg.fuse!(pegged.peg.and!(pegged.peg.zeroOrMore!(pegged.peg.and!(pegged.peg.negLookahead!(BACKTICKS), pegged.peg.negLookahead!(eol), pegged.peg.any)), eol)), "SlidexDoc.CodeLine")(p);
         }
         else
         {
@@ -3416,7 +3416,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.negLookahead!(BACKTICKS), pegged.peg.zeroOrMore!(pegged.peg.and!(pegged.peg.negLookahead!(eol), pegged.peg.any)), eol), "SlidexDoc.CodeLine"), "CodeLine")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.fuse!(pegged.peg.and!(pegged.peg.zeroOrMore!(pegged.peg.and!(pegged.peg.negLookahead!(BACKTICKS), pegged.peg.negLookahead!(eol), pegged.peg.any)), eol)), "SlidexDoc.CodeLine"), "CodeLine")(p);
                 memo[tuple(`CodeLine`, p.end)] = result;
                 return result;
             }
@@ -3427,12 +3427,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.negLookahead!(BACKTICKS), pegged.peg.zeroOrMore!(pegged.peg.and!(pegged.peg.negLookahead!(eol), pegged.peg.any)), eol), "SlidexDoc.CodeLine")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.fuse!(pegged.peg.and!(pegged.peg.zeroOrMore!(pegged.peg.and!(pegged.peg.negLookahead!(BACKTICKS), pegged.peg.negLookahead!(eol), pegged.peg.any)), eol)), "SlidexDoc.CodeLine")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.negLookahead!(BACKTICKS), pegged.peg.zeroOrMore!(pegged.peg.and!(pegged.peg.negLookahead!(eol), pegged.peg.any)), eol), "SlidexDoc.CodeLine"), "CodeLine")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.fuse!(pegged.peg.and!(pegged.peg.zeroOrMore!(pegged.peg.and!(pegged.peg.negLookahead!(BACKTICKS), pegged.peg.negLookahead!(eol), pegged.peg.any)), eol)), "SlidexDoc.CodeLine"), "CodeLine")(TParseTree("", false,[], s));
         }
     }
     static string CodeLine(GetName g)
@@ -3444,7 +3444,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(backquote, backquote, backquote), "SlidexDoc.BACKTICKS")(p);
+            return         pegged.peg.defined!(pegged.peg.fuse!(pegged.peg.and!(backquote, backquote, backquote)), "SlidexDoc.BACKTICKS")(p);
         }
         else
         {
@@ -3452,7 +3452,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(backquote, backquote, backquote), "SlidexDoc.BACKTICKS"), "BACKTICKS")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.fuse!(pegged.peg.and!(backquote, backquote, backquote)), "SlidexDoc.BACKTICKS"), "BACKTICKS")(p);
                 memo[tuple(`BACKTICKS`, p.end)] = result;
                 return result;
             }
@@ -3463,12 +3463,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(backquote, backquote, backquote), "SlidexDoc.BACKTICKS")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.fuse!(pegged.peg.and!(backquote, backquote, backquote)), "SlidexDoc.BACKTICKS")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(backquote, backquote, backquote), "SlidexDoc.BACKTICKS"), "BACKTICKS")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.fuse!(pegged.peg.and!(backquote, backquote, backquote)), "SlidexDoc.BACKTICKS"), "BACKTICKS")(TParseTree("", false,[], s));
         }
     }
     static string BACKTICKS(GetName g)

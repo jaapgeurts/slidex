@@ -122,8 +122,11 @@ public Result!ConcreteTree parseDocument(string sourceFilePath) {
         diag.kind = DiagnosticKind.ParseError;
         diag.severity = Severity.Error;
         diag.loc = SourceLocation(sourceFilePath, pos.line, pos.col);
-        diag.message = "Unexpected symbol near " ~ left ~ "\x1b[1;31m" ~ right[0] ~ "\x1b[0m" ~ right[1 .. $].until('\n')
-            .array.to!string ~ "`.";
+        diag.message = "Unexpected symbol near " ~ left ~ "\x1b[1;31m";
+        if (right.length > 0)
+            diag.message ~= right[0] ~ "\x1b[0m";
+        if (right.length > 1)
+            diag.message ~= right[1 .. $].until('\n').array.to!string;
         result.diagnostics ~= diag;
         return diag.message;
     }
@@ -704,7 +707,8 @@ For root pass in "SlidexDoc.Statement"
     Result!(LocatedVal!DslType) parseNumber(ParseTree root) {
         SourceLocation loc = root.sourceLocation(sourceFilePath);
         return Result!(LocatedVal!DslType)(ok: true, value: locatedDslType(
-                root.matches.join().to!int, loc));
+                root.matches.join()
+                .to!int, loc));
     }
 
     Result!(LocatedVal!string) parseUnit(ParseTree root) {
@@ -1152,7 +1156,8 @@ For root pass in "SlidexDoc.Statement"
                     if (res.value.has!int) {
                         writeln("specced angle");
                         bounds.angle = res.value.get!int * 0.0174532925;
-                    } else { 
+                    }
+                    else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                         result.ok = false;
                     }

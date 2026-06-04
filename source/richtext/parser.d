@@ -40,8 +40,7 @@ private:
                 ParaBreak pb;
                 return Result!TextItem(ok: true, value: TextItem(pb));
             case "SlidexDoc.CodeBlock":
-                assert(false, "Not implemented codeblock");
-                break;
+                return parseCodeBlock(child);
             case "SlidexDoc.ListBlock":
                 return parseListBlock(child);
             case "SlidexDoc.Func":
@@ -74,8 +73,23 @@ private:
 
     // Result!parseParaBreak(ParseTree root) {
     // }
-    // Result!parseCodeBLock(ParseTree root) {
-    // }
+    Result!TextItem parseCodeBlock(ParseTree root) {
+        Result!TextItem result = Result!TextItem(ok: true);
+        Code code;
+        foreach (child; root.children) {
+            switch (child.name) {
+            case "SlidexDoc.BACKTICKS":
+                break;
+            case "SlidexDoc.CodeLine":
+                code.lines ~= child.matches[0];
+                break;
+            default:
+                assert(false, "Unknown node: " ~ child.name);
+            }
+        }
+        result.value = code;
+        return result;
+    }
     // Result!parseFunc(ParseTree root) {
     // }
     Result!TextItem parseBold(ParseTree root) {

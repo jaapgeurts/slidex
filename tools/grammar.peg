@@ -139,11 +139,11 @@ SlidexDoc:
 
 # RichText Code block
 
-    CodeBlock       <- BACKTICKS identifier? eol
+    CodeBlock       <- BACKTICKS identifier? :eol
                        CodeLine*
-                       BACKTICKS eol?
-    CodeLine        <- !(BACKTICKS) (!eol .)* eol
-    BACKTICKS       <- backquote backquote backquote
+                       BACKTICKS :eol?
+    CodeLine        <~ (!BACKTICKS !eol .)* eol
+    BACKTICKS       <~ backquote backquote backquote
 
 
 # RichText Primitives

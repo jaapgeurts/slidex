@@ -86,7 +86,7 @@ mixin template ItemAcceptVisitor() {
 
 class Deck {
     Slide[] slides;
-
+    string rootpath;
 }
 
 enum DimensionUnit {

@@ -1,5 +1,6 @@
 import std.file;
 import std.stdio;
+import std.path;
 
 import dsl.parser;
 import resolver;
@@ -17,7 +18,17 @@ void printAllErrors(Diagnostic[] diagnostics, File file) {
 
 int main(string[] args) {
 
-	string sourceFilePath = args[1];
+	string filepath = args[1];
+	string sourceFilePath;
+	string dirpath;
+	if (isFile(filepath)) {
+		sourceFilePath = filepath;
+		dirpath = ".";
+	}
+	else if (isDir(filepath)) {
+		sourceFilePath = buildPath(filepath, baseName(filepath, ".slx") ~ ".slx");
+		dirpath = filepath;
+	}
 
 	// Pass one. Lexical parse and build concrete syntax tree
 	Result!ConcreteTree cst = parseDocument(sourceFilePath);
@@ -28,7 +39,7 @@ int main(string[] args) {
 		return 1;
 	}
 
-	VoidResult result = VoidResult(ok : true);
+	VoidResult result = VoidResult(ok: true);
 
 	// Pass two. Convert parse tree into abstract syntax tree.
 	Result!AbstractTree ast = cst.value.buildAst();
@@ -50,6 +61,8 @@ int main(string[] args) {
 		printAllErrors(result.diagnostics, stderr);
 		return 1;
 	}
+
+	deck.value.rootpath = dirpath;
 
 	// show the desk.
 	presentDeck(args, deck.value);

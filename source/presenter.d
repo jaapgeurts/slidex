@@ -36,6 +36,9 @@ import rendering;
 
 import slides;
 
+enum WIDTH = 1280;
+enum HEIGHT = 720;
+
 class SlidexWindow : Window {
     Deck deck;
 
@@ -43,14 +46,14 @@ class SlidexWindow : Window {
         super();
 
         setTitle("Projector");
-        setDefaultSize(960, 600);
+        setDefaultSize(WIDTH, HEIGHT);
 
         Overlay overlay = new Overlay();
-        overlay.setSizeRequest(960, 600);
+        overlay.setSizeRequest(WIDTH, HEIGHT);
         child = overlay;
 
         Presenter presenter = new Presenter(overlay, deck, debug_);
-        presenter.setSizeRequest(960, 600);
+        presenter.setSizeRequest(WIDTH, HEIGHT);
         presenter.onFullsceen = (widget) { fullscreen(); };
         presenter.onUnFullsceen = (widget) { unfullscreen(); };
 
@@ -154,7 +157,7 @@ class Presenter : DrawingArea {
             context.paint();
             return;
         }
-        GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, Allocation(0, 0, width, height), vartable);
+        GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, Allocation(0, 0, width, height), vartable, deck.rootpath);
         drawing.showDebugOverlay = isDebugOverlay;
 
         drawing.factor = factor;
@@ -253,7 +256,7 @@ class Presenter : DrawingArea {
 
     void onSizeAllocate(int width, int height, DrawingArea drawingArea) {
 
-        size = Allocation(width, height);
+        size = Allocation(0,0,width, height);
         factor = width / 920.0;
     }
 
@@ -265,7 +268,8 @@ class Presenter : DrawingArea {
             paint();
             string endMessage = "End of presentation";
             textExtents(endMessage, extents);
-            moveTo(size.width / 2 - extents.width / 2, size.height - 20);
+            // writeln("pos: x:", (size.width - extents.width) / 2, "y: ", size.height - 20);
+            moveTo((size.width - extents.width) / 2, size.height - 20);
             setSourceRgb(1, 1, 1);
             showText(endMessage);
         }
