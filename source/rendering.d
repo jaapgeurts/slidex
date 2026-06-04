@@ -7,27 +7,34 @@ import std.stdio;
 import std.sumtype;
 import std.variant;
 
-import cairo.Context;
-import cairo.ImageSurface;
-import cairo.Surface;
+import cairo.context;
+import cairo.surface;
+import cairo.types;
+import cairo.global;
 
-import gstreamer.GStreamer;
-import gstreamer.Element;
-import gstreamer.ElementFactory;
+// import gst.types;
+// import gst.gstreamer;
+import gst.element;
+import gst.element_factory;
+import gst.c.types: GstState;
 
-import gtk.Overlay;
-import gtk.Widget;
+import gtk.overlay;
+import gtk.widget;
+import gtk.types;
 
-import gobject.Value;
+import gobject.value;
 
-import pango.PgAttribute;
-import pango.PgAttributeList;
-import pango.PgCairo;
-import pango.PgFontDescription;
-import pango.PgLayout;
+import pango.attr_list;
+import pango.attribute;
+import pango.font_description;
+import pango.layout;
+import pango.types;
+
+import pangocairo.global;
 
 import slides;
 import types;
+import pango.global;
 
 // import std.bitmanip;
 
@@ -44,9 +51,9 @@ class RichTextDrawingVisitor : RichTextVisitor {
     Appender!string result;
     uint count;
     bool showDebugOverlay;
-    PgLayout layout;
-    PgAttributeList attrList;
-    PgAttribute currentAttr;
+    Layout layout;
+    AttrList attrList;
+    Attribute currentAttr;
     Context context;
     float offsety = 0;
     float offsetx = 0;
@@ -56,30 +63,29 @@ class RichTextDrawingVisitor : RichTextVisitor {
 
     Text text;
     Size size;
-    Variant[string] vartable;
+    std.variant.Variant[string] vartable;
 
-    this(Text text, Size size, float factor, Variant[string] vartable) {
+    this(Text text, Size size, float factor, std.variant.Variant[string] vartable) {
 
         this.text = text;
         this.size = size;
         this.factor = factor;
         this.vartable = vartable;
 
-        // PgCairo.contextSetResolution(PgCairo.createContext(context),72);
-
     }
 
     void startLayout() {
         // create the first layout
-        layout = PgCairo.createLayout(context);
-        layout.setWidth(cast(int)(size.w * PANGO_SCALE));
+        layout = createLayout(context);
+        layout.setWidth(cast(int)(size.w * SCALE));
         // TODO: get default font from master.
-        PgFontDescription fd = new PgFontDescription("Roboto", cast(int)(text.size * factor));
-        // fd.setWeight(PangoWeight.BOLD);
+        FontDescription fd = new FontDescription();
+        fd.setFamily("Roboto");
+        fd.setSize(cast(int)(text.size * factor * SCALE));
         layout.setFontDescription(fd);
         if (attrList)
             attrList.destroy();
-        attrList = new PgAttributeList();
+        attrList = new AttrList();
     }
 
     // Add more parameters instead of using class fields.
@@ -89,6 +95,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
             return;
 
         writeln("SIZE: ", size);
+        writeln("Text: ", text);
 
         float x = size.x + offsetx;
         float y = size.y + offsety;
@@ -99,7 +106,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
         layout.setText(text);
         layout.setAttributes(attrList);
 
-        PangoRectangle inkRect, logicalRect;
+        pango.types.Rectangle inkRect, logicalRect;
 
         layout.getPixelExtents(inkRect, logicalRect);
         writeln(i"Planned:    x:$(x),y:$(y),w:$(w),h:$(h)");
@@ -155,7 +162,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
             // TODO: implement text box alignment
             moveTo(x + logicalRect.x, y + logicalRect.y);
             // showText(text.content);
-            PgCairo.showLayout(context, layout);
+            showLayout(context, layout);
 
             if (showDebugOverlay) {
                 setLineWidth(1);
@@ -221,35 +228,35 @@ class RichTextDrawingVisitor : RichTextVisitor {
     }
 
     void enter(Bold bold) {
-        currentAttr = PgAttribute.weightNew(PangoWeight.BOLD);
-        currentAttr.getPgAttributeStruct().startIndex = count;
+        currentAttr = attrWeightNew(Weight.Bold);
+        currentAttr.startIndex = count;
     }
 
     void leave(Bold bold) {
-        currentAttr.getPgAttributeStruct().endIndex = count;
+        currentAttr.endIndex = count;
         attrList.insert(currentAttr);
         currentAttr = null;
     }
 
     void enter(Italic italic) {
-        currentAttr = PgAttribute.styleNew(PangoStyle.ITALIC);
-        currentAttr.getPgAttributeStruct().startIndex = count;
+        currentAttr = attrStyleNew(Style.Italic);
+        currentAttr.startIndex = count;
     }
 
     void leave(Italic italic) {
-        currentAttr.getPgAttributeStruct().endIndex = count;
+        currentAttr.endIndex = count;
         attrList.insert(currentAttr);
         // currentAttr.destroy();
         currentAttr = null;
     }
 
-    void enter(Underline underline) {
-        currentAttr = PgAttribute.underlineNew(PangoUnderline.SINGLE);
-        currentAttr.getPgAttributeStruct().startIndex = count;
+    void enter(types.Underline underline) {
+        currentAttr = attrUnderlineNew(pango.types.Underline.Single);
+        currentAttr.startIndex = count;
     }
 
-    void leave(Underline underline) {
-        currentAttr.getPgAttributeStruct().endIndex = count;
+    void leave(types.Underline underline) {
+        currentAttr.endIndex = count;
         attrList.insert(currentAttr);
         // currentAttr.destroy();
         currentAttr = null;
@@ -278,8 +285,8 @@ class RichTextDrawingVisitor : RichTextVisitor {
         startLayout();
         // TODO: instead of offsetx and offsetx, can I use translate instead?
         offsetx = listitem.level * 15;
-        layout.setIndent(-40 * PANGO_SCALE);
-        layout.setWidth(cast(int)((size.w - listitem.level * 15) * PANGO_SCALE));
+        layout.setIndent(-40 * SCALE);
+        layout.setWidth(cast(int)((size.w - listitem.level * 15) * SCALE));
 
         result ~= "➤ ";
     }
@@ -289,8 +296,8 @@ class RichTextDrawingVisitor : RichTextVisitor {
         result = appender!string();
         startLayout();
         offsetx = listitem.level * 15;
-        layout.setIndent(listitem.level > 1 ? -40 * PANGO_SCALE : 0);
-        layout.setWidth(cast(int)((size.w - listitem.level * 15) * PANGO_SCALE));
+        layout.setIndent(listitem.level > 1 ? -40 * SCALE : 0);
+        layout.setWidth(cast(int)((size.w - listitem.level * 15) * SCALE));
     }
 
     void visit(Code code) {
@@ -300,19 +307,19 @@ class RichTextDrawingVisitor : RichTextVisitor {
 
 class GtkDrawingVisitor : ItemVisitor {
     Context context;
-    GtkAllocation size;
-    cairo_text_extents_t extents;
+    Allocation size;
+    TextExtents extents;
 
     bool showDebugOverlay;
 
     float[] colsizes;
     float[] rowsizes;
 
-    Variant[string] vartable;
+    std.variant.Variant[string] vartable;
 
     float factor;
 
-    this(Context context, Widget w, Variant[string] vartable) {
+    this(Context context, Widget w, std.variant.Variant[string] vartable) {
         this.context = context;
         this.vartable = vartable;
         w.getAllocation(size);
@@ -474,7 +481,7 @@ class GtkDrawingVisitor : ItemVisitor {
 
     void visit(Image image) {
         // writeln("Drawing image: ", image.path);
-        ImageSurface surface = ImageSurface.createFromPng(image.path);
+        Surface surface = imageSurfaceCreateFromPng(image.path);
 
         // factor out
         float x, y, w, h, a;
@@ -492,8 +499,8 @@ class GtkDrawingVisitor : ItemVisitor {
         );
         writeln(i"Image pos: x:$(x), y:$(y), w:$(w), h:$(h), a:$(a)");
 
-        float img_w = surface.getWidth();
-        float img_h = surface.getHeight();
+        float img_w = imageSurfaceGetWidth(surface);
+        float img_h = imageSurfaceGetHeight(surface);
 
         with (context) {
             save();
@@ -609,7 +616,7 @@ class VideoPreparationVisitor : ItemVisitor {
         });
 
         videoWidget.setSizeRequest(cast(int) w, cast(int) h);
-        overlay.addOnGetChildPosition((widget, alloc, self) {
+        overlay.connectGetChildPosition((Widget widget,out Allocation alloc, Overlay self) {
             if (widget is videoWidget) {
                 writeln("set player size: x:", x, ", y:", y, ", w:", w, ", h:", h);
                 alloc.x = cast(int)(x);
@@ -627,7 +634,7 @@ class VideoPreparationVisitor : ItemVisitor {
 
         isVideo = true;
 
-        playbin.setState(GstState.PLAYING);
+        playbin.setState(GstState.Playing);
     }
 
     void visit(Text text) {

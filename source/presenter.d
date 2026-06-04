@@ -10,27 +10,83 @@ import std.variant;
 
 import core.stdc.ctype;
 
-import cairo.Context;
+import cairo.context;
+import cairo.types;
 
-import gtk.DrawingArea;
-import gtk.Main;
-import gtk.MainWindow;
-import gtk.Overlay;
-import gtk.Widget;
+import gio.types;
 
-import gstreamer.GStreamer;
+import gtk.application;
+import gtk.application_window;
+import gtk.drawing_area;
+import gtk.overlay;
+import gtk.widget;
+import gtk.types;
+import gtk.window;
+import gtk.global;
 
-import gobject.Value;
+import gobject.value;
 
-import gdk.Event;
-import gdk.Keymap;
-import gdk.Keysyms;
+import gdk.c.types;
+import gdk.event;
+import gdk.event_button;
+import gdk.event_key;
+import gdk.keymap;
+import gdk.types;
 
 import rendering;
 
 import slides;
 
+class SlidexWindow : Window {
+    Deck deck;
 
+    this(Deck deck) {
+        super(gtk.types.WindowType.Toplevel);
+
+        setTitle("Projector");
+        setDefaultSize(960, 600);
+
+        Overlay overlay = new Overlay();
+        add(overlay);
+
+        Presenter presenter = new Presenter(overlay, deck);
+        presenter.setSizeRequest(960, 600);
+        presenter.onFullsceen = (widget) { fullscreen(); };
+        presenter.onUnFullsceen = (widget) { unfullscreen(); };
+
+        overlay.add(presenter);
+        connectKeyPressEvent(&presenter.onKeyPress, No.After);
+
+        // connectKeyPressEvent((EventKey eventKey, Widget widget) {
+        //     writeln("Eventkey: ", eventKey);
+        //     writeln("Widget:  ", widget);
+        //     return true;
+        // });
+    }
+}
+
+class SlidexApplication : gtk.application.Application {
+    SlidexWindow window;
+    Deck deck;
+
+    this(Deck deck) {
+        super("com.slidex.presenter", ApplicationFlags.DefaultFlags);
+
+        this.deck = deck;
+
+        connectActivate(&onActivate);
+    }
+
+    void onActivate() {
+        if (!window) {
+            window = new SlidexWindow(deck);
+            addWindow(window);
+        }
+
+        window.showAll();
+
+    }
+}
 
 void presentDeck(string[] args, Deck deck) {
     // writeln("Slide:  ", deck.slides[0].toString);
@@ -38,29 +94,8 @@ void presentDeck(string[] args, Deck deck) {
     // writeln("DECK: ", deck.slides[0].master.items[0].visible);
     // open the gtk window
 
-    Main.init(args);
-
-    GStreamer.init(args);
-
-    MainWindow projectorWin = new MainWindow("Projector",);
-    projectorWin.setSizeRequest(960, 600);
-
-    Overlay overlay = new Overlay();
-    projectorWin.add(overlay);
-
-    Presenter presenter = new Presenter(overlay, deck, args);
-    presenter.setSizeRequest(960, 600);
-    presenter.onFullsceen = (widget) { projectorWin.fullscreen(); };
-    presenter.onUnFullsceen = (widget) { projectorWin.unfullscreen(); };
-
-    overlay.add(presenter);
-
-    projectorWin.addOnDestroy((Widget w) { writeln("Quitting"); Main.quit(); });
-    projectorWin.addOnKeyPress(&presenter.onKeyPress);
-
-    projectorWin.showAll();
-
-    Main.run();
+    SlidexApplication app = new SlidexApplication(deck);
+    app.run([args[0]]);
 
 }
 
@@ -74,7 +109,7 @@ class Presenter : DrawingArea {
     Variant[string] vartable;
 
     Overlay overlay;
-    GtkAllocation size;
+    Allocation size;
     Keymap keymap;
 
     void delegate(Widget w) onFullsceen;
@@ -82,15 +117,17 @@ class Presenter : DrawingArea {
 
     Deck deck;
 
-    this(Overlay overlay, Deck deck, string[] args) {
+    this(Overlay overlay, Deck deck) {
 
         this.overlay = overlay;
         this.deck = deck;
-        isDebugOverlay = args.length > 2 && args[2] == "debug";
 
-        addOnDraw(&onDraw);
-        addOnButtonPress(&onMousePress);
-        addOnSizeAllocate(&onSizeAllocate);
+        // enable click events.
+        addEvents(GdkEventMask.ButtonPressMask);
+
+        connectDraw(&onDraw);
+        connectButtonPressEvent(&onMousePress);
+        connectSizeAllocate(&onSizeAllocate);
 
         // projectorWin.getRootWindow().flush();
         // Display myDisplay = Display.getDefault();
@@ -99,11 +136,11 @@ class Presenter : DrawingArea {
         keymap = Keymap.getDefault();
 
         vartable["total"] = deck.slides.length;
-        vartable["slide"] = currentSlide+1;
+        vartable["slide"] = currentSlide + 1;
 
     }
 
-    bool onDraw(Scoped!Context context, Widget w) {
+    bool onDraw(Context context, Widget w) {
 
         if (isVideo)
             return true;
@@ -132,27 +169,30 @@ class Presenter : DrawingArea {
         return true;
     }
 
-    bool onKeyPress(GdkEventKey* eventKey, Widget widget) {
-        string pressedKey;
+    bool onKeyPress(EventKey eventKey, Widget widget) {
+        // string pressedKey;
         int keys;
+        // TODO: why is eventkey null
+        if (eventKey is null)
+            return false;
 
-        pressedKey = keymap.keyvalName(eventKey.keyval);
+        // pressedKey = keymap.keyvalName(eventKey.keyval);
         // writeln("The keyval is: ", eventKey.keyval, " which means the ", pressedKey, " was pressed.");
 
         size_t oldCurrentSlide = currentSlide;
-        if (eventKey.keyval == GdkKeysyms.GDK_space || eventKey.keyval == GdkKeysyms.GDK_Right) {
+        if (eventKey.keyval == KEY_space || eventKey.keyval == KEY_Right) {
             if (currentSlide < deck.slides.length)
                 currentSlide++;
             else
                 writeln("Reached last slide");
         }
-        else if (eventKey.keyval == GdkKeysyms.GDK_Left) {
+        else if (eventKey.keyval == KEY_Left) {
             if (currentSlide > 0)
                 currentSlide--;
             else
                 writeln("Reached first slide");
         }
-        else if (eventKey.keyval == GdkKeysyms.GDK_Escape) {
+        else if (eventKey.keyval == KEY_Escape) {
             if (isFullScreen) {
                 // TODO: move into function
                 if (onUnFullsceen !is null)
@@ -160,17 +200,17 @@ class Presenter : DrawingArea {
                 isFullScreen = false;
             }
             else {
-                Main.quit();
+                mainQuit();
             }
         }
-        else if (eventKey.keyval == GdkKeysyms.GDK_b) {
+        else if (eventKey.keyval == KEY_b) {
             if (isFullScreen) {
                 // TODO: move into function
                 isBlanking = !isBlanking;
                 queueDraw();
             }
         }
-        else if (eventKey.keyval == GdkKeysyms.GDK_F11) {
+        else if (eventKey.keyval == KEY_F11) {
             if (!isFullScreen) {
                 // TODO: move into function
                 isBlanking = false;
@@ -186,7 +226,7 @@ class Presenter : DrawingArea {
         }
 
         if (oldCurrentSlide != currentSlide) {
-            vartable["slide"] = currentSlide+1;
+            vartable["slide"] = currentSlide + 1;
             // TODO: move next line away from here.
             firePrepareSlideForVideo();
             queueDraw();
@@ -210,12 +250,11 @@ class Presenter : DrawingArea {
         }
     }
 
-    bool onMousePress(Event event, Widget widget) {
+    bool onMousePress(EventButton event, Widget widget) {
         bool returnValue = false;
 
-        if (event.type == gdk.Event.EventType.BUTTON_PRESS) {
-            GdkEventButton* mouseEvent = event.button;
-            writeln("Mouse click: ", mouseEvent.button);
+        if (event.type == EventType.ButtonPress) {
+            writeln("Mouse click: ", event.button);
             returnValue = true;
         }
 
@@ -225,18 +264,18 @@ class Presenter : DrawingArea {
 
     void onSizeAllocate(Allocation newSize, Widget) {
 
-        size = *newSize;
+        size = newSize;
         factor = newSize.width / 920.0;
     }
 
     void drawEndOfPresentation(Context context) {
-        cairo_text_extents_t extents;
+        TextExtents extents;
         // Set background to black
         with (context) {
             setSourceRgb(0, 0, 0);
             paint();
             string endMessage = "End of presentation";
-            textExtents(endMessage, &extents);
+            textExtents(endMessage, extents);
             moveTo(size.width / 2 - extents.width / 2, size.height - 20);
             setSourceRgb(1, 1, 1);
             showText(endMessage);
