@@ -209,6 +209,8 @@ private:
                 return parseVariable(child);
             case "SlidexDoc.InlineWord":
                 return parseInlineWord(child);
+            case "SlidexDoc.EscapedChar":
+                return parseEscapedChar(child);
             default:
                 assert(false, "Unknown node: " ~ child.name);
             }
