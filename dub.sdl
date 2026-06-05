@@ -9,3 +9,6 @@ dependency "gid:gst1" version="~>0.9.12"
 dependency "pegged" version="~>0.4.9"
 dependency "gid:pango1" version="~>0.9.12"
 dependency "gid:gtk4" version="~>0.9.12"
+libs "syntectbridge"
+lflags "-L."
+

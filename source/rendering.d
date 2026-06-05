@@ -33,6 +33,7 @@ import pango.global;
 
 import pangocairo.global;
 
+import syntect;
 import slides;
 import types;
 
@@ -118,7 +119,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
         writeln(i"logic rect: x:$(logicalRect.x),y:$(logicalRect.y),w:$(logicalRect.width),h:$(
                 logicalRect.height)");
 
-// TODO: pull out into function.
+        // TODO: pull out into function.
         this.text.layoutLocation.match!(
             (BoundsLocation bl) {
             assert(false, "Text bounds location not implemented");
@@ -204,7 +205,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
 
     void visit(RichText richtext) {
         result = appender!string;
-
+        count = 0;
     }
 
     void visit(TextItem textitem) {
@@ -214,15 +215,19 @@ class RichTextDrawingVisitor : RichTextVisitor {
         switch (ec.letter) {
         case 'n':
             result ~= char(0x0a); // Line feed
+            count += 1;
             break;
         default:
             result ~= ec.letter ~ " ";
+            count += 2;
         }
     }
 
     void visit(ParaBreak pb) {
         outputLayout(result.data());
         result = appender!string();
+        count = 0;
+
         offsety += 18 * factor; // 10 pixels between paragraphs
         startLayout();
     }
@@ -281,12 +286,14 @@ class RichTextDrawingVisitor : RichTextVisitor {
     void leave(ListBlock listblock) {
         outputLayout(result.data());
         result = appender!string();
+        count = 0;
         startLayout();
     }
 
     void enter(ListItem listitem) {
         outputLayout(result.data());
         result = appender!string();
+        count = 0;
         startLayout();
         // TODO: instead of offsetx and offsetx, can I use translate instead?
         offsetx = listitem.level * 15;
@@ -294,11 +301,13 @@ class RichTextDrawingVisitor : RichTextVisitor {
         layout.setWidth(cast(int)((size.w - listitem.level * 15) * SCALE));
 
         result ~= BULLET;
+        count += BULLET.length;
     }
 
     void leave(ListItem listitem) {
         outputLayout(result.data());
         result = appender!string();
+        count = 0;
         startLayout();
         offsetx = listitem.level * 15;
         layout.setIndent(listitem.level > 1 ? -40 * SCALE : 0);
@@ -310,6 +319,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
 
         outputLayout(result.data());
         result = appender!string();
+        count = 0;
         startLayout();
 
         FontDescription fd = new FontDescription();
@@ -317,14 +327,26 @@ class RichTextDrawingVisitor : RichTextVisitor {
         fd.setSize(cast(int)(text.size * factor * 0.8 * SCALE));
         layout.setFontDescription(fd);
     }
+
     void visit(Code code) {
-        result ~= code.lines[lineIdx];
+        string line = code.lines[lineIdx];
+        DStyleString[] lines = highlight("C", "./light+.tmtheme", line);
+        foreach (word; lines) {
+            auto a = attrForegroundNew(word.style.fg.r * 256, word.style.fg.g * 256, word.style.fg.b * 256);
+            a.startIndex = count;
+            result ~= word.text;
+            count += word.text.length;
+            a.endIndex = count;
+            attrList.insert(a);
+        }
         lineIdx++;
     }
+
     void leave(Code code) {
 
         outputLayout(result.data());
         result = appender!string();
+        count = 0;
         startLayout();
     }
 
