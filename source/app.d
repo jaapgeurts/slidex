@@ -1,6 +1,7 @@
 import std.file;
-import std.stdio;
+import std.getopt;
 import std.path;
+import std.stdio;
 
 import dsl.parser;
 import resolver;
@@ -18,7 +19,34 @@ void printAllErrors(Diagnostic[] diagnostics, File file) {
 
 int main(string[] args) {
 
+	Config config;
+
+	auto helpInfo = getopt(args,
+		std.getopt.config.passThrough,
+		"debug|d", "Enable debug mode.", &config.debug_,
+		"verbose|v", "Print debugging output.", &config.verbose,
+		"slide|s", "Start presentation at slide #", &config.slidenum,
+		"monitor|m", "Show slide on monitor # or 0 to list monitors", &config.monitornum,
+		"presenter|p", "Show presenter view", &config.showpresenter,
+		"watch|w", "Watches input file and update changes immediately.", &config.watch,
+	);
+	if (helpInfo.helpWanted) {
+		defaultGetoptPrinter("Slidex - DSL based slide presenter.\nUSAGE: slidex [-dhmpsvw] file\n",
+			helpInfo.options);
+		stderr.writeln("file\t The file name of the presentation to load.");
+		return 0;
+	}
+	if (args.length == 1) {
+		stderr.writeln("Error: file is a required argument. Use -h for help.");
+		return 1;
+	}
+
 	string filepath = args[1];
+	if (!exists(filepath)) {
+		stderr.writeln("Error: Can't open file `", filepath, "`. No such file or directory");
+		return 2;
+	}
+
 	string sourceFilePath;
 	string dirpath;
 	if (isFile(filepath)) {
@@ -29,14 +57,13 @@ int main(string[] args) {
 		sourceFilePath = buildPath(filepath, baseName(filepath, ".slx") ~ ".slx");
 		dirpath = filepath;
 	}
-
 	// Pass one. Lexical parse and build concrete syntax tree
 	Result!ConcreteTree cst = parseDocument(sourceFilePath);
 
 	if (!cst.ok) {
 		writeln("Parse errors");
 		printAllErrors(cst.diagnostics, stderr);
-		return 1;
+		return 3;
 	}
 
 	VoidResult result = VoidResult(ok: true);
@@ -59,14 +86,18 @@ int main(string[] args) {
 
 	if (!result.ok) {
 		printAllErrors(result.diagnostics, stderr);
-		return 1;
+		return 4;
 	}
 
 	deck.value.rootpath = dirpath;
 
 	// show the desk.
-	presentDeck(args, deck.value);
-
-	return 0;
+	    // writeln("Slide:  ", deck.slides[0].toString);
+    // writeln("Master: ", deck.slides[0].master.toString);
+    // writeln("DECK: ", deck.slides[0].master.items[0].visible);
+    // open the gtk window
+    SlidexApplication app = new SlidexApplication(deck.value, config);
+    
+	return app.run(null);
 
 }

@@ -32,17 +32,52 @@ import gdk.c.types;
 import gdk.event;
 import gdk.types;
 
+import common;
 import rendering;
-
 import slides;
 
 enum WIDTH = 1280;
 enum HEIGHT = 720;
 
+class SlidexApplication : gtk.application.Application {
+    SlidexWindow window;
+    Deck deck;
+    Config config;
+
+    this(Deck deck, Config config) {
+        super("com.slidex.presenter", ApplicationFlags.DefaultFlags);
+
+        this.deck = deck;
+        this.config = config;
+
+        connectActivate(&onActivate);
+    }
+
+    void onActivate() {
+        if (!window) {
+            window = new SlidexWindow(deck);
+            window.debug_ = config.debug_;
+            window.showSlide(config.slidenum);
+            addWindow(window);
+        }
+
+        window.present();
+    }
+}
+
 class SlidexWindow : Window {
+    Presenter presenter;
     Deck deck;
 
-    this(Deck deck, bool debug_) {
+    void debug_(bool debug_) {
+        presenter.debug_ = debug_;
+    }
+
+    void showSlide(uint slidenum) {
+        presenter.showSlide(slidenum);
+    }
+
+    this(Deck deck) {
         super();
 
         setTitle("Projector");
@@ -52,7 +87,7 @@ class SlidexWindow : Window {
         overlay.setSizeRequest(WIDTH, HEIGHT);
         child = overlay;
 
-        Presenter presenter = new Presenter(overlay, deck, debug_);
+        presenter = new Presenter(overlay, deck);
         presenter.setSizeRequest(WIDTH, HEIGHT);
         presenter.onFullsceen = (widget) { fullscreen(); };
         presenter.onUnFullsceen = (widget) { unfullscreen(); };
@@ -64,64 +99,20 @@ class SlidexWindow : Window {
     }
 }
 
-class SlidexApplication : gtk.application.Application {
-    SlidexWindow window;
-    Deck deck;
-    bool debug_;
-
-    this(Deck deck, bool debug_) {
-        super("com.slidex.presenter", ApplicationFlags.DefaultFlags);
-
-        this.deck = deck;
-        this.debug_ = debug_;
-
-        connectActivate(&onActivate);
-    }
-
-    void onActivate() {
-        if (!window) {
-            window = new SlidexWindow(deck, debug_);
-            addWindow(window);
-        }
-
-        window.present();
-    }
-}
-
-void presentDeck(string[] args, Deck deck) {
-    // writeln("Slide:  ", deck.slides[0].toString);
-    // writeln("Master: ", deck.slides[0].master.toString);
-    // writeln("DECK: ", deck.slides[0].master.items[0].visible);
-    // open the gtk window
-    bool debug_ = args.length > 2 && args[2] == "debug";
-    SlidexApplication app = new SlidexApplication(deck, debug_);
-    app.run([args[0]]);
-
-}
-
 class Presenter : DrawingArea {
-    size_t currentSlide = 0;
-    bool isFullScreen = false;
-    bool isBlanking = false;
-    bool isDebugOverlay = false;
-    float factor = 1.0;
-
-    Variant[string] vartable;
-
-    Overlay overlay;
-    Allocation size;
 
     void delegate(Widget w) onFullsceen;
     void delegate(Widget w) onUnFullsceen;
 
-    Deck deck;
+    @property
+    void debug_(bool debug_) {
+        isDebugMode = debug_;
+    }
 
-    this(Overlay overlay, Deck deck, bool debug_) {
+    this(Overlay overlay, Deck deck) {
 
         this.overlay = overlay;
         this.deck = deck;
-
-        isDebugOverlay = debug_;
 
         setDrawFunc(&onDraw);
 
@@ -146,6 +137,45 @@ class Presenter : DrawingArea {
 
     }
 
+    void showSlide(uint slidenum) {
+        if (slidenum < 0 || slidenum > deck.slides.length)
+            return;
+
+        currentSlide = slidenum;
+
+        updateSlideView();
+    }
+
+    void nextSlide() {
+        if (currentSlide < deck.slides.length) {
+            currentSlide++;
+            updateSlideView();
+        }
+        else {
+            // TODO: only when verbose
+            writeln("Reached last slide");
+        }
+    }
+
+    void previousSlide() {
+        if (currentSlide > 0) {
+            currentSlide--;
+            updateSlideView();
+        }
+        else {
+            // TODO: only when verbose
+            writeln("Reached first slide");
+        }
+    }
+
+private:
+
+    void updateSlideView() {
+        vartable["slide"] = currentSlide + 1;
+        firePrepareSlideForVideo();
+        queueDraw();
+    }
+
     void onDraw(DrawingArea drawingArea, Context context, int width, int height) {
 
         if (isVideo)
@@ -157,8 +187,9 @@ class Presenter : DrawingArea {
             context.paint();
             return;
         }
-        GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, Allocation(0, 0, width, height), vartable, deck.rootpath);
-        drawing.showDebugOverlay = isDebugOverlay;
+        GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, Allocation(0, 0, width, height), vartable, deck
+                .rootpath);
+        drawing.showDebugOverlay = isDebugMode;
 
         drawing.factor = factor;
 
@@ -180,18 +211,11 @@ class Presenter : DrawingArea {
         // pressedKey = keymap.keyvalName(keyval);
         writeln("The keyval is: ", keyval, " which means the ", keycode, " was pressed.");
 
-        size_t oldCurrentSlide = currentSlide;
         if (keyval == KEY_space || keyval == KEY_Right || keyval == KEY_Next) {
-            if (currentSlide < deck.slides.length)
-                currentSlide++;
-            else
-                writeln("Reached last slide");
+            nextSlide();
         }
         else if (keyval == KEY_Left || keyval == KEY_Prior) {
-            if (currentSlide > 0)
-                currentSlide--;
-            else
-                writeln("Reached first slide");
+            previousSlide();
         }
         else if (keyval == KEY_Escape) {
             if (isFullScreen) {
@@ -223,23 +247,16 @@ class Presenter : DrawingArea {
             }
         }
 
-        if (oldCurrentSlide != currentSlide) {
-            vartable["slide"] = currentSlide + 1;
-            // TODO: move next line away from here.
-            firePrepareSlideForVideo();
-            queueDraw();
-        }
-
         return true;
 
     }
 
-    private void firePrepareSlideForVideo() {
+    void firePrepareSlideForVideo() {
 
         VideoPreparationVisitor prepvideo = new VideoPreparationVisitor(overlay);
 
         if (deck.slides.length == 0 || currentSlide == deck.slides.length) {
-            writeln("No slides to show");
+            writeln("No slides to show or 'end of presentation'.");
         }
         else {
             Slide slide = deck.slides[currentSlide];
@@ -256,7 +273,7 @@ class Presenter : DrawingArea {
 
     void onSizeAllocate(int width, int height, DrawingArea drawingArea) {
 
-        size = Allocation(0,0,width, height);
+        size = Allocation(0, 0, width, height);
         factor = width / 920.0;
     }
 
@@ -274,5 +291,18 @@ class Presenter : DrawingArea {
             showText(endMessage);
         }
     }
+
+    Deck deck;
+
+    size_t currentSlide = 0;
+    bool isFullScreen = false;
+    bool isBlanking = false;
+    bool isDebugMode = false;
+    float factor = 1.0;
+
+    Variant[string] vartable;
+
+    Overlay overlay;
+    Allocation size;
 
 }

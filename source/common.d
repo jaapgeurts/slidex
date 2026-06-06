@@ -5,6 +5,15 @@ import std.stdio;
 
 import types;
 
+struct Config {
+    bool debug_;
+	bool verbose;
+	uint slidenum;
+	uint monitornum;
+	bool showpresenter;
+	bool watch;
+}
+
 enum DiagnosticKind {
     DuplicateDeclaration,
     InvalidGridCoordinate,
