@@ -106,11 +106,11 @@ SlidexDoc:
 
 # RichText Inline sugar
 
-    Bold            <- '*' InlineContent '*'
-    Italic          <- '/' InlineContent '/'
-    Underline       <- '_' InlineContent '_'
-    Strike          <- '~' InlineContent '~'
-    SmallCaps       <- '#' InlineContent '#'
+    Bold            <- '**' InlineContent '**'
+    Italic          <- '//' InlineContent '//'
+    Underline       <- '__' InlineContent '__'
+    Strike          <- '~~' InlineContent '~~'
+    SmallCaps       <- '##' InlineContent '##'
 
 # RichText Variable 
 
@@ -140,7 +140,7 @@ SlidexDoc:
 # RichText Code block
 
     CodeBlock       <- BACKTICKS identifier? :eol
-                       CodeLine*
+                       CodeLine* 
                        BACKTICKS :eol?
     CodeLine        <~ (!BACKTICKS !eol .)* eol
     BACKTICKS       <~ backquote backquote backquote

@@ -109,11 +109,11 @@ SlidexDoc:
 
 # RichText Inline sugar
 
-    Bold            <- '*' InlineContent '*'
-    Italic          <- '/' InlineContent '/'
-    Underline       <- '_' InlineContent '_'
-    Strike          <- '~' InlineContent '~'
-    SmallCaps       <- '#' InlineContent '#'
+    Bold            <- '**' InlineContent '**'
+    Italic          <- '//' InlineContent '//'
+    Underline       <- '__' InlineContent '__'
+    Strike          <- '~~' InlineContent '~~'
+    SmallCaps       <- '##' InlineContent '##'
 
 # RichText Variable 
 
@@ -143,7 +143,7 @@ SlidexDoc:
 # RichText Code block
 
     CodeBlock       <- BACKTICKS identifier? :eol
-                       CodeLine*
+                       CodeLine* 
                        BACKTICKS :eol?
     CodeLine        <~ (!BACKTICKS !eol .)* eol
     BACKTICKS       <~ backquote backquote backquote
@@ -2724,7 +2724,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("*"), InlineContent, pegged.peg.literal!("*")), "SlidexDoc.Bold")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("**"), InlineContent, pegged.peg.literal!("**")), "SlidexDoc.Bold")(p);
         }
         else
         {
@@ -2732,7 +2732,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("*"), InlineContent, pegged.peg.literal!("*")), "SlidexDoc.Bold"), "Bold")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("**"), InlineContent, pegged.peg.literal!("**")), "SlidexDoc.Bold"), "Bold")(p);
                 memo[tuple(`Bold`, p.end)] = result;
                 return result;
             }
@@ -2743,12 +2743,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("*"), InlineContent, pegged.peg.literal!("*")), "SlidexDoc.Bold")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("**"), InlineContent, pegged.peg.literal!("**")), "SlidexDoc.Bold")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("*"), InlineContent, pegged.peg.literal!("*")), "SlidexDoc.Bold"), "Bold")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("**"), InlineContent, pegged.peg.literal!("**")), "SlidexDoc.Bold"), "Bold")(TParseTree("", false,[], s));
         }
     }
     static string Bold(GetName g)
@@ -2760,7 +2760,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("/"), InlineContent, pegged.peg.literal!("/")), "SlidexDoc.Italic")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("//"), InlineContent, pegged.peg.literal!("//")), "SlidexDoc.Italic")(p);
         }
         else
         {
@@ -2768,7 +2768,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("/"), InlineContent, pegged.peg.literal!("/")), "SlidexDoc.Italic"), "Italic")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("//"), InlineContent, pegged.peg.literal!("//")), "SlidexDoc.Italic"), "Italic")(p);
                 memo[tuple(`Italic`, p.end)] = result;
                 return result;
             }
@@ -2779,12 +2779,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("/"), InlineContent, pegged.peg.literal!("/")), "SlidexDoc.Italic")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("//"), InlineContent, pegged.peg.literal!("//")), "SlidexDoc.Italic")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("/"), InlineContent, pegged.peg.literal!("/")), "SlidexDoc.Italic"), "Italic")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("//"), InlineContent, pegged.peg.literal!("//")), "SlidexDoc.Italic"), "Italic")(TParseTree("", false,[], s));
         }
     }
     static string Italic(GetName g)
@@ -2796,7 +2796,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("_"), InlineContent, pegged.peg.literal!("_")), "SlidexDoc.Underline")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("__"), InlineContent, pegged.peg.literal!("__")), "SlidexDoc.Underline")(p);
         }
         else
         {
@@ -2804,7 +2804,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("_"), InlineContent, pegged.peg.literal!("_")), "SlidexDoc.Underline"), "Underline")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("__"), InlineContent, pegged.peg.literal!("__")), "SlidexDoc.Underline"), "Underline")(p);
                 memo[tuple(`Underline`, p.end)] = result;
                 return result;
             }
@@ -2815,12 +2815,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("_"), InlineContent, pegged.peg.literal!("_")), "SlidexDoc.Underline")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("__"), InlineContent, pegged.peg.literal!("__")), "SlidexDoc.Underline")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("_"), InlineContent, pegged.peg.literal!("_")), "SlidexDoc.Underline"), "Underline")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("__"), InlineContent, pegged.peg.literal!("__")), "SlidexDoc.Underline"), "Underline")(TParseTree("", false,[], s));
         }
     }
     static string Underline(GetName g)
@@ -2832,7 +2832,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("~"), InlineContent, pegged.peg.literal!("~")), "SlidexDoc.Strike")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("~~"), InlineContent, pegged.peg.literal!("~~")), "SlidexDoc.Strike")(p);
         }
         else
         {
@@ -2840,7 +2840,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("~"), InlineContent, pegged.peg.literal!("~")), "SlidexDoc.Strike"), "Strike")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("~~"), InlineContent, pegged.peg.literal!("~~")), "SlidexDoc.Strike"), "Strike")(p);
                 memo[tuple(`Strike`, p.end)] = result;
                 return result;
             }
@@ -2851,12 +2851,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("~"), InlineContent, pegged.peg.literal!("~")), "SlidexDoc.Strike")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("~~"), InlineContent, pegged.peg.literal!("~~")), "SlidexDoc.Strike")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("~"), InlineContent, pegged.peg.literal!("~")), "SlidexDoc.Strike"), "Strike")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("~~"), InlineContent, pegged.peg.literal!("~~")), "SlidexDoc.Strike"), "Strike")(TParseTree("", false,[], s));
         }
     }
     static string Strike(GetName g)
@@ -2868,7 +2868,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("#"), InlineContent, pegged.peg.literal!("#")), "SlidexDoc.SmallCaps")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("##"), InlineContent, pegged.peg.literal!("##")), "SlidexDoc.SmallCaps")(p);
         }
         else
         {
@@ -2876,7 +2876,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("#"), InlineContent, pegged.peg.literal!("#")), "SlidexDoc.SmallCaps"), "SmallCaps")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("##"), InlineContent, pegged.peg.literal!("##")), "SlidexDoc.SmallCaps"), "SmallCaps")(p);
                 memo[tuple(`SmallCaps`, p.end)] = result;
                 return result;
             }
@@ -2887,12 +2887,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("#"), InlineContent, pegged.peg.literal!("#")), "SlidexDoc.SmallCaps")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("##"), InlineContent, pegged.peg.literal!("##")), "SlidexDoc.SmallCaps")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("#"), InlineContent, pegged.peg.literal!("#")), "SlidexDoc.SmallCaps"), "SmallCaps")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("##"), InlineContent, pegged.peg.literal!("##")), "SlidexDoc.SmallCaps"), "SmallCaps")(TParseTree("", false,[], s));
         }
     }
     static string SmallCaps(GetName g)
