@@ -1,5 +1,6 @@
 module richtext.parser;
 
+import std.array;
 import std.stdio;
 
 import pegged.grammar;
@@ -36,9 +37,6 @@ private:
     Result!TextItem parseRichTextNode(ParseTree root) {
         foreach (child; root.children) {
             switch (child.name) {
-            case "SlidexDoc.ParaBreak":
-                ParaBreak pb;
-                return Result!TextItem(ok: true, value: TextItem(pb));
             case "SlidexDoc.CodeBlock":
                 return parseCodeBlock(child);
             case "SlidexDoc.ListBlock":
@@ -64,6 +62,9 @@ private:
                 return parseWord(child);
             case "SlidexDoc.EscapedChar":
                 return parseEscapedChar(child);
+            case "SlidexDoc.LineBreak":
+                TextItem ti = LineBreak(child.matches.join());
+                return Result!TextItem(ok: true, value: ti);
             default:
                 assert(false, "Unknown node: " ~ child.name);
             }
@@ -71,8 +72,6 @@ private:
         assert(false, "Unreachable");
     }
 
-    // Result!parseParaBreak(ParseTree root) {
-    // }
     Result!TextItem parseCodeBlock(ParseTree root) {
         Result!TextItem result = Result!TextItem(ok: true);
         Code code;
@@ -90,8 +89,10 @@ private:
         result.value = code;
         return result;
     }
+
     // Result!parseFunc(ParseTree root) {
     // }
+
     Result!TextItem parseBold(ParseTree root) {
         Result!TextItem result = Result!TextItem(ok: true);
         Bold bold;
@@ -142,10 +143,13 @@ private:
         result.value = underline;
         return result;
     }
+
     // Result!parseStrike(ParseTree root) {
     // }
+
     // Result!parseSmallCaps(ParseTree root) {
     // }
+
     Result!TextItem parseVariable(ParseTree root) {
         TextItem v = Variable(root.matches[1]);
         return Result!TextItem(ok: true, value: v);

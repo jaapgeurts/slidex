@@ -20,6 +20,17 @@ struct SourceLocation {
 //     Pixel,
 // }
 
+struct Point {
+    float x;
+    float y;
+}
+
+struct Size {
+    float w;
+    float h;
+}
+
+
 struct RgbColour {
     ubyte r;
     ubyte g;
@@ -91,81 +102,11 @@ struct BoundsLocation {
 
 alias LayoutLocation = SumType!(CellLocation, BoundsLocation);
 
-interface RichTextVisitor {
-    void visit(RichText richtext);
-    void visit(TextItem textitem);
-    void visit(Word word);
-    void enter(Bold bold);
-    void leave(Bold bold);
-    void enter(Italic italic);
-    void leave(Italic italic);
-    void enter(Underline underline);
-    void leave(Underline underline);
-    void enter(ListBlock listblock);
-    void leave(ListBlock listblock);
-    void enter(ListItem listitem);
-    void leave(ListItem listitem);
-    void enter(Code code);
-    void visit(Code code);
-    void leave(Code code);
-    void visit(Variable variable);
-    void visit(Func func);
-    void visit(EscapedChar ec);
-    void visit(ParaBreak pb);
-}
-
 class RichText {
     TextItem[] items;
-    private void applyVisitor(RichTextVisitor visitor, TextItem[] items) {
-        foreach (item; items) {
-            item.match!(
-                (Word w) => visitor.visit(w),
-                (Bold b) {
-                visitor.enter(b);
-                applyVisitor(visitor, b.items);
-                visitor.leave(b);
-            },
-                (Italic i) {
-                visitor.enter(i);
-                applyVisitor(visitor, i.items);
-                visitor.leave(i);
-            },
-                (Underline u) {
-                visitor.enter(u);
-                applyVisitor(visitor, u.items);
-                visitor.leave(u);
-            },
-                (Variable v) => visitor.visit(v),
-                (Func f) => visitor.visit(f),
-                (ListBlock l) {
-                visitor.enter(l);
-                foreach (li; l.items) {
-                    visitor.enter(li);
-                    applyVisitor(visitor, li.content);
-                    visitor.leave(li);
-                }
-                visitor.leave(l);
-            },
-                (Code c) {
-                visitor.enter(c);
-                for (size_t i = 0; i < c.lines.length; ++i) {
-                    visitor.visit(c);
-                }
-                visitor.leave(c);
-            },
-                (EscapedChar ec) => visitor.visit(ec),
-                (ParaBreak pb) => visitor.visit(pb),
-            );
-        }
-    }
-
-    void accept(RichTextVisitor visitor) {
-        visitor.visit(this);
-        applyVisitor(visitor, items);
-    }
 }
 
-alias TextItem = SumType!(Word, EscapedChar, ParaBreak, Bold, Italic, Underline, Variable, Func, ListBlock, Code);
+alias TextItem = SumType!(Word, LineBreak, EscapedChar, Bold, Italic, Underline, Variable, Func, ListBlock, Code);
 
 struct Word {
     string text;
@@ -176,7 +117,6 @@ struct EscapedChar {
 }
 
 alias Seconds = Typedef!(int, int.init, "seconds");
-alias ParaBreak = Typedef!(ubyte, ubyte.init, "parabreak");
 
 struct Bold {
     TextItem[] items;
@@ -213,4 +153,8 @@ struct ListItem {
 
 struct Code {
     string[] lines;
+}
+
+struct LineBreak {
+    string chars;
 }

@@ -1,6 +1,6 @@
 .PHONY: all
 
-DSRCS = $(wildcard source/*.d)
+DSRCS = $(shell find source -type f -name '*.d')
 
 all: slidex
 

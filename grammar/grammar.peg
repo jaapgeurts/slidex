@@ -60,7 +60,7 @@ SlidexDoc:
     Digits              <~ [0-9] [0-9]* WsComment
     Unit                <- ('s' / '%' / 'cm' / 'fr' / 'px') WsComment
     String              <- :doublequote ~(!doublequote .)* :doublequote WsComment
-    RichText            <- :LBRACE RichTextNode* :RBRACE
+    RichText            <- :LBRACE :(space* eol)? RichTextNode* :RBRACE
     NamedColour         <- ('red' / 'green' / 'blue' / 'yellow' / 'cyan' / 'magenta' / 'white' / 'black') WsComment
     Alignment           <- ('topleft' / 'topcenter' / 'topright' / 'centerleft' / 'centerright' / 'center' / 'bottomleft' / 'bottomcenter' / 'bottomright' ) WsComment
     Boolean             <- ('true' / 'false' / 'yes' / 'no' / 'on' / 'off' ) WsComment
@@ -102,62 +102,62 @@ SlidexDoc:
 # ──── RichText ───────────────────────────────────────
 
 ## TODO: factor out these parts?
-    RichTextNode        <- EscapedChar / ParaBreak / CodeBlock / ListBlock / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / Word / :blank / :eol
+    RichTextNode        <-  LineBreak / EscapedChar / CodeBlock / ListBlock / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / Word / :space
 
 # RichText Inline sugar
 
-    Bold            <- '**' InlineContent '**'
-    Italic          <- '//' InlineContent '//'
-    Underline       <- '__' InlineContent '__'
-    Strike          <- '~~' InlineContent '~~'
-    SmallCaps       <- '##' InlineContent '##'
+    Bold                <- '*' InlineContent '*'
+    Italic              <- '/' InlineContent '/'
+    Underline           <- '_' InlineContent '_'
+    Strike              <- '~' InlineContent '~'
+    SmallCaps           <- '#' InlineContent '#'
 
 # RichText Variable 
 
-    Variable        <- '$' identifier
+    Variable            <- '$' identifier
 
 # RichText Function call
 
-    Func            <- '[' WS FuncName WS FuncArgs WS (':' WS InlineContent)? ']'
-    FuncName        <- identifier
-    FuncArgs        <- FuncArg? (',' FuncArg)*
-    FuncArg         <- RTString / RTNumber / identifier
+    Func                <- '[' WS FuncName WS FuncArgs WS (':' WS InlineContent)? ']'
+    FuncName            <- identifier
+    FuncArgs            <- FuncArg? (',' FuncArg)*
+    FuncArg             <- RTString / RTNumber / identifier
 
 # # RichText Inline content (recursive)
-    InlineContent   <- InlineNode*
-    InlineNode      <- EscapedChar / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / InlineWord / :blank
+    InlineContent       <- InlineNode*
+    InlineNode          <-  LineBreak/ EscapedChar / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / InlineWord / :space
 
-    ListItemContent   <- ListItemNode*
-    ListItemNode      <- EscapedChar / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / InlineWord / :' '*
+    ListItemContent     <- ListItemNode*
+    ListItemNode        <-  EscapedChar / Func / Bold / Italic / Underline / Strike / SmallCaps / Variable / InlineWord / :space
 
 #  RichText Lists
 
-    ListBlock       <- ListItem+
-    ListItem        <- (BulletMarker/NumberMarker) ListItemContent eol
-    BulletMarker    <- ' '* '-' ' '+
-    NumberMarker    <- ' '* [0-9]+ '.' ' '+
+    ListBlock           <- ListItem+
+    ListItem            <- (BulletMarker/NumberMarker) ListItemContent eol
+    BulletMarker        <- ' '* '-' ' '+
+    NumberMarker        <- ' '* [0-9]+ '.' ' '+
 
 # RichText Code block
 
-    CodeBlock       <- BACKTICKS identifier? :eol
+    CodeBlock           <- BACKTICKS identifier? :eol
                        CodeLine* 
                        BACKTICKS :eol?
-    CodeLine        <~ (!BACKTICKS !eol .)* eol
-    BACKTICKS       <~ backquote backquote backquote
+    CodeLine            <~ (!BACKTICKS !eol .)* eol
+    BACKTICKS           <~ backquote backquote backquote
 
 
 # RichText Primitives
 
-    Word            <~ (!SpecialChar !blank !eol .)+
-    InlineWord      <~ (!InlineSpecial !blank !eol .)+
+    Word                <~ (!SpecialChar !blank !eol .)+
+    InlineWord          <~ (!InlineSpecial !blank !eol .)+
 
-    SpecialChar     <- '\\' / '*' / '/' / '-' / '_' / '~' / '#' / '[' / '$' / backquote / '}' / blank / eol
-    InlineSpecial   <- SpecialChar / ']'
+    SpecialChar         <- '\\' / '*' / '/' / '-' / '_' / '~' / '#' / '[' / '$' / backquote / '}' / blank / eol
+    InlineSpecial       <- SpecialChar / ']'
 
-    RTNumber          <~ [0-9]+
-    RTString          <- :doublequote ~(!doublequote .)* :doublequote
+    RTNumber            <~ [0-9]+
+    RTString            <- :doublequote ~(!doublequote .)* :doublequote
 
-    EscapedChar       <- '\\' . 
+    EscapedChar         <- '\\' . 
+    LineBreak           <- endOfLine
 
-    ParaBreak       <- eol eol+
-    WS              <- :blank*
+    WS                  <- :blank*

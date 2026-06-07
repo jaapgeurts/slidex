@@ -91,13 +91,17 @@ int main(string[] args) {
 
 	deck.value.rootpath = dirpath;
 
+	// Last minute checks and fixes
+	if (config.slidenum > 0)
+		config.slidenum--;
+
 	// show the desk.
-	    // writeln("Slide:  ", deck.slides[0].toString);
-    // writeln("Master: ", deck.slides[0].master.toString);
-    // writeln("DECK: ", deck.slides[0].master.items[0].visible);
-    // open the gtk window
-    SlidexApplication app = new SlidexApplication(deck.value, config);
-    
+	// writeln("Slide:  ", deck.slides[0].toString);
+	// writeln("Master: ", deck.slides[0].master.toString);
+	// writeln("DECK: ", deck.slides[0].master.items[0].visible);
+	// open the gtk window
+	SlidexApplication app = new SlidexApplication(deck.value, config);
+
 	return app.run(null);
 
 }

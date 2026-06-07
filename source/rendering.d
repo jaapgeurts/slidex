@@ -44,14 +44,9 @@ bool isVideo;
 // enum BULLET = "➤ ";
 enum BULLET = "• ";
 
-struct Size {
-    float x;
-    float y;
-    float w;
-    float h;
-}
+class RichTextRenderer {
+    Text text;
 
-class RichTextDrawingVisitor : RichTextVisitor {
     Appender!string result;
     uint count;
     bool showDebugOverlay;
@@ -64,13 +59,11 @@ class RichTextDrawingVisitor : RichTextVisitor {
     float factor;
     uint slidenum;
     uint totalnum;
-    uint lineIdx;
 
-    Text text;
-    Size size;
+    Allocation size;
     std.variant.Variant[string] vartable;
 
-    this(Text text, Size size, float factor, std.variant.Variant[string] vartable) {
+    this(Text text, Allocation size, float factor, std.variant.Variant[string] vartable) {
 
         this.text = text;
         this.size = size;
@@ -82,15 +75,16 @@ class RichTextDrawingVisitor : RichTextVisitor {
     void startLayout() {
         // create the first layout
         layout = createLayout(context);
-        layout.setWidth(cast(int)(size.w * SCALE));
+        layout.setWidth(cast(int)(size.width * SCALE));
         // TODO: get default font from master.
         FontDescription fd = new FontDescription();
-        fd.setFamily("Roboto");
+        fd.setFamily("Libertinus Sans");
         fd.setSize(cast(int)(text.size * factor * SCALE));
         layout.setFontDescription(fd);
         if (attrList)
             attrList.destroy();
         attrList = new AttrList();
+        // attrList.insert(attrLineHeightNew(factor));
     }
 
     // Add more parameters instead of using class fields.
@@ -104,8 +98,12 @@ class RichTextDrawingVisitor : RichTextVisitor {
 
         float x = size.x + offsetx;
         float y = size.y + offsety;
-        float w = size.w;
-        float h = size.h;
+        float w = size.width;
+        float h = size.height;
+
+        // remove final linebreak if any.
+        if (text[$ - 1] == '\n')
+            text = text[0 .. $ - 1];
 
         // when done print the text.
         layout.setText(text);
@@ -182,13 +180,90 @@ class RichTextDrawingVisitor : RichTextVisitor {
 
     }
 
+private:
+    void processItem(TextItem item) {
+        item.match!(
+            (Word w) { result ~= w.text ~ ' '; count += w.text.length + 1; },
+            (Bold b) {
+            currentAttr = attrWeightNew(Weight.Bold);
+            currentAttr.startIndex = count;
+            foreach (i; b.items) {
+                processItem(i);
+            }
+            currentAttr.endIndex = count;
+            attrList.insert(currentAttr);
+            currentAttr = null;
+
+        },
+            (Italic i) {
+            currentAttr = attrStyleNew(Style.Italic);
+            currentAttr.startIndex = count;
+            foreach (italic; i.items) {
+                processItem(italic);
+            }
+            currentAttr.endIndex = count;
+            attrList.insert(currentAttr);
+            // currentAttr.destroy();
+            currentAttr = null;
+        },
+            (types.Underline u) {
+            currentAttr = attrUnderlineNew(pango.types.Underline.Single);
+            currentAttr.startIndex = count;
+            foreach (i; u.items) {
+                processItem(i);
+            }
+            currentAttr.endIndex = count;
+            attrList.insert(currentAttr);
+            // currentAttr.destroy();
+            currentAttr = null;
+        },
+            (Variable v) {
+            writeln("variable: ", v.name);
+            result ~= vartable[v.name].to!string ~ " ";
+        },
+            (Func f) { assert(false, "Variables not yet implemented"); },
+            (ListBlock l) {
+            foreach (i; l.items) {
+                startListItem(i);
+                foreach (ti; i.content) {
+                    processItem(ti);
+                }
+                endListItem(i);
+            }
+            outputLayout(result.data());
+            result = appender!string();
+            count = 0;
+            startLayout();
+        },
+            (Code c) { startCode(c); handleCode(c); endCode(c); },
+            (LineBreak lb) { result ~= '\n'; },
+            (EscapedChar ec) {
+            switch (ec.letter) {
+            case 'n':
+                result ~= char(0x0a); // Line feed
+                count++;
+                break;
+            default:
+                result ~= ec.letter;
+                count++;
+            }
+        },
+        );
+    }
+
     void paint(Context context) {
         this.context = context;
 
         // create a new layout
         startLayout();
 
-        text.content.accept(this);
+        result = appender!string;
+        count = 0;
+        foreach (item; text.content.items) {
+            processItem(item);
+        }
+
+        /// END
 
         outputLayout(result.data());
 
@@ -203,94 +278,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
 
     }
 
-    void visit(RichText richtext) {
-        result = appender!string;
-        count = 0;
-    }
-
-    void visit(TextItem textitem) {
-    }
-
-    void visit(EscapedChar ec) {
-        switch (ec.letter) {
-        case 'n':
-            result ~= char(0x0a); // Line feed
-            count += 1;
-            break;
-        default:
-            result ~= ec.letter ~ " ";
-            count += 2;
-        }
-    }
-
-    void visit(ParaBreak pb) {
-        outputLayout(result.data());
-        result = appender!string();
-        count = 0;
-
-        offsety += 18 * factor; // 10 pixels between paragraphs
-        startLayout();
-    }
-
-    void visit(Word word) {
-        result ~= word.text ~ " ";
-        count += word.text.length + 1;
-    }
-
-    void enter(Bold bold) {
-        currentAttr = attrWeightNew(Weight.Bold);
-        currentAttr.startIndex = count;
-    }
-
-    void leave(Bold bold) {
-        currentAttr.endIndex = count;
-        attrList.insert(currentAttr);
-        currentAttr = null;
-    }
-
-    void enter(Italic italic) {
-        currentAttr = attrStyleNew(Style.Italic);
-        currentAttr.startIndex = count;
-    }
-
-    void leave(Italic italic) {
-        currentAttr.endIndex = count;
-        attrList.insert(currentAttr);
-        // currentAttr.destroy();
-        currentAttr = null;
-    }
-
-    void enter(types.Underline underline) {
-        currentAttr = attrUnderlineNew(pango.types.Underline.Single);
-        currentAttr.startIndex = count;
-    }
-
-    void leave(types.Underline underline) {
-        currentAttr.endIndex = count;
-        attrList.insert(currentAttr);
-        // currentAttr.destroy();
-        currentAttr = null;
-    }
-
-    void visit(Variable variable) {
-        writeln("Variable: ", variable);
-        result ~= vartable[variable.name].to!string ~ " ";
-    }
-
-    void visit(Func func) {
-    }
-
-    void enter(ListBlock listblock) {
-    }
-
-    void leave(ListBlock listblock) {
-        outputLayout(result.data());
-        result = appender!string();
-        count = 0;
-        startLayout();
-    }
-
-    void enter(ListItem listitem) {
+    void startListItem(ListItem listitem) {
         outputLayout(result.data());
         result = appender!string();
         count = 0;
@@ -298,24 +286,23 @@ class RichTextDrawingVisitor : RichTextVisitor {
         // TODO: instead of offsetx and offsetx, can I use translate instead?
         offsetx = listitem.level * 15;
         layout.setIndent(-40 * SCALE);
-        layout.setWidth(cast(int)((size.w - listitem.level * 15) * SCALE));
+        layout.setWidth(cast(int)((size.width - listitem.level * 15) * SCALE));
 
         result ~= BULLET;
         count += BULLET.length;
     }
 
-    void leave(ListItem listitem) {
+    void endListItem(ListItem listitem) {
         outputLayout(result.data());
         result = appender!string();
         count = 0;
         startLayout();
         offsetx = listitem.level * 15;
         layout.setIndent(listitem.level > 1 ? -40 * SCALE : 0);
-        layout.setWidth(cast(int)((size.w - listitem.level * 15) * SCALE));
+        layout.setWidth(cast(int)((size.width - listitem.level * 15) * SCALE));
     }
 
-    void enter(Code code) {
-        lineIdx = 0;
+    void startCode(Code code) {
 
         outputLayout(result.data());
         result = appender!string();
@@ -328,21 +315,21 @@ class RichTextDrawingVisitor : RichTextVisitor {
         layout.setFontDescription(fd);
     }
 
-    void visit(Code code) {
-        string line = code.lines[lineIdx];
-        DStyleString[] lines = highlight("C", "./light+.tmtheme", line);
-        foreach (word; lines) {
-            auto a = attrForegroundNew(word.style.fg.r * 256, word.style.fg.g * 256, word.style.fg.b * 256);
-            a.startIndex = count;
-            result ~= word.text;
-            count += word.text.length;
-            a.endIndex = count;
-            attrList.insert(a);
+    void handleCode(Code code) {
+        foreach (line; code.lines) {
+            DStyleString[] coloured = highlight("C", "./light+.tmtheme", line);
+            foreach (word; coloured) {
+                auto a = attrForegroundNew(word.style.fg.r * 256, word.style.fg.g * 256, word.style.fg.b * 256);
+                a.startIndex = count;
+                result ~= word.text;
+                count += word.text.length;
+                a.endIndex = count;
+                attrList.insert(a);
+            }
         }
-        lineIdx++;
     }
 
-    void leave(Code code) {
+    void endCode(Code code) {
 
         outputLayout(result.data());
         result = appender!string();
@@ -354,8 +341,7 @@ class RichTextDrawingVisitor : RichTextVisitor {
 
 class GtkDrawingVisitor : ItemVisitor {
     Context context;
-    Allocation size;
-    TextExtents extents;
+    Size size;
 
     bool showDebugOverlay;
     string rootpath;
@@ -367,7 +353,7 @@ class GtkDrawingVisitor : ItemVisitor {
 
     float factor;
 
-    this(Context context, Allocation size, std.variant.Variant[string] vartable, string rootpath) {
+    this(Context context, Size size, std.variant.Variant[string] vartable, string rootpath) {
         this.context = context;
         this.vartable = vartable;
         this.size = size;
@@ -380,7 +366,7 @@ class GtkDrawingVisitor : ItemVisitor {
         master.columns.match!(
             (int numcols) {
             colsizes.length = numcols;
-            colsizes[] = size.width / cast(float) numcols;
+            colsizes[] = size.w / cast(float) numcols;
         },
             (Length[] dims) {
             colsizes.length = dims.length;
@@ -403,7 +389,7 @@ class GtkDrawingVisitor : ItemVisitor {
             i = 0;
             foreach (dim; dims) {
                 if (dim.unit == DimensionUnit.Fraction) // TODO: remove hard coded size
-                    colsizes[i] = (size.width - fixedSum) * dim.value / fractionSum;
+                    colsizes[i] = (size.w - fixedSum) * dim.value / fractionSum;
                 i++;
             }
 
@@ -416,7 +402,7 @@ class GtkDrawingVisitor : ItemVisitor {
         master.rows.match!(
             (int numrows) {
             rowsizes.length = numrows;
-            rowsizes[] = size.height / cast(float) numrows;
+            rowsizes[] = size.h / cast(float) numrows;
         },
             (Length[] dims) {
             rowsizes.length = dims.length;
@@ -439,7 +425,7 @@ class GtkDrawingVisitor : ItemVisitor {
             i = 0;
             foreach (dim; dims) {
                 if (dim.unit == DimensionUnit.Fraction) // TODO: remove hard coded size
-                    rowsizes[i] = (size.height - fixedSum) * dim.value / fractionSum;
+                    rowsizes[i] = (size.h - fixedSum) * dim.value / fractionSum;
                 i++;
             }
 
@@ -471,13 +457,13 @@ class GtkDrawingVisitor : ItemVisitor {
                 for (size_t i = 0; i < colsizes.length - 1; i++) {
                     x += colsizes[i];
                     moveTo(x, 0);
-                    lineTo(x, size.height - 1);
+                    lineTo(x, size.h - 1);
                 }
                 float y = 0;
                 for (size_t i = 0; i < rowsizes.length - 1; i++) {
                     y += rowsizes[i];
                     moveTo(0, y);
-                    lineTo(size.width - 1, y);
+                    lineTo(size.w - 1, y);
                 }
                 stroke();
             }
@@ -631,7 +617,7 @@ class GtkDrawingVisitor : ItemVisitor {
 
         });
 
-        RichTextDrawingVisitor rtv = new RichTextDrawingVisitor(text, Size(x, y, w, h), factor, vartable);
+        RichTextRenderer rtv = new RichTextRenderer(text, Allocation(cast(int)x, cast(int)y, cast(int)w, cast(int)h), factor, vartable);
         rtv.showDebugOverlay = showDebugOverlay;
         rtv.paint(context);
 

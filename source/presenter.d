@@ -3,6 +3,7 @@ module presenter;
 import std.algorithm.iteration;
 import std.array;
 import std.conv;
+import std.format;
 import std.stdio;
 import std.sumtype;
 import std.typecons;
@@ -24,6 +25,7 @@ import gtk.types;
 import gtk.window;
 import gtk.global;
 import gtk.event_controller_key;
+import gtk.event_controller_motion;
 import gtk.gesture_click;
 
 import gobject.value;
@@ -35,9 +37,12 @@ import gdk.types;
 import common;
 import rendering;
 import slides;
+import types;
 
 enum WIDTH = 1280;
 enum HEIGHT = 720;
+
+// convenience structs
 
 class SlidexApplication : gtk.application.Application {
     SlidexWindow window;
@@ -93,9 +98,15 @@ class SlidexWindow : Window {
         presenter.onUnFullsceen = (widget) { unfullscreen(); };
 
         overlay.child = presenter;
-        EventControllerKey eventController = new EventControllerKey();
-        eventController.connectKeyPressed(&presenter.onKeyPress);
-        addController(eventController);
+
+        EventControllerKey keyController = new EventControllerKey();
+        keyController.connectKeyPressed(&presenter.onKeyPress);
+        addController(keyController);
+
+        EventControllerMotion motionController = new EventControllerMotion();
+        motionController.connectMotion(&presenter.onMotion);
+        addController(motionController);
+
     }
 }
 
@@ -187,7 +198,7 @@ private:
             context.paint();
             return;
         }
-        GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, Allocation(0, 0, width, height), vartable, deck
+        GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, Size(width, height), vartable, deck
                 .rootpath);
         drawing.showDebugOverlay = isDebugMode;
 
@@ -203,6 +214,46 @@ private:
             Slide slide = deck.slides[currentSlide];
             slide.master.accept(drawing);
             slide.accept(drawing);
+
+            if (isDebugMode) {
+                uint c;
+                float sum = 0;
+                writeln(drawing.colsizes);
+                // TODO wrong because of factor.
+                for (c = 0; c < drawing.colsizes.length; ++c) {
+                    sum += drawing.colsizes[c];
+                    if (mousePos.x <= sum)
+                        break;
+                }
+                c++;
+                uint r;
+                sum = 0;
+                for (r = 0; r < drawing.rowsizes.length; ++r) {
+                    sum += drawing.rowsizes[r];
+                    if (mousePos.y <= sum)
+                        break;
+                }
+                r++;
+                TextExtents extent1;
+                TextExtents extent2;
+                string line1 = format("x,y: %d,%d", cast(int) mousePos.x, cast(int) mousePos.y);
+                string line2 = format("c,r: %d,%d", c, r);
+                with (context) {
+                    setSourceRgb(0.7, 0.7, 0.7);
+                    textExtents(line1, extent1);
+                    textExtents(line2, extent2);
+                    float twidth = extent1.width > extent2.width ? extent1.width : extent2.width;
+                    rectangle(mousePos.x, mousePos.y + 30, twidth + 30, extent1.height * 3);
+                    fill();
+                    setSourceRgb(0.0, 0.0, 0.9);
+                    // context.setFontFace("");
+                    context.setFontSize(16);
+                    moveTo(mousePos.x + 2, mousePos.y + 30 + 12);
+                    showText(line1);
+                    moveTo(mousePos.x + 2, mousePos.y + 30 + 26);
+                    showText(line2);
+                }
+            }
         }
     }
 
@@ -251,6 +302,12 @@ private:
 
     }
 
+    void onMotion(double x, double y, EventControllerMotion eventControllerMotion) {
+        writeln(i"x: $(x), y: $(y)");
+        mousePos = Point(x, y);
+        queueDraw();
+    }
+
     void firePrepareSlideForVideo() {
 
         VideoPreparationVisitor prepvideo = new VideoPreparationVisitor(overlay);
@@ -266,14 +323,18 @@ private:
     }
 
     void onMousePress(int nPress, double x, double y, GestureClick gestureClick) {
-
-        writeln("Mouse click: ", gestureClick.getCurrentButton());
+        if (gestureClick.getButton() == 1) {
+            if (x < size.w * 0.2)
+                previousSlide();
+            else
+                nextSlide();
+        }
 
     }
 
     void onSizeAllocate(int width, int height, DrawingArea drawingArea) {
 
-        size = Allocation(0, 0, width, height);
+        size = Size(width, height);
         factor = width / 920.0;
     }
 
@@ -286,7 +347,7 @@ private:
             string endMessage = "End of presentation";
             textExtents(endMessage, extents);
             // writeln("pos: x:", (size.width - extents.width) / 2, "y: ", size.height - 20);
-            moveTo((size.width - extents.width) / 2, size.height - 20);
+            moveTo((size.w - extents.width) / 2, size.h - 20);
             setSourceRgb(1, 1, 1);
             showText(endMessage);
         }
@@ -303,6 +364,6 @@ private:
     Variant[string] vartable;
 
     Overlay overlay;
-    Allocation size;
-
+    Size size;
+    Point mousePos;
 }
