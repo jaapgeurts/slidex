@@ -23,7 +23,7 @@ public:
             switch (child.name) {
             case "SlidexDoc.RichTextNode":
                 Result!TextItem res = parseRichTextNode(child);
-                result.absorb(res).ifSome((w) { rt.items ~= w; });
+                result.absorb(res).ifSome((item) { rt.items ~= item; });
                 break;
             default:
                 assert(false, "Unknown node: " ~ child.name);
@@ -42,8 +42,7 @@ private:
             case "SlidexDoc.ListBlock":
                 return parseListBlock(child);
             case "SlidexDoc.Func":
-                assert(false, "Not implemented func");
-                break;
+                return parseFunc(child);
             case "SlidexDoc.Bold":
                 return parseBold(child);
             case "SlidexDoc.Italic":
@@ -90,8 +89,29 @@ private:
         return result;
     }
 
-    // Result!parseFunc(ParseTree root) {
-    // }
+    Result!TextItem parseFunc(ParseTree root) {
+        // writeln("ROOT: ", root);
+        Result!TextItem result = Result!TextItem(ok: true);
+        Func func = Func();
+        foreach (child; root.children) {
+            switch (child.name) {
+            case "SlidexDoc.FuncName":
+                func.name = child.matches[0];
+                break;
+            case "SlidexDoc.FuncArgs":
+                assert(false, "Function arguments not yet implemented");
+            case "SlidexDoc.InlineContent":
+                Result!(TextItem[]) res = parseInlineContent(child);
+                result.absorb(res).ifSome((items) { func.items ~= items; });
+                break;
+            default:
+                assert(false, "Unknown node: " ~ child.name);
+                break;
+            }
+        }
+        result.value = func;
+        return result;
+    }
 
     Result!TextItem parseBold(ParseTree root) {
         Result!TextItem result = Result!TextItem(ok: true);
@@ -194,8 +214,7 @@ private:
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.Func":
-                assert(false, "func not implemented");
-                break;
+                return parseFunc(child);
             case "SlidexDoc.Bold":
                 return parseBold(child);
             case "SlidexDoc.Italic":

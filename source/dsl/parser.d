@@ -783,7 +783,6 @@ For root pass in "SlidexDoc.Statement"
         Result!RichText res = builder.buildRichText(root);
         Result!(LocatedVal!DslType) result;
         result.absorb(res).ifSome((v) {
-            writeln("RichText AST: ", v);
             result.value = locatedDslType(v, loc);
             result.ok = true;
         });
@@ -1154,7 +1153,6 @@ For root pass in "SlidexDoc.Statement"
                     break;
                 case "angle":
                     if (res.value.has!int) {
-                        writeln("specced angle");
                         bounds.angle = res.value.get!int * 0.0174532925;
                     }
                     else {

@@ -198,6 +198,7 @@ private:
             context.paint();
             return;
         }
+        // TODO: do not create on each draw.
         GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, Size(width, height), vartable, deck
                 .rootpath);
         drawing.showDebugOverlay = isDebugMode;
@@ -216,24 +217,9 @@ private:
             slide.accept(drawing);
 
             if (isDebugMode) {
-                uint c;
-                float sum = 0;
-                writeln(drawing.colsizes);
-                // TODO wrong because of factor.
-                for (c = 0; c < drawing.colsizes.length; ++c) {
-                    sum += drawing.colsizes[c];
-                    if (mousePos.x <= sum)
-                        break;
-                }
-                c++;
-                uint r;
-                sum = 0;
-                for (r = 0; r < drawing.rowsizes.length; ++r) {
-                    sum += drawing.rowsizes[r];
-                    if (mousePos.y <= sum)
-                        break;
-                }
-                r++;
+                uint c,r;
+                // Draw point & cell location info
+                drawing.mapPointToCell(mousePos,c,r);
                 TextExtents extent1;
                 TextExtents extent2;
                 string line1 = format("x,y: %d,%d", cast(int) mousePos.x, cast(int) mousePos.y);
@@ -260,7 +246,7 @@ private:
     bool onKeyPress(uint keyval, uint keycode, ModifierType state, EventControllerKey eventControllerKey) {
 
         // pressedKey = keymap.keyvalName(keyval);
-        writeln("The keyval is: ", keyval, " which means the ", keycode, " was pressed.");
+        // writeln("The keyval is: ", keyval, " which means the ", keycode, " was pressed.");
 
         if (keyval == KEY_space || keyval == KEY_Right || keyval == KEY_Next) {
             nextSlide();
@@ -303,7 +289,7 @@ private:
     }
 
     void onMotion(double x, double y, EventControllerMotion eventControllerMotion) {
-        writeln(i"x: $(x), y: $(y)");
+        // writeln(i"x: $(x), y: $(y)");
         mousePos = Point(x, y);
         queueDraw();
     }

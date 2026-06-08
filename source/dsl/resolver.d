@@ -120,8 +120,15 @@ private:
                     }
                 }
                 else if (var.convertsTo!(RichText)) {
-                    // RichText nodes are passed on as is.
-                    var = var.get!RichText;
+                    // RichText nodes are processed first
+                    RichText rt = var.get!RichText;
+                    Result!RichText res = resolveRichText(rt);
+                    if (res.ok) {
+                        var = res.value;
+                    }
+                    else {
+                        assert(false, "Error processing richtext assignment");
+                    }
                 }
 
                 if (!item.hasProperty(parts[1])) {
@@ -220,7 +227,19 @@ private:
     Result!(slides.Item) buildItem(dsl.ast.Item fromItem) {
         slides.Item toItem = fromItem.shape.match!(
             (dsl.ast.Rect r) => cast(slides.Item) new slides.Rect(fromItem.name, r.fill),
-            (dsl.ast.Text t) => new slides.Text(fromItem.name, t.content, t.colour, t.size),
+            (dsl.ast.Text t) {
+            RichText rt;
+            if (t.content !is null) {
+                Result!RichText res = resolveRichText(t.content);
+                if (res.ok) {
+                    rt = res.value;
+                }
+                else {
+                    assert(false, "handling error during rich tech resolve not implemented");
+                }
+            }
+            return new slides.Text(fromItem.name, rt, t.colour, t.size);
+        },
             (dsl.ast.Image i) => new slides.Image(fromItem.name, i.path),
             (dsl.ast.Video m) => new slides.Video(fromItem.name, m.path),
         );
@@ -228,6 +247,74 @@ private:
         toItem.layoutLocation = fromItem.layoutLocation;
 
         return Result!(slides.Item)(ok: true, value: toItem);
+    }
+
+    Result!RichText resolveRichText(RichText rt) {
+        Result!RichText result = Result!RichText(ok: true);
+        assert(rt !is null, "Error: argument RichText is null");
+
+        // evaluate
+
+        result.value = new RichText(resolveItems(rt.items));
+        return result;
+    }
+
+    TextItem[] resolveItems(ref TextItem[] srcItems) {
+        // TODO: change to appender. It refuses the type Appender!TextItem
+        TextItem[] items;
+        
+        for (size_t i; i < srcItems.length; ++i) {
+            srcItems[i].match!(
+                (Word w) { items ~= TextItem(w); },
+                (LineBreak lb) { items ~= TextItem(lb); },
+                (EscapedChar ec) { items ~= TextItem(ec); },
+                (Bold b) { items ~= TextItem(b); },
+                (Italic i) { items ~= TextItem(i); },
+                (Underline u) { items ~= TextItem(u); },
+                (Variable v) {
+                stderr.writeln("TODO: variable resolution not implemented.");
+                items ~= TextItem(v);
+            },
+                (Func f) {
+                writeln("resolving function");
+                Result!TextItem res = evalFunction(f);
+                if (res.ok) {
+                    items ~= res.value;
+                }
+                else {
+                    assert(false, "eval function failed");
+                }
+            },
+                (ListBlock lb) {
+                foreach (ref li; lb.items) {
+                    li.content = resolveItems(li.content);
+                }
+                items ~= TextItem(lb);
+            },
+                (Code c) { items ~= TextItem(c); },
+            );
+        }
+        return items;
+    }
+
+    Result!TextItem evalFunction(Func fi) {
+
+        switch (fi.name) {
+        case "bold":
+            writeln("resolving bold");
+            TextItem ti = Bold(fi.items);
+            return Result!TextItem(ok: true, value: ti);
+        case "italic":
+            writeln("resolving italic");
+            TextItem ti = Italic(fi.items);
+            return Result!TextItem(ok: true, value: ti);
+        case "underline":
+            TextItem ti = Underline(fi.items);
+            return Result!TextItem(ok: true, value: ti);
+        default:
+            assert(false, "Unknown function handling not implemented. Function name: " ~ fi.name);
+        }
+        assert(false, "Unreachable");
     }
 
 }

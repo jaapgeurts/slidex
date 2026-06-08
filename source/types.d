@@ -30,7 +30,6 @@ struct Size {
     float h;
 }
 
-
 struct RgbColour {
     ubyte r;
     ubyte g;
@@ -104,6 +103,13 @@ alias LayoutLocation = SumType!(CellLocation, BoundsLocation);
 
 class RichText {
     TextItem[] items;
+
+    this() {
+    }
+
+    this(TextItem[] items) {
+        this.items = items;
+    }
 }
 
 alias TextItem = SumType!(Word, LineBreak, EscapedChar, Bold, Italic, Underline, Variable, Func, ListBlock, Code);

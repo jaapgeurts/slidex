@@ -21,20 +21,26 @@ int main(string[] args) {
 
 	Config config;
 
-	auto helpInfo = getopt(args,
-		std.getopt.config.passThrough,
-		"debug|d", "Enable debug mode.", &config.debug_,
-		"verbose|v", "Print debugging output.", &config.verbose,
-		"slide|s", "Start presentation at slide #", &config.slidenum,
-		"monitor|m", "Show slide on monitor # or 0 to list monitors", &config.monitornum,
-		"presenter|p", "Show presenter view", &config.showpresenter,
-		"watch|w", "Watches input file and update changes immediately.", &config.watch,
-	);
-	if (helpInfo.helpWanted) {
-		defaultGetoptPrinter("Slidex - DSL based slide presenter.\nUSAGE: slidex [-dhmpsvw] file\n",
-			helpInfo.options);
-		stderr.writeln("file\t The file name of the presentation to load.");
-		return 0;
+	try {
+		auto helpInfo = getopt(args,
+			std.getopt.config.passThrough,
+			"debug|d", "Enable debug mode.", &config.debug_,
+			"verbose|v", "Print debugging output.", &config.verbose,
+			"slide|s", "Start presentation at slide #", &config.slidenum,
+			"monitor|m", "Show slide on monitor # or 0 to list monitors", &config.monitornum,
+			"presenter|p", "Show presenter view", &config.showpresenter,
+			"watch|w", "Watches input file and update changes immediately.", &config.watch,
+		);
+		if (helpInfo.helpWanted) {
+			defaultGetoptPrinter("Slidex - DSL based slide presenter.\nUSAGE: slidex [-dhmpsvw] file\n",
+				helpInfo.options);
+			stderr.writeln("file\t The file name of the presentation to load.");
+			return 0;
+		}
+	}
+	catch (GetOptException e) {
+		stderr.writeln("Error: ", e.msg, " Use -h for help");
+		return 1;
 	}
 	if (args.length == 1) {
 		stderr.writeln("Error: file is a required argument. Use -h for help.");

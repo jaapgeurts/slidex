@@ -36,6 +36,7 @@ import pangocairo.global;
 import syntect;
 import slides;
 import types;
+import common;
 
 // import std.bitmanip;
 
@@ -93,8 +94,8 @@ class RichTextRenderer {
         if (text.length == 0)
             return;
 
-        writeln("SIZE: ", size);
-        writeln("Text: ", text);
+        // writeln("SIZE: ", size);
+        // writeln("Text: ", text);
 
         float x = size.x + offsetx;
         float y = size.y + offsety;
@@ -112,10 +113,10 @@ class RichTextRenderer {
         pango.types.Rectangle inkRect, logicalRect;
 
         layout.getPixelExtents(inkRect, logicalRect);
-        writeln(i"Planned:    x:$(x),y:$(y),w:$(w),h:$(h)");
-        writeln(i"inkt rect:  x:$(inkRect.x),y:$(inkRect.y),w:$(inkRect.width),h:$(inkRect.height)");
-        writeln(i"logic rect: x:$(logicalRect.x),y:$(logicalRect.y),w:$(logicalRect.width),h:$(
-                logicalRect.height)");
+        // writeln(i"Planned:    x:$(x),y:$(y),w:$(w),h:$(h)");
+        // writeln(i"inkt rect:  x:$(inkRect.x),y:$(inkRect.y),w:$(inkRect.width),h:$(inkRect.height)");
+        // writeln(i"logic rect: x:$(logicalRect.x),y:$(logicalRect.y),w:$(logicalRect.width),h:$(
+        //         logicalRect.height)");
 
         // TODO: pull out into function.
         this.text.layoutLocation.match!(
@@ -221,7 +222,10 @@ private:
             writeln("variable: ", v.name);
             result ~= vartable[v.name].to!string ~ " ";
         },
-            (Func f) { assert(false, "Variables not yet implemented"); },
+            (Func f) {
+                writeln(f.name);
+            assert(false,"Function appeared in items during rendering.");
+        },
             (ListBlock l) {
             foreach (i; l.items) {
                 startListItem(i);
@@ -358,6 +362,26 @@ class GtkDrawingVisitor : ItemVisitor {
         this.vartable = vartable;
         this.size = size;
         this.rootpath = rootpath;
+    }
+
+    void mapPointToCell(Point p, uint c, uint r) {
+        float sum = 0;
+        c = r = 0;
+        // writeln(colsizes);
+        // TODO wrong because of factor.
+        for (c = 0; c < colsizes.length; ++c) {
+            sum += colsizes[c];
+            if (p.x <= sum)
+                break;
+        }
+        c++;
+        sum = 0;
+        for (r = 0; r < rowsizes.length; ++r) {
+            sum += rowsizes[r];
+            if (p.y <= sum)
+                break;
+        }
+        r++;
     }
 
     void visit(Master master) {
@@ -515,7 +539,7 @@ class GtkDrawingVisitor : ItemVisitor {
     }
 
     void visit(Image image) {
-        writeln("Drawing image: ", rootpath ~ "/" ~ image.path);
+        // writeln("Drawing image: ", rootpath ~ "/" ~ image.path);
 
         Surface surface = imageSurfaceCreateFromPng(rootpath ~ "/" ~ image.path);
         float img_w = imageSurfaceGetWidth(surface);
@@ -550,9 +574,8 @@ class GtkDrawingVisitor : ItemVisitor {
                 sfx = sfy;
         }
         );
-        writeln(i"Image pos: x:$(x), y:$(y), w:$(w), h:$(h), a:$(a)");
-
-        writeln(i"Surface size: w:$(img_w), h:$(img_h)");
+        // writeln(i"Image pos: x:$(x), y:$(y), w:$(w), h:$(h), a:$(a)");
+        // writeln(i"Surface size: w:$(img_w), h:$(img_h)");
 
         with (context) {
             save();
@@ -617,7 +640,8 @@ class GtkDrawingVisitor : ItemVisitor {
 
         });
 
-        RichTextRenderer rtv = new RichTextRenderer(text, Allocation(cast(int)x, cast(int)y, cast(int)w, cast(int)h), factor, vartable);
+        RichTextRenderer rtv = new RichTextRenderer(text, Allocation(cast(int) x, cast(int) y, cast(
+                int) w, cast(int) h), factor, vartable);
         rtv.showDebugOverlay = showDebugOverlay;
         rtv.paint(context);
 
