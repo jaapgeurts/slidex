@@ -28,6 +28,7 @@ enum DiagnosticKind {
     ParseError,
     NameMismatch,
     InvalidUnit,
+    InvalidValue,
 }
 
 // enum DiagnosticKindMessage = [
@@ -89,7 +90,7 @@ alias VoidResult = Result!void;
 // void printError(R)(const Diagnostic diagnostic, R sink) if (isOutputRange!(R, char)) {
 void printError(const Diagnostic diagnostic, File file) {
     // TODO: change concat to appender
-    string message = format("%s:(%u,%u): %s: %s",
+    string message = format("%s:(%u,%u): \x1b[1;31m%s\x1b[0m: %s",
         diagnostic.loc.filepath,
         diagnostic.loc.line + 1,
         diagnostic.loc.column + 1,

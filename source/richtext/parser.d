@@ -92,7 +92,7 @@ private:
     Result!TextItem parseFunc(ParseTree root) {
         // writeln("ROOT: ", root);
         Result!TextItem result = Result!TextItem(ok: true);
-        Func func = Func();
+        InlineFunc func = InlineFunc();
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.FuncName":

@@ -136,6 +136,8 @@ class Slide {
     Item[] items;
     Item[string] itemsMap;
 
+    Event[] events;
+
     this(string name) {
         this.name = name;
     }
@@ -291,4 +293,27 @@ class Video : Item {
     mixin DslProperties;
 
     mixin ItemAcceptVisitor;
+}
+
+class Function {
+    string name;
+    // Variant[string] namedargs;
+    Variant[] positionalargs;
+}
+
+abstract class Event {
+
+    Function func;
+
+}
+
+class OnClickEvent : Event {
+}
+
+class TimerEvent : Event {
+    int time;
+
+    this(int time) {
+        this.time = time;
+    }
 }

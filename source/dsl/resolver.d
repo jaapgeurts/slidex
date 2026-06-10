@@ -78,25 +78,36 @@ private:
         foreach (fromItem; fromSlide.items) {
 
             Result!(slides.Item) res = buildItem(fromItem);
-            result.absorb(res);
-            if (res.ok) {
+            result.absorb(res).ifSome((i) {
                 toSlide.items ~= res.value;
                 toSlide.itemsMap[res.value.name] = res.value;
-            }
+            });
+        }
+
+        // build slide sequences if any.
+        foreach (fromEvent; fromSlide.sequencelist.events) {
+            Result!(slides.Event) res = buildEvent(fromEvent);
+            result.absorb(res).ifSome((e) { toSlide.events ~= e; });
         }
 
         // TODO: check if symbols are duplicated between master and slide
         // apply deferred assignments
         foreach (assignment; fromSlide.assignments) {
             // writeln("Assignment: " , assignment);
-            string[] parts = assignment.ident.value.split('.');
 
             // TODO: support slide assignments (currently only assignments to master items are supported).
             if (toSlide.master is null)
                 continue;
 
+            // TODO: test whether there are no duplicate property identifiers between master and slides
             // search items in master
-            if (auto item = parts[0] in toSlide.master.itemsMap) {
+            string ident = (cast(string) assignment.ident.value[0]);
+            slides.Item* item = ident in toSlide.master.itemsMap;
+            // no item with that name in the master, then check the slide
+            if (item is null) {
+                item = ident in toSlide.itemsMap;
+            }
+            if (item !is null) {
 
                 Variant var = assignment.value.value.toVariant;
 
@@ -131,27 +142,31 @@ private:
                     }
                 }
 
-                if (!item.hasProperty(parts[1])) {
-                    result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "No such property `" ~ parts[1] ~ "` on element `" ~ parts[0] ~ "`");
-                    // TODO: for correct location reporting increase the col location here with the length of the parts[1] 
+                if (!item.hasProperty(cast(string) assignment.ident.value[1])) {
+                    result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "No such property `" ~
+                            cast(string) assignment.ident.value[1] ~ "` on element `" ~
+                            cast(
+                                string) assignment.ident.value[0] ~ "`");
                     result.ok = false;
                 }
-                else if (!item.isPropertyType(parts[1], var)) {
+                else if (!item.isPropertyType(cast(string) assignment.ident.value[1], var)) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, assignment.value.loc, "Invalid type: `" ~
-                            assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value ~ "`");
+                            assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value.toString ~ "`");
                     result.ok = false;
                 }
-                else if (!item.setProperty(parts[1], var)) {
+                else if (!item.setProperty(cast(string) assignment.ident.value[1], var)) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "Unable to set value: `" ~
-                            assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value ~ "`");
+                            assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value.toString ~ "`");
                     result.ok = false;
                 }
             }
             else {
-                result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownElement, Severity.Error, assignment.ident.loc, "Undefined element `" ~ parts[0] ~ "`");
+                result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownElement, Severity.Error, assignment.ident.loc, "Undefined element `" ~
+                        cast(string) assignment.ident.value[0] ~ "`");
                 result.ok = false;
             }
             // writeln("Assignment succeeded: ", assignment);
+
         }
 
         result.value = toSlide;
@@ -262,7 +277,7 @@ private:
     TextItem[] resolveItems(ref TextItem[] srcItems) {
         // TODO: change to appender. It refuses the type Appender!TextItem
         TextItem[] items;
-        
+
         for (size_t i; i < srcItems.length; ++i) {
             srcItems[i].match!(
                 (Word w) { items ~= TextItem(w); },
@@ -275,9 +290,9 @@ private:
                 stderr.writeln("TODO: variable resolution not implemented.");
                 items ~= TextItem(v);
             },
-                (Func f) {
+                (InlineFunc f) {
                 writeln("resolving function");
-                Result!TextItem res = evalFunction(f);
+                Result!TextItem res = evalInlineFunction(f);
                 if (res.ok) {
                     items ~= res.value;
                 }
@@ -297,7 +312,8 @@ private:
         return items;
     }
 
-    Result!TextItem evalFunction(Func fi) {
+    // TODO: rewrite this to general function evaluation
+    Result!TextItem evalInlineFunction(InlineFunc fi) {
 
         switch (fi.name) {
         case "bold":
@@ -315,6 +331,60 @@ private:
             assert(false, "Unknown function handling not implemented. Function name: " ~ fi.name);
         }
         assert(false, "Unreachable");
+    }
+
+    Result!(slides.Event) buildEvent(dsl.ast.Event fromEvent) {
+        Result!(slides.Event) result;
+        fromEvent.match!(
+            (dsl.ast.TimerEvent te) {
+            EvalResult res = evalQuantity(te.quantity);
+            if (res.ok) {
+                if (res.value.has!Seconds) {
+                    int secs = cast(int) res.value.get!Seconds;
+                    if (secs >= 0) {
+                        result.value = new slides.TimerEvent(secs);
+                        Result!Function r1 = buildFunction(te.func);
+                        if (r1.ok) {
+                            result.value.func = r1.value;
+                            result.ok = true;
+                        }
+                    }
+                    else {
+                        result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidValue, Severity.Error, te
+                            .quantity.value.loc, "Negative values are not allowed.");
+                    }
+                }
+                else {
+                    result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidUnit, Severity.Error, te.quantity.value.loc, "Timer values only accept second values.");
+                }
+            }
+        },
+            (dsl.ast.OnClickEvent ce) {
+            result.value = new slides.OnClickEvent();
+            result.ok = true;
+            Result!Function res = buildFunction(ce.func);
+            result.absorb(res).ifSome((f) { result.value.func = f; });
+        }
+        );
+        return result;
+    }
+
+    Result!Function buildFunction(FuncCall fromFunc) {
+        Function toFunc = new Function();
+        toFunc.name = cast(string) fromFunc.name.value;
+        if (fromFunc.arguments.namedArgs.length > 0)
+            assert(false, "Named arguments are currently not supported for event function calls");
+        foreach (fromVal; fromFunc.arguments.positionalArgs) {
+            if (fromVal.value.has!QualifiedIdentifier) {
+                // TODO: this implementation is wonky.
+                import std.conv;
+                toFunc.positionalargs ~= Variant(fromVal.value.get!QualifiedIdentifier.identifiers.map!(to!string).join('.'));
+            } else {
+                assert(false, "Values other than QualifiedIdentifiers are currently not supported");
+            }
+        }
+        return Result!Function(ok: true, toFunc);
+
     }
 
 }

@@ -24,18 +24,18 @@ SlidexDoc:
 
 # Statement
     Statement           <- (PropertyDeclaration / ValueAssignment) SEMICOLON
-    PropertyDeclaration <- (QualifiedIdentifier COLON )? FuncCall Placement?
+    PropertyDeclaration <- (Identifier CREATE )? FuncCall Placement?
     ValueAssignment     <- QualifiedIdentifier EQUAL Value
     Placement           <- AT (CELL / BOUNDS) ArgList
 
 # Slide Contents
-    SlideContent        <- Events / Statement
+    SlideContent        <- SequenceList / Statement
 
 # Events
-    Events              <- EVENTS BEGIN Event* END EVENTS
+    SequenceList        <- SEQUENCE BEGIN Event* END SEQUENCE
     Event               <- EventType DO FuncCall SEMICOLON
     EventType           <- CLICKEVENT / TimerEvent
-    TimerEvent          <- AFTER (Number Unit)
+    TimerEvent          <- AFTER Quantity
     
 # construction
     FuncCall            <- Identifier ArgList
@@ -68,29 +68,29 @@ SlidexDoc:
     Identifier          <- identifier WsComment
     QualifiedIdentifier <- identifier ('.' identifier)* WsComment
 
-    DECK                <- 'deck'   WsComment
-    MASTER              <- 'master' WsComment
-    SLIDE               <- 'slide'  WsComment
-    FROM                <- 'from'   WsComment
-    BEGIN               <- 'begin'  WsComment
-    END                 <- 'end'    WsComment
-    EVENTS              <- 'events' WsComment
-    DO                  <- 'do'     WsComment
-    CLICKEVENT          <- 'on' spacing 'click' WsComment
-    AFTER               <- 'after'  WsComment
-    AT                  <- 'at'     WsComment
-    CELL                <- 'cell'   WsComment
-    BOUNDS              <- 'bounds' WsComment
-    LPAREN              <- '('      WsComment 
-    RPAREN              <- ')'      WsComment
-    LSQUARE             <- '['      WsComment
-    RSQUARE             <- ']'      WsComment
+    DECK                <- 'deck'     WsComment
+    MASTER              <- 'master'   WsComment
+    SLIDE               <- 'slide'    WsComment
+    FROM                <- 'from'     WsComment
+    BEGIN               <- 'begin'    WsComment
+    END                 <- 'end'      WsComment
+    SEQUENCE            <- 'sequence' WsComment
+    DO                  <- 'do'       WsComment
+    CLICKEVENT          <- 'on' WsComment 'click' WsComment
+    AFTER               <- 'after'    WsComment
+    AT                  <- 'at'       WsComment
+    CELL                <- 'cell'     WsComment
+    BOUNDS              <- 'bounds'   WsComment
+    LPAREN              <- '('        WsComment 
+    RPAREN              <- ')'        WsComment
+    LSQUARE             <- '['        WsComment
+    RSQUARE             <- ']'        WsComment
     LBRACE              <- '{'  # Special case, after open brace, text content follows
-    RBRACE              <- '}'      WsComment
-    SEMICOLON           <: ';'      WsComment
-    COLON               <- ':'      WsComment
-    EQUAL               <- '='      WsComment
-    COMMA               <- ','      WsComment
+    RBRACE              <- '}'        WsComment
+    SEMICOLON           <: ';'        WsComment
+    CREATE              <- ':='       WsComment
+    EQUAL               <- '='        WsComment
+    COMMA               <- ','        WsComment
     WsComment           <- (InlineComment / EolComment / :blank)*
     EolComment          <- '#' ~(!eol .)* :eol
     InlineComment       <- '/#' ~(!'#/' .)* '#/'

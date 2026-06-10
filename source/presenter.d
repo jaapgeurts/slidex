@@ -158,13 +158,22 @@ class Presenter : DrawingArea {
     }
 
     void nextSlide() {
-        if (currentSlide < deck.slides.length) {
-            currentSlide++;
+
+        if (currentEvent < deck.slides[currentSlide].events.length) {
+            slides.Event event = deck.slides[currentSlide].events[currentEvent];
+            evaluateFunction(event.func);
+            currentEvent++;
             updateSlideView();
         }
         else {
-            // TODO: only when verbose
-            writeln("Reached last slide");
+            if (currentSlide < deck.slides.length) {
+                currentSlide++;
+                updateSlideView();
+            }
+            else {
+                // TODO: only when verbose
+                writeln("Reached last slide");
+            }
         }
     }
 
@@ -183,6 +192,12 @@ private:
 
     void updateSlideView() {
         vartable["slide"] = currentSlide + 1;
+
+        // TODO: at start check if there is any timer activated event
+        foreach (event; deck.slides[currentSlide].events) {
+            writeln(event);
+        }
+
         firePrepareSlideForVideo();
         queueDraw();
     }
@@ -217,9 +232,9 @@ private:
             slide.accept(drawing);
 
             if (isDebugMode) {
-                uint c,r;
+                uint c, r;
                 // Draw point & cell location info
-                drawing.mapPointToCell(mousePos,c,r);
+                drawing.mapPointToCell(mousePos, c, r);
                 TextExtents extent1;
                 TextExtents extent2;
                 string line1 = format("x,y: %d,%d", cast(int) mousePos.x, cast(int) mousePos.y);
@@ -339,9 +354,22 @@ private:
         }
     }
 
+    void evaluateFunction(Function func) {
+        if (func.name == "reveal") {
+            foreach(arg; func.positionalargs) {
+                // TODO: we should validate the type of the argument here.
+                // it seems the type is string, but it should be a Value
+                writeln("reveal: ", arg);
+                if (auto item = arg.get!string in deck.slides[currentSlide].itemsMap)
+                    item.visible = true;
+            }
+        }
+    }
+
     Deck deck;
 
     size_t currentSlide = 0;
+    size_t currentEvent = 0;
     bool isFullScreen = false;
     bool isBlanking = false;
     bool isDebugMode = false;

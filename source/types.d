@@ -1,3 +1,7 @@
+/**
+* This module contains all shared types
+*/
+
 module types;
 
 import core.exception;
@@ -101,6 +105,8 @@ struct BoundsLocation {
 
 alias LayoutLocation = SumType!(CellLocation, BoundsLocation);
 
+
+/** Rich text items */
 class RichText {
     TextItem[] items;
 
@@ -112,7 +118,7 @@ class RichText {
     }
 }
 
-alias TextItem = SumType!(Word, LineBreak, EscapedChar, Bold, Italic, Underline, Variable, Func, ListBlock, Code);
+alias TextItem = SumType!(Word, LineBreak, EscapedChar, Bold, Italic, Underline, Variable, InlineFunc, ListBlock, Code);
 
 struct Word {
     string text;
@@ -140,9 +146,8 @@ struct Variable {
     string name;
 }
 
-struct Func {
+struct InlineFunc {
     string name;
-    // TODO: use union type. Not Variant.
     Variant[] args;
     TextItem[] items;
 }

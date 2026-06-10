@@ -222,9 +222,9 @@ private:
             writeln("variable: ", v.name);
             result ~= vartable[v.name].to!string ~ " ";
         },
-            (Func f) {
-                writeln(f.name);
-            assert(false,"Function appeared in items during rendering.");
+            (InlineFunc f) {
+            writeln(f.name);
+            assert(false, "Function appeared in items during rendering.");
         },
             (ListBlock l) {
             foreach (i; l.items) {
@@ -512,6 +512,9 @@ class GtkDrawingVisitor : ItemVisitor {
     void visit(Rect rect) {
         // writeln("TODO: drawing rect");
 
+        if (!rect.visible)
+            return;
+
         float x, y, w, h;
         rect.layoutLocation.match!(
             (BoundsLocation bl) {
@@ -539,6 +542,10 @@ class GtkDrawingVisitor : ItemVisitor {
     }
 
     void visit(Image image) {
+
+        if (!image.visible)
+            return;
+
         // writeln("Drawing image: ", rootpath ~ "/" ~ image.path);
 
         Surface surface = imageSurfaceCreateFromPng(rootpath ~ "/" ~ image.path);
@@ -596,6 +603,10 @@ class GtkDrawingVisitor : ItemVisitor {
     }
 
     void visit(Video video) {
+
+        if (!video.visible)
+            return;
+
         // writeln("Drawing movie: ", movie.path);
 
         // // factor out
@@ -622,6 +633,10 @@ class GtkDrawingVisitor : ItemVisitor {
     }
 
     void visit(Text text) {
+
+        if (!text.visible)
+            return;
+
         // writeln("TODO: drawing text");
 
         float x, y, w, h;

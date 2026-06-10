@@ -27,18 +27,18 @@ SlidexDoc:
 
 # Statement
     Statement           <- (PropertyDeclaration / ValueAssignment) SEMICOLON
-    PropertyDeclaration <- (QualifiedIdentifier COLON )? FuncCall Placement?
+    PropertyDeclaration <- (Identifier CREATE )? FuncCall Placement?
     ValueAssignment     <- QualifiedIdentifier EQUAL Value
     Placement           <- AT (CELL / BOUNDS) ArgList
 
 # Slide Contents
-    SlideContent        <- Events / Statement
+    SlideContent        <- SequenceList / Statement
 
 # Events
-    Events              <- EVENTS BEGIN Event* END EVENTS
+    SequenceList        <- SEQUENCE BEGIN Event* END SEQUENCE
     Event               <- EventType DO FuncCall SEMICOLON
     EventType           <- CLICKEVENT / TimerEvent
-    TimerEvent          <- AFTER (Number Unit)
+    TimerEvent          <- AFTER Quantity
     
 # construction
     FuncCall            <- Identifier ArgList
@@ -71,29 +71,29 @@ SlidexDoc:
     Identifier          <- identifier WsComment
     QualifiedIdentifier <- identifier ('.' identifier)* WsComment
 
-    DECK                <- 'deck'   WsComment
-    MASTER              <- 'master' WsComment
-    SLIDE               <- 'slide'  WsComment
-    FROM                <- 'from'   WsComment
-    BEGIN               <- 'begin'  WsComment
-    END                 <- 'end'    WsComment
-    EVENTS              <- 'events' WsComment
-    DO                  <- 'do'     WsComment
-    CLICKEVENT          <- 'on' spacing 'click' WsComment
-    AFTER               <- 'after'  WsComment
-    AT                  <- 'at'     WsComment
-    CELL                <- 'cell'   WsComment
-    BOUNDS              <- 'bounds' WsComment
-    LPAREN              <- '('      WsComment 
-    RPAREN              <- ')'      WsComment
-    LSQUARE             <- '['      WsComment
-    RSQUARE             <- ']'      WsComment
+    DECK                <- 'deck'     WsComment
+    MASTER              <- 'master'   WsComment
+    SLIDE               <- 'slide'    WsComment
+    FROM                <- 'from'     WsComment
+    BEGIN               <- 'begin'    WsComment
+    END                 <- 'end'      WsComment
+    SEQUENCE            <- 'sequence' WsComment
+    DO                  <- 'do'       WsComment
+    CLICKEVENT          <- 'on' WsComment 'click' WsComment
+    AFTER               <- 'after'    WsComment
+    AT                  <- 'at'       WsComment
+    CELL                <- 'cell'     WsComment
+    BOUNDS              <- 'bounds'   WsComment
+    LPAREN              <- '('        WsComment 
+    RPAREN              <- ')'        WsComment
+    LSQUARE             <- '['        WsComment
+    RSQUARE             <- ']'        WsComment
     LBRACE              <- '{'  # Special case, after open brace, text content follows
-    RBRACE              <- '}'      WsComment
-    SEMICOLON           <: ';'      WsComment
-    COLON               <- ':'      WsComment
-    EQUAL               <- '='      WsComment
-    COMMA               <- ','      WsComment
+    RBRACE              <- '}'        WsComment
+    SEMICOLON           <: ';'        WsComment
+    CREATE              <- ':='       WsComment
+    EQUAL               <- '='        WsComment
+    COMMA               <- ','        WsComment
     WsComment           <- (InlineComment / EolComment / :blank)*
     EolComment          <- '#' ~(!eol .)* :eol
     InlineComment       <- '/#' ~(!'#/' .)* '#/'
@@ -198,7 +198,7 @@ import std.functional: toDelegate;
         rules["ValueAssignment"] = toDelegate(&ValueAssignment);
         rules["Placement"] = toDelegate(&Placement);
         rules["SlideContent"] = toDelegate(&SlideContent);
-        rules["Events"] = toDelegate(&Events);
+        rules["SequenceList"] = toDelegate(&SequenceList);
         rules["Event"] = toDelegate(&Event);
         rules["EventType"] = toDelegate(&EventType);
         rules["TimerEvent"] = toDelegate(&TimerEvent);
@@ -232,7 +232,7 @@ import std.functional: toDelegate;
         rules["FROM"] = toDelegate(&FROM);
         rules["BEGIN"] = toDelegate(&BEGIN);
         rules["END"] = toDelegate(&END);
-        rules["EVENTS"] = toDelegate(&EVENTS);
+        rules["SEQUENCE"] = toDelegate(&SEQUENCE);
         rules["DO"] = toDelegate(&DO);
         rules["CLICKEVENT"] = toDelegate(&CLICKEVENT);
         rules["AFTER"] = toDelegate(&AFTER);
@@ -246,7 +246,7 @@ import std.functional: toDelegate;
         rules["LBRACE"] = toDelegate(&LBRACE);
         rules["RBRACE"] = toDelegate(&RBRACE);
         rules["SEMICOLON"] = toDelegate(&SEMICOLON);
-        rules["COLON"] = toDelegate(&COLON);
+        rules["CREATE"] = toDelegate(&CREATE);
         rules["EQUAL"] = toDelegate(&EQUAL);
         rules["COMMA"] = toDelegate(&COMMA);
         rules["WsComment"] = toDelegate(&WsComment);
@@ -600,7 +600,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.option!(pegged.peg.and!(QualifiedIdentifier, COLON)), FuncCall, pegged.peg.option!(Placement)), "SlidexDoc.PropertyDeclaration")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.option!(pegged.peg.and!(Identifier, CREATE)), FuncCall, pegged.peg.option!(Placement)), "SlidexDoc.PropertyDeclaration")(p);
         }
         else
         {
@@ -608,7 +608,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.option!(pegged.peg.and!(QualifiedIdentifier, COLON)), FuncCall, pegged.peg.option!(Placement)), "SlidexDoc.PropertyDeclaration"), "PropertyDeclaration")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.option!(pegged.peg.and!(Identifier, CREATE)), FuncCall, pegged.peg.option!(Placement)), "SlidexDoc.PropertyDeclaration"), "PropertyDeclaration")(p);
                 memo[tuple(`PropertyDeclaration`, p.end)] = result;
                 return result;
             }
@@ -619,12 +619,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.option!(pegged.peg.and!(QualifiedIdentifier, COLON)), FuncCall, pegged.peg.option!(Placement)), "SlidexDoc.PropertyDeclaration")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.option!(pegged.peg.and!(Identifier, CREATE)), FuncCall, pegged.peg.option!(Placement)), "SlidexDoc.PropertyDeclaration")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.option!(pegged.peg.and!(QualifiedIdentifier, COLON)), FuncCall, pegged.peg.option!(Placement)), "SlidexDoc.PropertyDeclaration"), "PropertyDeclaration")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.option!(pegged.peg.and!(Identifier, CREATE)), FuncCall, pegged.peg.option!(Placement)), "SlidexDoc.PropertyDeclaration"), "PropertyDeclaration")(TParseTree("", false,[], s));
         }
     }
     static string PropertyDeclaration(GetName g)
@@ -708,7 +708,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.or!(Events, Statement), "SlidexDoc.SlideContent")(p);
+            return         pegged.peg.defined!(pegged.peg.or!(SequenceList, Statement), "SlidexDoc.SlideContent")(p);
         }
         else
         {
@@ -716,7 +716,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(Events, Statement), "SlidexDoc.SlideContent"), "SlideContent")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(SequenceList, Statement), "SlidexDoc.SlideContent"), "SlideContent")(p);
                 memo[tuple(`SlideContent`, p.end)] = result;
                 return result;
             }
@@ -727,12 +727,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.or!(Events, Statement), "SlidexDoc.SlideContent")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.or!(SequenceList, Statement), "SlidexDoc.SlideContent")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.or!(Events, Statement), "SlidexDoc.SlideContent"), "SlideContent")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.or!(SequenceList, Statement), "SlidexDoc.SlideContent"), "SlideContent")(TParseTree("", false,[], s));
         }
     }
     static string SlideContent(GetName g)
@@ -740,40 +740,40 @@ import std.functional: toDelegate;
         return "SlidexDoc.SlideContent";
     }
 
-    static TParseTree Events(TParseTree p)
+    static TParseTree SequenceList(TParseTree p)
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(EVENTS, BEGIN, pegged.peg.zeroOrMore!(Event), END, EVENTS), "SlidexDoc.Events")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(SEQUENCE, BEGIN, pegged.peg.zeroOrMore!(Event), END, SEQUENCE), "SlidexDoc.SequenceList")(p);
         }
         else
         {
-            if (auto m = tuple(`Events`, p.end) in memo)
+            if (auto m = tuple(`SequenceList`, p.end) in memo)
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(EVENTS, BEGIN, pegged.peg.zeroOrMore!(Event), END, EVENTS), "SlidexDoc.Events"), "Events")(p);
-                memo[tuple(`Events`, p.end)] = result;
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(SEQUENCE, BEGIN, pegged.peg.zeroOrMore!(Event), END, SEQUENCE), "SlidexDoc.SequenceList"), "SequenceList")(p);
+                memo[tuple(`SequenceList`, p.end)] = result;
                 return result;
             }
         }
     }
 
-    static TParseTree Events(string s)
+    static TParseTree SequenceList(string s)
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(EVENTS, BEGIN, pegged.peg.zeroOrMore!(Event), END, EVENTS), "SlidexDoc.Events")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(SEQUENCE, BEGIN, pegged.peg.zeroOrMore!(Event), END, SEQUENCE), "SlidexDoc.SequenceList")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(EVENTS, BEGIN, pegged.peg.zeroOrMore!(Event), END, EVENTS), "SlidexDoc.Events"), "Events")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(SEQUENCE, BEGIN, pegged.peg.zeroOrMore!(Event), END, SEQUENCE), "SlidexDoc.SequenceList"), "SequenceList")(TParseTree("", false,[], s));
         }
     }
-    static string Events(GetName g)
+    static string SequenceList(GetName g)
     {
-        return "SlidexDoc.Events";
+        return "SlidexDoc.SequenceList";
     }
 
     static TParseTree Event(TParseTree p)
@@ -852,7 +852,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(AFTER, pegged.peg.and!(Number, Unit)), "SlidexDoc.TimerEvent")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(AFTER, Quantity), "SlidexDoc.TimerEvent")(p);
         }
         else
         {
@@ -860,7 +860,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(AFTER, pegged.peg.and!(Number, Unit)), "SlidexDoc.TimerEvent"), "TimerEvent")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(AFTER, Quantity), "SlidexDoc.TimerEvent"), "TimerEvent")(p);
                 memo[tuple(`TimerEvent`, p.end)] = result;
                 return result;
             }
@@ -871,12 +871,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(AFTER, pegged.peg.and!(Number, Unit)), "SlidexDoc.TimerEvent")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(AFTER, Quantity), "SlidexDoc.TimerEvent")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(AFTER, pegged.peg.and!(Number, Unit)), "SlidexDoc.TimerEvent"), "TimerEvent")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(AFTER, Quantity), "SlidexDoc.TimerEvent"), "TimerEvent")(TParseTree("", false,[], s));
         }
     }
     static string TimerEvent(GetName g)
@@ -1964,40 +1964,40 @@ import std.functional: toDelegate;
         return "SlidexDoc.END";
     }
 
-    static TParseTree EVENTS(TParseTree p)
+    static TParseTree SEQUENCE(TParseTree p)
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("events"), WsComment), "SlidexDoc.EVENTS")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("sequence"), WsComment), "SlidexDoc.SEQUENCE")(p);
         }
         else
         {
-            if (auto m = tuple(`EVENTS`, p.end) in memo)
+            if (auto m = tuple(`SEQUENCE`, p.end) in memo)
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("events"), WsComment), "SlidexDoc.EVENTS"), "EVENTS")(p);
-                memo[tuple(`EVENTS`, p.end)] = result;
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("sequence"), WsComment), "SlidexDoc.SEQUENCE"), "SEQUENCE")(p);
+                memo[tuple(`SEQUENCE`, p.end)] = result;
                 return result;
             }
         }
     }
 
-    static TParseTree EVENTS(string s)
+    static TParseTree SEQUENCE(string s)
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("events"), WsComment), "SlidexDoc.EVENTS")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("sequence"), WsComment), "SlidexDoc.SEQUENCE")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("events"), WsComment), "SlidexDoc.EVENTS"), "EVENTS")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("sequence"), WsComment), "SlidexDoc.SEQUENCE"), "SEQUENCE")(TParseTree("", false,[], s));
         }
     }
-    static string EVENTS(GetName g)
+    static string SEQUENCE(GetName g)
     {
-        return "SlidexDoc.EVENTS";
+        return "SlidexDoc.SEQUENCE";
     }
 
     static TParseTree DO(TParseTree p)
@@ -2040,7 +2040,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("on"), spacing, pegged.peg.literal!("click"), WsComment), "SlidexDoc.CLICKEVENT")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("on"), WsComment, pegged.peg.literal!("click"), WsComment), "SlidexDoc.CLICKEVENT")(p);
         }
         else
         {
@@ -2048,7 +2048,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("on"), spacing, pegged.peg.literal!("click"), WsComment), "SlidexDoc.CLICKEVENT"), "CLICKEVENT")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("on"), WsComment, pegged.peg.literal!("click"), WsComment), "SlidexDoc.CLICKEVENT"), "CLICKEVENT")(p);
                 memo[tuple(`CLICKEVENT`, p.end)] = result;
                 return result;
             }
@@ -2059,12 +2059,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("on"), spacing, pegged.peg.literal!("click"), WsComment), "SlidexDoc.CLICKEVENT")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("on"), WsComment, pegged.peg.literal!("click"), WsComment), "SlidexDoc.CLICKEVENT")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("on"), spacing, pegged.peg.literal!("click"), WsComment), "SlidexDoc.CLICKEVENT"), "CLICKEVENT")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!("on"), WsComment, pegged.peg.literal!("click"), WsComment), "SlidexDoc.CLICKEVENT"), "CLICKEVENT")(TParseTree("", false,[], s));
         }
     }
     static string CLICKEVENT(GetName g)
@@ -2468,40 +2468,40 @@ import std.functional: toDelegate;
         return "SlidexDoc.SEMICOLON";
     }
 
-    static TParseTree COLON(TParseTree p)
+    static TParseTree CREATE(TParseTree p)
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!(":"), WsComment), "SlidexDoc.COLON")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!(":="), WsComment), "SlidexDoc.CREATE")(p);
         }
         else
         {
-            if (auto m = tuple(`COLON`, p.end) in memo)
+            if (auto m = tuple(`CREATE`, p.end) in memo)
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!(":"), WsComment), "SlidexDoc.COLON"), "COLON")(p);
-                memo[tuple(`COLON`, p.end)] = result;
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!(":="), WsComment), "SlidexDoc.CREATE"), "CREATE")(p);
+                memo[tuple(`CREATE`, p.end)] = result;
                 return result;
             }
         }
     }
 
-    static TParseTree COLON(string s)
+    static TParseTree CREATE(string s)
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!(":"), WsComment), "SlidexDoc.COLON")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!(":="), WsComment), "SlidexDoc.CREATE")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!(":"), WsComment), "SlidexDoc.COLON"), "COLON")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.literal!(":="), WsComment), "SlidexDoc.CREATE"), "CREATE")(TParseTree("", false,[], s));
         }
     }
-    static string COLON(GetName g)
+    static string CREATE(GetName g)
     {
-        return "SlidexDoc.COLON";
+        return "SlidexDoc.CREATE";
     }
 
     static TParseTree EQUAL(TParseTree p)

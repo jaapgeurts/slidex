@@ -1,5 +1,7 @@
 module dsl.ast;
 
+import std.algorithm.iteration;
+import std.array;
 import std.conv;
 import std.datetime;
 import std.meta;
@@ -17,6 +19,8 @@ alias DslTypes = AliasSeq!(
     int,
     float,
     bool,
+    Identifier,
+    QualifiedIdentifier,
     RichText,
     NamedColour,
     Alignment,
@@ -32,6 +36,7 @@ alias Percent = Typedef!(ubyte, ubyte.init, "percent");
 alias Centimeter = Typedef!(int, int.init, "centimeter");
 alias Pixel = Typedef!(int, int.init, "pixel");
 alias Fraction = Typedef!(ubyte, ubyte.init, "fraction");
+alias Identifier = Typedef!(string, string.init, "identifier");
 
 alias ColumnRow = SumType!(int, SlidexArray);
 
@@ -186,12 +191,34 @@ struct ArgList {
 }
 
 struct NamedArg {
-    LocatedVal!string name;
+    LocatedVal!Identifier name;
     LocatedVal!DslType value;
 }
 
+struct QualifiedIdentifier {
+    Identifier[] identifiers;
+
+    bool opEquals(string)(const string ident) const {
+        string[] parts = ident.split('.');
+        if (parts.length != identifiers.length)
+            return false;
+        for (size_t i = 0; i < parts.length; ++i)
+            if (parts[i] != identifiers[i])
+                return false;
+        return true;
+    }
+
+    ref Identifier opIndex(size_t index) {
+        return identifiers[index];
+    }
+
+    string toString() const {
+        return identifiers.map!(m=>cast(string)m).join('.');
+    }
+}
+
 struct FuncCall {
-    LocatedVal!string name;
+    LocatedVal!Identifier name;
     ArgList arguments;
 }
 
@@ -214,7 +241,7 @@ class Master {
     ColumnRow columns;
     ColumnRow rows;
 
-    SumType!(RgbColour, Image) background = RgbColour(0xff,0xff,0xff);
+    SumType!(RgbColour, Image) background = RgbColour(0xff, 0xff, 0xff);
 
     string name;
 
@@ -228,7 +255,7 @@ class Slide {
     LocatedVal!string masterName;
     Master master;
 
-    Event[] events;
+    SequenceList sequencelist;
 
     Item[string] itemsMap;
     Item[] items;
@@ -241,12 +268,12 @@ alias Statement = SumType!(ValueAssignment, PropertyDeclaration);
 
 struct ValueAssignment {
     // consider using a type for Qualified Identifier
-    LocatedVal!string ident;
+    LocatedVal!QualifiedIdentifier ident;
     LocatedVal!DslType value;
 }
 
 struct PropertyDeclaration {
-    LocatedVal!string ident;
+    LocatedVal!Identifier ident;
     LocatedVal!DslType value;
     LayoutLocation layoutLocation;
 }
@@ -283,15 +310,19 @@ struct Video {
     string path; // TODO: or URL
 }
 
-struct EventOnClick {
-    LocatedVal!string func;
-    DslType[string] args;
+alias Event = SumType!(OnClickEvent, TimerEvent);
+
+struct OnClickEvent {
+    FuncCall func;
+
 }
 
-struct EventTimer {
-    LocatedVal!Quantity quantity;
-    LocatedVal!string func;
-    DslType[string] args;
+struct TimerEvent {
+    Quantity quantity;
+    FuncCall func;
 }
 
-alias Event = SumType!(EventOnClick, EventTimer);
+struct SequenceList {
+    Event[] events;
+}
+

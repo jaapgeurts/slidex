@@ -10,6 +10,13 @@ import common;
 
 import presenter;
 
+enum ErrorReturnCode {
+    CmdLineArguments = 1,
+	FileLoading = 2,
+	ParsingSyntax = 3,
+	SemanticAnalysis = 4,
+}
+
 void printAllErrors(Diagnostic[] diagnostics, File file) {
 	foreach (diag; diagnostics) {
 		printError(diag, file);
@@ -40,17 +47,17 @@ int main(string[] args) {
 	}
 	catch (GetOptException e) {
 		stderr.writeln("Error: ", e.msg, " Use -h for help");
-		return 1;
+		return ErrorReturnCode.CmdLineArguments;
 	}
 	if (args.length == 1) {
 		stderr.writeln("Error: file is a required argument. Use -h for help.");
-		return 1;
+		return ErrorReturnCode.CmdLineArguments;
 	}
 
 	string filepath = args[1];
 	if (!exists(filepath)) {
 		stderr.writeln("Error: Can't open file `", filepath, "`. No such file or directory");
-		return 2;
+		return ErrorReturnCode.FileLoading;
 	}
 
 	string sourceFilePath;
@@ -69,7 +76,7 @@ int main(string[] args) {
 	if (!cst.ok) {
 		writeln("Parse errors");
 		printAllErrors(cst.diagnostics, stderr);
-		return 3;
+		return ErrorReturnCode.ParsingSyntax;
 	}
 
 	VoidResult result = VoidResult(ok: true);
@@ -92,7 +99,7 @@ int main(string[] args) {
 
 	if (!result.ok) {
 		printAllErrors(result.diagnostics, stderr);
-		return 4;
+		return ErrorReturnCode.SemanticAnalysis;
 	}
 
 	deck.value.rootpath = dirpath;

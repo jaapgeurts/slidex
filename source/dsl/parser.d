@@ -122,11 +122,12 @@ public Result!ConcreteTree parseDocument(string sourceFilePath) {
         diag.kind = DiagnosticKind.ParseError;
         diag.severity = Severity.Error;
         diag.loc = SourceLocation(sourceFilePath, pos.line, pos.col);
-        diag.message = "Unexpected symbol near " ~ left ~ "\x1b[1;31m";
+        diag.message = "Unexpected symbol near '\x1b[1m" ~ left ~ "\x1b[31m";
         if (right.length > 0)
-            diag.message ~= right[0] ~ "\x1b[0m";
+            diag.message ~= right[0];
         if (right.length > 1)
             diag.message ~= right[1 .. $].until('\n').array.to!string;
+        diag.message ~= "\x1b[0m'";
         result.diagnostics ~= diag;
         return diag.message;
     }
@@ -268,10 +269,7 @@ private:
                 if (res.ok) {
                     ValueAssignment va = res.value;
 
-                    switch (va.ident.value) {
-                        // TODO: use static foreach to generate field assignment
-                        // TODO: replace with ExtractValue
-                    case "author":
+                    if (va.ident.value == "author") {
                         EvalResult r1 = evalValue(va.value);
                         result.absorb(r1);
                         if (r1.ok && r1.value.has!string)
@@ -279,21 +277,20 @@ private:
                         else
                             result.diagnostics ~= createInvalidTypeDiag(va.value, "string");
 
-                        break;
-                    case "date":
+                    }
+                    else if (va.ident.value == "date") {
                         EvalResult r1 = evalValue(va.value);
                         result.absorb(r1);
                         if (r1.ok && r1.value.has!Date)
                             deck.date = r1.value.get!Date;
                         else
                             result.diagnostics ~= createInvalidTypeDiag(va.value, "date");
-                        break;
-                    default:
+                    }
+                    else {
                         // create a format and sink error function
                         result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, va.ident.loc,
-                            "No such property `" ~ va.ident.value ~ "`");
+                            "No such property `" ~ va.ident.value.toString ~ "`");
                         result.ok = false;
-                        break;
                     }
                 }
             }
@@ -312,7 +309,7 @@ private:
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.OpeningIdentifier":
-                master.name = parseIdentifier(child[0]);
+                master.name = cast(string) parseIdentifier(child[0]);
                 break;
             case "SlidexDoc.ClosingIdentifier":
                 string foundname = child[0].matches[0];
@@ -348,10 +345,10 @@ private:
 
         // TODO: check if this symbol is already defined in the master and refuse if so
 
-        if (pd.ident.value is null)
+        if (cast(string) pd.ident.value is null)
             pd.ident.value = iota(26).randomSample(8).map!(x => to!char(x + 'a')).array.idup;
 
-        Item item = new Item(pd.ident.value);
+        Item item = new Item(cast(string) pd.ident.value);
         item.loc = pd.value.loc;
         item.layoutLocation = pd.layoutLocation;
 
@@ -384,9 +381,7 @@ private:
             // assign properties
             VoidResult r1 = VoidResult(ok: true);
             // writeln("handleValueAssignment(): ", va.ident);
-            switch (va.ident) {
-                // TODO: detect duplicate assignments
-            case "columns":
+            if (va.ident == "columns") {
                 EvalResult res = evalValue(va.value);
                 r1.absorb(res);
                 if (res.ok && res.value.has!int) {
@@ -399,8 +394,8 @@ private:
                     res.ok = false;
                     r1.diagnostics ~= createInvalidTypeDiag(va.value, "int or quantity[]");
                 }
-                break;
-            case "rows":
+            }
+            else if (va.ident == "rows") {
                 EvalResult res = evalValue(va.value);
                 r1.absorb(res);
                 if (res.ok && res.value.has!int) {
@@ -413,8 +408,8 @@ private:
                     r1.ok = false;
                     r1.diagnostics ~= createInvalidTypeDiag(va.value, "int");
                 }
-                break;
-            case "background":
+            }
+            else if (va.ident == "background") {
                 // assert(false, "Rgb Parsing not implemented");
                 EvalResult res = evalValue(va.value);
                 r1.absorb(res);
@@ -426,12 +421,11 @@ private:
                     r1.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, va.value.loc, "Invalid type `" ~
                             va.value.typeName ~ "`. Expected colour or image but found `" ~ va.value.get!FuncCall()
                                 .name ~ "`");
-                break;
-            default:
+            }
+            else {
                 r1.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, va.value.loc, "No such property `" ~
-                        va.ident ~ "`.");
+                        va.ident.value.toString ~ "`.");
                 r1.ok = false;
-                break;
             }
             return r1;
         }
@@ -494,15 +488,16 @@ Pass as root: "SlidexDoc.Slide"
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.MasterIdentifier":
-                // TODO: do i need to store a located value here?
-                slide.masterName = LocatedVal!string(parseIdentifier(child[0]), child.sourceLocation(
-                        sourceFilePath));
+                LocatedVal!Identifier ident = parseIdentifier(child[0]);
+                slide.masterName = LocatedVal!string(cast(string) ident, ident.loc);
                 break;
             case "SlidexDoc.OpeningIdentifier":
-                slide.name = parseIdentifier(child[0]);
+                LocatedVal!Identifier ident = parseIdentifier(child[0]);
+                slide.name = LocatedVal!string(cast(string) ident, ident.loc);
                 break;
             case "SlidexDoc.ClosingIdentifier":
-                string foundname = parseIdentifier(child[0]);
+                LocatedVal!Identifier ident = parseIdentifier(child[0]);
+                string foundname = cast(string) ident.value;
                 if (foundname != slide.name) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.NameMismatch, Severity.Warning, child[0].sourceLocation(sourceFilePath), "Expected slide name `" ~ slide
                             .name ~ "` but got `" ~ parseIdentifier(child[0]) ~ "`");
@@ -549,8 +544,9 @@ Pass as root: "SlidexDoc.Slide"
 
         foreach (child; root.children) {
             switch (child.name) {
-            case "SlidexDoc.Event":
-                assert(false, "Event parsing is not yet implemented");
+            case "SlidexDoc.SequenceList":
+                Result!SequenceList r1 = parseSequenceList(child);
+                result.absorb(r1).ifSome((sl) { slide.sequencelist = sl; });
                 break;
             case "SlidexDoc.Statement":
                 Result!Statement r1 = parseStatement(child);
@@ -564,8 +560,86 @@ Pass as root: "SlidexDoc.Slide"
                 }
                 break;
             default:
-                break;
+                assert(false, "Unknown node: " ~ child.name);
             }
+        }
+        return result;
+    }
+
+    Result!SequenceList parseSequenceList(ParseTree root) {
+        Result!SequenceList result = Result!SequenceList(ok: true);
+        SequenceList list;
+
+        foreach (child; root.children) {
+            switch (child.name) {
+            case "SlidexDoc.Event":
+                Result!Event res = parseEvent(child);
+                result.absorb(res).ifSome((e) { list.events ~= e; });
+                break;
+            case "SlidexDoc.SEQUENCE":
+            case "SlidexDoc.BEGIN":
+            case "SlidexDoc.END":
+                break;
+            default:
+                assert(false, "Unknown node: " ~ child.name);
+            }
+        }
+        
+        result.value = list;
+        return result;
+    }
+
+    Result!Event parseEvent(ParseTree root) {
+        Result!Event result = Result!Event(ok: true);
+        Event event;
+
+        foreach (child; root.children) {
+            switch (child.name) {
+            case "SlidexDoc.EventType":
+                Result!Event res = parseEventType(child);
+                result.absorb(res).ifSome((e) { event = e; });
+                break;
+            case "SlidexDoc.FuncCall":
+                Result!FuncCall res = parseFuncCall(child);
+                result.absorb(res);
+                event.match!((ref TimerEvent te) {
+                    if (res.ok)
+                        te.func = res.value;
+                },
+                    (ref OnClickEvent ce) {
+                    if (res.ok)
+                        ce.func = res.value;
+                });
+                break;
+            case "SlidexDoc.DO":
+                break;
+            default:
+                assert(false, "Unknown node: " ~ child.name);
+            }
+        }
+        result.value = event;
+
+        return result;
+
+    }
+
+    Result!Event parseEventType(ParseTree root) {
+        assert(root.name == "SlidexDoc.EventType");
+
+        Result!Event result = Result!Event(ok: true);
+
+        if (root[0].name == "SlidexDoc.TimerEvent") {
+            TimerEvent te;
+            Result!(LocatedVal!Quantity) res = parseQuantity(root[0][1]);
+            result.absorb(res).ifSome((q) { te.quantity = q; });
+            result.value = te;
+        }
+        else if (root[0].name == "SlidexDoc.CLICKEVENT") {
+            OnClickEvent ce;
+            result.value = ce;
+        }
+        else {
+            assert(false, "Event type '" ~ root[0].name ~ "' not implemented.");
         }
         return result;
     }
@@ -607,13 +681,15 @@ For root pass in "SlidexDoc.Statement"
 
         foreach (child; root.children) {
             switch (child.name) {
-            case "SlidexDoc.QualifiedIdentifier":
+            case "SlidexDoc.Identifier":
                 // writeln("SlidexDoc.QualifiedIdentifier");
-                result.value.ident = parseQualifiedIdentifier(child);
+                result.value.ident = parseIdentifier(child);
                 break;
             case "SlidexDoc.FuncCall":
-                Result!(LocatedVal!DslType) res = parseFuncCall(child);
-                result.absorb(res).ifSome((v) { result.value.value = v; });
+                Result!FuncCall res = parseFuncCall(child);
+                result.absorb(res).ifSome((v) {
+                    result.value.value = locatedDslType(v, root.sourceLocation(sourceFilePath));
+                });
                 break;
             case "SlidexDoc.Placement":
                 // writeln("SlidexDoc.Placement");
@@ -623,7 +699,7 @@ For root pass in "SlidexDoc.Statement"
                 });
                 break;
             case "SlidexDoc.WsComment":
-            case "SlidexDoc.COLON":
+            case "SlidexDoc.CREATE":
                 // ignore these nodes
                 break;
             default:
@@ -670,14 +746,24 @@ For root pass in "SlidexDoc.Statement"
 
         foreach (child; root.children) {
             switch (child.name) {
+            case "SlidexDoc.QualifiedIdentifier":
+                LocatedVal!QualifiedIdentifier ident = parseQualifiedIdentifier(child);
+                return Result!(LocatedVal!DslType)(ok: true, value: locatedDslType(ident.value, loc));
             case "SlidexDoc.Identifier":
-                return Result!(LocatedVal!DslType)(ok: true, value: locatedDslType(parseIdentifier(child), loc));
+                LocatedVal!Identifier ident = parseIdentifier(child);
+                return Result!(LocatedVal!DslType)(ok: true, value: locatedDslType(ident.value, loc));
             case "SlidexDoc.String":
                 return parseString(child);
             case "SlidexDoc.Number":
                 return parseNumber(child);
             case "SlidexDoc.Quantity":
-                return parseQuantity(child);
+                Result!(LocatedVal!DslType) result;
+                Result!(LocatedVal!Quantity) res = parseQuantity(child);
+                result.absorb(res).ifSome((q) {
+                    result.value.loc = loc;
+                    result.value.value = DslType(q.value);
+                });
+                return result;
             case "SlidexDoc.NamedColour":
                 return parseNamedColour(child);
             case "SlidexDoc.Alignment":
@@ -689,7 +775,13 @@ For root pass in "SlidexDoc.Statement"
             case "SlidexDoc.Date":
                 return parseDate(child);
             case "SlidexDoc.FuncCall":
-                return parseFuncCall(child);
+                Result!(LocatedVal!DslType) result;
+                Result!FuncCall res = parseFuncCall(child);
+                result.absorb(res).ifSome((f) {
+                    result.value.loc = loc;
+                    result.value.value = DslType(f);
+                });
+                return result;
             case "SlidexDoc.Array":
                 return parseArray(child);
             default:
@@ -716,9 +808,9 @@ For root pass in "SlidexDoc.Statement"
         return Result!(LocatedVal!string)(ok: true, value: LocatedVal!string(root.matches[0], loc));
     }
 
-    Result!(LocatedVal!DslType) parseQuantity(ParseTree root) {
+    Result!(LocatedVal!Quantity) parseQuantity(ParseTree root) {
         // TODO: currently can't distinguish between int and float values
-        Result!(LocatedVal!DslType) result;
+        Result!(LocatedVal!Quantity) result;
         SourceLocation loc = root.sourceLocation(sourceFilePath);
         Quantity qty;
         foreach (child; root.children) {
@@ -740,7 +832,7 @@ For root pass in "SlidexDoc.Statement"
                 assert(false, "Unknown node: " ~ child.name);
             }
         }
-        result.value = locatedDslType(qty, loc);
+        result.value = LocatedVal!Quantity(qty, loc);
         return result;
     }
 
@@ -795,11 +887,11 @@ For root pass in "SlidexDoc.Statement"
                 Date.fromISOExtString(root.matches[0]), loc));
     }
 
-    Result!(LocatedVal!DslType) parseFuncCall(ParseTree root) {
-        Result!(LocatedVal!DslType) result;
-        SourceLocation loc = root.sourceLocation(sourceFilePath);
+    Result!FuncCall parseFuncCall(ParseTree root) {
+        Result!FuncCall result = Result!FuncCall(ok: true);
 
         FuncCall call;
+
         foreach (child; root.children) {
             switch (child.name) {
             case "SlidexDoc.Identifier":
@@ -807,16 +899,14 @@ For root pass in "SlidexDoc.Statement"
                 break;
             case "SlidexDoc.ArgList":
                 Result!ArgList res = parseArgList(child);
-                result.absorb(res).ifSome((a) {
-                    call.arguments = a;
-                    result.ok = true;
-                });
+                result.absorb(res).ifSome((a) { call.arguments = a; });
                 break;
             default:
                 assert(false, "Unknown node: " ~ child.name);
             }
         }
-        result.value = locatedDslType(call, loc);
+        
+        result.value = call;
         return result;
     }
 
@@ -866,13 +956,19 @@ For root pass in "SlidexDoc.Statement"
     return a property value
     for root pass in a "SlidexDoc.QualifiedIdentifier"
     */
-    LocatedVal!string parseQualifiedIdentifier(ParseTree root) {
+    LocatedVal!QualifiedIdentifier parseQualifiedIdentifier(ParseTree root) {
         // writeln("getQualifiedIdentifier(): ", root);
-        return LocatedVal!string(root.matches.join, root.sourceLocation(sourceFilePath));
+        QualifiedIdentifier qi;
+        qi.identifiers = root.matches
+            .filter!(m => m != ".")
+            .map!(m => Identifier(m))
+            .array;
+        return LocatedVal!QualifiedIdentifier(qi, root.sourceLocation(sourceFilePath));
     }
 
-    LocatedVal!string parseIdentifier(ParseTree root) {
-        return LocatedVal!string(root.matches[0], root.sourceLocation(sourceFilePath));
+    LocatedVal!Identifier parseIdentifier(ParseTree root) {
+        return LocatedVal!Identifier(Identifier(root.matches[0]), root.sourceLocation(
+                sourceFilePath));
     }
 
     /**
@@ -907,7 +1003,7 @@ For root pass in "SlidexDoc.Statement"
                 result.absorb(res);
                 if (res.ok) {
                     res.value.match!(
-                        (NamedArg na) { result.value.namedArgs[na.name] = na; },
+                        (NamedArg na) { result.value.namedArgs[cast(string)na.name.value] = na; },
                         (LocatedVal!DslType pa) {
                         result.value.positionalArgs ~= pa;
                     });
@@ -1214,7 +1310,7 @@ EvalResult evalValue(LocatedVal!DslType val) {
     }
     else if (val.value.has!FuncCall) {
         FuncCall v = val.value.get!FuncCall;
-        switch (v.name) {
+        switch (cast(string)v.name.value) {
         case "rgb":
             return evalColour(v);
         case "rect":
