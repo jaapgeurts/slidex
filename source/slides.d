@@ -204,6 +204,22 @@ mixin template DslProperties() {
         }
         return false;
     }
+
+    override Variant[string] getState() {
+        Variant[string] state;
+        static foreach (member; __traits(allMembers, typeof(this))) {
+            static if (hasUDA!(__traits(getMember, typeof(this), member), DslField)) {
+                state[member.stringof] = Variant(__traits(getMember, this, member));
+            }
+        }
+        return state;
+    }
+
+    override void setState(Variant[string] state) {
+         foreach(key, value; state) {
+            setProperty(key, value);
+         }
+    }
 }
 
 class Item {
@@ -223,6 +239,9 @@ class Item {
     abstract bool setProperty(string name, Variant value);
 
     abstract void accept(ItemVisitor visitor);
+
+    abstract Variant[string] getState();
+    abstract void setState(Variant[string] state);
 
 }
 

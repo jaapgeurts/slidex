@@ -33,12 +33,14 @@ import pango.global;
 
 import pangocairo.global;
 
-import syntect;
-import slides;
-import types;
 import common;
+import sharedvars;
+import slides;
+import syntect;
+import types;
 
 // import std.bitmanip;
+
 
 bool isVideo;
 
@@ -62,9 +64,9 @@ class RichTextRenderer {
     uint totalnum;
 
     Allocation size;
-    std.variant.Variant[string] vartable;
+    SharedVariables vartable;
 
-    this(Text text, Allocation size, float factor, std.variant.Variant[string] vartable) {
+    this(Text text, Allocation size, float factor, SharedVariables vartable) {
 
         this.text = text;
         this.size = size;
@@ -353,11 +355,11 @@ class GtkDrawingVisitor : ItemVisitor {
     float[] colsizes;
     float[] rowsizes;
 
-    std.variant.Variant[string] vartable;
+    SharedVariables vartable;
 
     float factor;
 
-    this(Context context, Size size, std.variant.Variant[string] vartable, string rootpath) {
+    this(Context context, Size size, SharedVariables vartable, string rootpath) {
         this.context = context;
         this.vartable = vartable;
         this.size = size;
@@ -636,6 +638,7 @@ class GtkDrawingVisitor : ItemVisitor {
 
         if (!text.visible)
             return;
+
 
         // writeln("TODO: drawing text");
 
