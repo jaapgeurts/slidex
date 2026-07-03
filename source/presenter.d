@@ -18,6 +18,9 @@ import gio.types;
 
 import gtk.application;
 import gtk.application_window;
+import gtk.box;
+import gtk.button;
+import gtk.css_provider;
 import gtk.drawing_area;
 import gtk.event_controller_key;
 import gtk.event_controller_motion;
@@ -38,9 +41,9 @@ import gdk.types;
 
 import common;
 import rendering;
+import signals;
 import slides;
 import types;
-import gtk.css_provider;
 
 import sharedvars;
 
@@ -56,11 +59,16 @@ class SlidexApplication : gtk.application.Application {
     Deck deck;
     Config config;
 
+    SharedVariables vartable = new SharedVariables();
+    PresentationController presentationController;
+
     this(Deck deck, Config config) {
         super("com.slidex.projectionView", ApplicationFlags.DefaultFlags);
 
         this.deck = deck;
         this.config = config;
+
+        // add "end-of-presentation" slide
 
         connectActivate(&onActivate);
     }
@@ -69,163 +77,111 @@ class SlidexApplication : gtk.application.Application {
 
         CssProvider cssProvider = new CssProvider();
 
-        cssProvider.loadFromString("* { background:black; }");
+        cssProvider.loadFromString("* { background:black; color:white; }");
 
         StyleContext.addProviderForDisplay(Display.getDefault(), cssProvider, STYLE_PROVIDER_PRIORITY_APPLICATION);
 
         if (!projectionWindow) {
-            projectionWindow = new ProjectionWindow(deck);
+            projectionWindow = new ProjectionWindow(deck, vartable);
             projectionWindow.debug_ = config.debug_;
-            projectionWindow.showSlide(config.slidenum);
             addWindow(projectionWindow);
         }
 
-        projectionWindow.present();
-
         if (!presenterWindow) {
-            presenterWindow = new PresenterWindow();
+            presenterWindow = new PresenterWindow(vartable, deck.rootpath);
             addWindow(presenterWindow);
         }
 
+        // Setup presentation controller
+        presentationController = new PresentationController(deck, vartable);
+        presentationController.onSlideChanged.connect((Slide s) {
+            projectionWindow.setSlide(s);
+            presenterWindow.setSlide(s);
+        });
+        presentationController.onLastSlide.connect(() {
+            projectionWindow.setSlide(null);
+            presenterWindow.setSlide(null);
+        });
+        presentationController.onStepChanged.connect((ulong step) {
+            projectionWindow.setStep(step);
+        });
+
+        projectionWindow.present();
         presenterWindow.present();
+
+        projectionWindow.setController(presentationController);
+
+        presentationController.showSlide(config.slidenum);
     }
 }
 
 class ProjectionWindow : Window {
-    ProjectionView projectionView;
+    bool isDebugMode;
+    bool isFullScreen = false;
+    bool isBlanking = false;
+
+    PresentationController presentationController;
+
+    SlideView slideView;
     Deck deck;
 
-    void debug_(bool debug_) {
-        projectionView.debug_ = debug_;
-    }
-
-    void showSlide(uint slidenum) {
-        projectionView.showSlide(slidenum);
-    }
-
-    this(Deck deck) {
+    this(Deck deck, SharedVariables vartable) {
         super();
 
         setTitle("Projection view");
         setDefaultSize(WIDTH, HEIGHT);
 
+        // Create main UI slideview components
         Overlay overlay = new Overlay();
         overlay.setSizeRequest(WIDTH, HEIGHT);
         child = overlay;
 
-        projectionView = new ProjectionView(overlay, deck);
-        projectionView.onFullsceen = () { fullscreen(); };
-        projectionView.onUnFullsceen = () { unfullscreen(); };
+        slideView = new SlideView(overlay, vartable, deck.rootpath);
+        slideView.debug_ = isDebugMode;
 
-        overlay.child = projectionView.widget();
+        GestureClick clicked = new GestureClick();
+        clicked.connectPressed(&onMousePress);
+        slideView.addController(clicked);
+
+        overlay.child = slideView;
 
         EventControllerKey keyController = new EventControllerKey();
-        keyController.connectKeyPressed(&projectionView.onKeyPress);
+        keyController.connectKeyPressed(&onKeyPress);
         addController(keyController);
 
         EventControllerMotion motionController = new EventControllerMotion();
-        motionController.connectMotion(&projectionView.onMotion);
+        motionController.connectMotion(&onMotion);
         addController(motionController);
 
     }
-}
-
-class PresenterWindow : Window {
-    SlideView slideView;
-
-    this() {
-
-        setTitle("Presenter view");
-        setDefaultSize(WIDTH, HEIGHT);
-
-        addCssClass("presenterwin");
-
-    }
-}
-
-class ProjectionView {
-
-    bool isDebugMode;
-    bool isFullScreen = false;
-    bool isBlanking = false;
-    size_t currentSlideIdx = 0;
-
-    void delegate() onFullsceen;
-    void delegate() onUnFullsceen;
-
-    SharedVariables vartable;
-
-    SlideView slideView;
-    Slide currentSlide;
-
-    Deck deck;
 
     @property
     void debug_(bool debug_) {
         isDebugMode = debug_;
     }
 
-    this(Overlay overlay, Deck deck) {
-
-        vartable = new SharedVariables();
-
-        slideView = new SlideView(overlay, deck.rootpath);
-        this.deck = deck;
-
-        GestureClick clicked = new GestureClick();
-        clicked.connectPressed(&onMousePress);
-        slideView.addController(clicked);
-        
-        updateSlideView(currentSlideIdx);
+    void setSlide(Slide slide) {
+        slideView.setSlide(slide);
     }
 
-    Widget widget() {
-        return slideView;
+    void setStep(ulong step) {
+        slideView.setStep(step);
     }
 
-    void showSlide(uint slidenum) {
-        if (slidenum < 0 || slidenum > deck.slides.length)
-            return;
-
-        currentSlideIdx = slidenum;
-
-        updateSlideView(currentSlideIdx);
+    void setController(PresentationController presentationController) {
+        this.presentationController = presentationController;
     }
 
-    void advance() {
-        if (slideView.hasMoreSteps()) {
-            slideView.advanceStep();
-        }
-        else if (currentSlideIdx < deck.slides.length) {
-            // TODO: do not print black when the current slide is outside the bounds.
-            currentSlideIdx++;
-            updateSlideView(currentSlideIdx);
-        }
-        else {
-            writeln("Reached last slide");
-        }
-    }
-
-    void reverse() {
-        if (currentSlideIdx > 0) {
-            currentSlideIdx--;
-            updateSlideView(currentSlideIdx);
-        }
-        else {
-            // TODO: only when verbose
-            writeln("Reached first slide");
-        }
-    }
-
+private:
     ///////////////////
     // Event handlers
     //
     void onMousePress(int nPress, double x, double y, GestureClick gestureClick) {
         if (gestureClick.getButton() == 1) {
             if (x < slideView.getSize().w * 0.2)
-                advance();
+                presentationController.advance();
             else
-                reverse();
+                presentationController.reverse();
         }
 
     }
@@ -234,30 +190,21 @@ class ProjectionView {
         slideView.onMotion(x, y, controller);
     }
 
-private:
-
-    void updateSlideView(ulong slidenum) {
-        vartable["slide"] = currentSlideIdx + 1;
-        currentSlide = deck.slides[slidenum];
-        slideView.setSlide(currentSlide);
-    }
-
     bool onKeyPress(uint keyval, uint keycode, ModifierType state, EventControllerKey eventControllerKey) {
 
         // pressedKey = keymap.keyvalName(keyval);
         // writeln("The keyval is: ", keyval, " which means the ", keycode, " was pressed.");
 
         if (keyval == KEY_space || keyval == KEY_Right || keyval == KEY_Next) {
-            advance();
+            presentationController.advance();
         }
         else if (keyval == KEY_Left || keyval == KEY_Prior) {
-            reverse();
+            presentationController.reverse();
         }
         else if (keyval == KEY_Escape) {
             if (isFullScreen) {
                 // TODO: move into function
-                if (onUnFullsceen !is null)
-                    onUnFullsceen();
+                unfullscreen();
                 isFullScreen = false;
             }
         }
@@ -271,13 +218,11 @@ private:
             isBlanking = false;
             slideView.setBlanking(isBlanking);
             if (!isFullScreen) {
-                if (onFullsceen !is null)
-                    onFullsceen();
+                fullscreen();
                 isFullScreen = true;
             }
             else {
-                if (onUnFullsceen !is null)
-                    onUnFullsceen();
+                unfullscreen();
                 isFullScreen = false;
             }
         }
@@ -287,9 +232,133 @@ private:
     }
 }
 
+class PresenterWindow : Window {
+
+    Box boxRoot;
+    Box boxLeft;
+    Box boxToolbar;
+
+    Button btnReverse;
+    Button btnAdvance;
+
+    SlideView slideView;
+
+    SharedVariables vartable;
+
+    this(SharedVariables vartable, string rootpath) {
+
+        this.vartable = vartable;
+
+        setTitle("Presenter view");
+        setDefaultSize(WIDTH, HEIGHT);
+
+        addCssClass("presenterwin");
+
+        boxRoot = new Box(Orientation.Horizontal, 50);
+        boxLeft = new Box(Orientation.Vertical, 30);
+        boxToolbar = new Box(Orientation.Horizontal, 10);
+
+        btnReverse = Button.newWithLabel("Previous");
+        btnAdvance = Button.newWithLabel("Next");
+
+        boxToolbar.append(btnReverse);
+        boxToolbar.append(btnAdvance);
+
+        slideView = new SlideView(new Overlay(), vartable, rootpath);
+
+        boxLeft.append(slideView);
+        boxLeft.append(boxToolbar);
+
+        boxRoot.append(boxLeft);
+
+        setChild(boxRoot);
+
+    }
+
+    void setSlide(Slide slide) {
+        slideView.setSlide(slide);
+    }
+}
+
+class PresentationController {
+
+    size_t currentSlideIdx = 0;
+    size_t currentStep = 0;
+
+    SharedVariables vartable;
+
+    Slide currentSlide;
+    Deck deck;
+
+    Signal!() onLastSlide;
+    Signal!() onFirstSlide;
+    Signal!(ulong) onStepChanged;
+    Signal!(Slide) onSlideChanged;
+
+    this(Deck deck, SharedVariables vartable) {
+
+        this.vartable = vartable;
+
+        this.deck = deck;
+
+        updateSlideView(currentSlideIdx);
+    }
+
+    void showSlide(uint slidenum) {
+        if (slidenum < 0 || slidenum > deck.slides.length)
+            return;
+
+        currentSlideIdx = slidenum;
+
+        updateSlideView(currentSlideIdx);
+    }
+
+    void advance() {
+        if (currentStep + 1 < currentSlide.events.length) {
+            onStepChanged.emit(++currentStep);
+        }
+        else if (currentSlideIdx + 1 < deck.slides.length) {
+            updateSlideView(++currentSlideIdx);
+        }
+        else if (currentSlideIdx + 1 == deck.slides.length) {
+            onLastSlide.emit();
+            writeln("Reached last slide");
+        }
+    }
+
+    void reverse() {
+        if (currentStep > 0) {
+            onStepChanged.emit(--currentStep);
+        }
+        else if (currentSlideIdx > 0) {
+            updateSlideView(--currentSlideIdx);
+        }
+        else {
+            // TODO: only when verbose
+            writeln("Reached first slide");
+        }
+    }
+
+private:
+
+    void updateSlideView(ulong slidenum) {
+        if (slidenum >= deck.slides.length) {
+            writeln("ERROR: setting slide index can't be larger than number of slides");
+            return;
+        }
+        vartable["total"] = deck.slides.length;
+        vartable["slide"] = currentSlideIdx + 1;
+        currentSlide = deck.slides[slidenum];
+        onSlideChanged.emit(currentSlide);
+    }
+
+}
+
 class SlideView : DrawingArea {
 
     Slide slide;
+
+    Slide endOfPresentationSlide;
 
     Variant[string][Slide] states;
     string rootpath;
@@ -299,24 +368,25 @@ class SlideView : DrawingArea {
         isDebugMode = debug_;
     }
 
-    this(Overlay overlay, string rootpath) {
+    this(Overlay overlay, SharedVariables vartable, string rootpath) {
 
         this.overlay = overlay;
+        this.vartable = vartable;
         this.rootpath = rootpath;
 
         setDrawFunc(&onDraw);
 
-        // enable click events.
-        // TODO: remove
-        // addEvents(GdkEventMask.ButtonPressMask);
+        endOfPresentationSlide = new Slide("EndOfPresentation-128721");
+        Master master = new Master("EndOfPresMaster-121564234", IntOrLength(1), IntOrLength(1));
+        master.background = RgbColour.Black;
+        Text text = new Text("text-549839", new RichText("End of presentation".split(' ')
+                .map!(w => TextItem(Word(w))).array), RgbColour.White, 10);
+        text.layoutLocation = CellLocation(0, 0, 1, 1, 0, 0, 0, CellAlignment.BottomCenter);
+        endOfPresentationSlide.items ~= text;
+        endOfPresentationSlide.itemsMap[text.name] = text;
+        endOfPresentationSlide.master = master;
 
         connectResize(&onSizeAllocate);
-
-        // projectorWin.getRootWindow().flush();
-        // Display myDisplay = Display.getDefault();
-        // Seat seat = myDisplay.getDefaultSeat();
-        // Device keyboard = seat.getKeyboard();
-        // keymap = Keymap.getDefault();
 
         setSizeRequest(WIDTH, HEIGHT);
 
@@ -329,21 +399,19 @@ class SlideView : DrawingArea {
 
     }
 
-    bool hasMoreSteps() {
-        return currentEvent + 1 < slide.events.length;
-    }
+    void setStep(ulong step) {
+        if (step < 0 || step >= slide.events.length) {
+            stderr.writeln("ERROR: illegal step");
+            return;
+        }
 
-    void advanceStep() {
-        if (currentEvent + 1 < slide.events.length) {
-            currentEvent++;
-            slides.Event event = slide.events[currentEvent];
+        resetState();
+        for (ulong i; i < step; i++) {
+            slides.Event event = slide.events[i];
             evaluateFunction(event.func);
 
         }
-    }
-
-    void reverseStep() {
-        writeln("reverseStep(): Not implemented yet");
+        queueDraw();
     }
 
     void setBlanking(bool isBlank) {
@@ -360,6 +428,9 @@ class SlideView : DrawingArea {
         return size;
     }
 
+    void resetState() {
+    }
+
 private:
 
     void onDraw(DrawingArea drawingArea, Context context, int width, int height) {
@@ -367,20 +438,27 @@ private:
         if (isVideo)
             return;
 
-        if (isBlanking) {
+        Slide activeSlide = slide;
+
+        if (activeSlide is null) {
+            activeSlide = endOfPresentationSlide;
+        }
+
+        if (isBlanking && slide !is null) {
             writeln("blanking");
             context.setSourceRgb(0, 0, 0);
             context.paint();
             return;
         }
+
         // TODO: do not create on each draw.
         GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, Size(width, height), vartable, rootpath);
         drawing.showDebugOverlay = isDebugMode;
 
         drawing.factor = factor;
 
-        slide.master.accept(drawing);
-        slide.accept(drawing);
+        activeSlide.master.accept(drawing);
+        activeSlide.accept(drawing);
 
         if (isDebugMode) {
             uint c, r;
@@ -427,21 +505,6 @@ private:
         factor = width / 920.0;
     }
 
-    void drawEndOfPresentation(Context context) {
-        TextExtents extents;
-        // Set background to black
-        with (context) {
-            setSourceRgb(0, 0, 0);
-            paint();
-            string endMessage = "End of presentation";
-            textExtents(endMessage, extents);
-            // writeln("pos: x:", (size.width - extents.width) / 2, "y: ", size.height - 20);
-            moveTo((size.w - extents.width) / 2, size.h - 20);
-            setSourceRgb(1, 1, 1);
-            showText(endMessage);
-        }
-    }
-
     void evaluateFunction(Function func) {
         if (func.name == "reveal") {
             foreach (arg; func.positionalargs) {
@@ -454,7 +517,6 @@ private:
         }
     }
 
-    size_t currentEvent = 0;
     bool isDebugMode = false;
     float factor = 1.0;
     bool isBlanking = false;

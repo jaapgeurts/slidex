@@ -109,6 +109,10 @@ class Master {
     IntOrLength columns;
     IntOrLength rows;
 
+    /**
+    Sets the background of this slide. Can be a:
+    RgbColour(byte r,byte g, byte b) or an Image
+    */
     SumType!(RgbColour, Image) background = RgbColour(0xff, 0xff, 0xff);
 
     Item[] items;
@@ -116,6 +120,12 @@ class Master {
 
     mixin DumpFieldsToString;
 
+    /**
+    Creates a new master slide.
+    name: a unique name which identifies this master
+    columns: an integer which specifies the number of columns or an array with column sizes
+    rows: an integer which specifies the number of rows or an array with row sizes
+    */
     this(string name, IntOrLength columns, IntOrLength rows) {
         this.name = name;
         this.columns = columns;

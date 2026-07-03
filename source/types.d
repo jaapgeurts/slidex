@@ -60,6 +60,9 @@ struct RgbColour {
         else
             throw new ArrayIndexError(i, 3, "Valid indexes are 0,1,2 equivalent to r,g,b");
     }
+
+    static RgbColour Black = RgbColour(0,0,0);
+    static RgbColour White = RgbColour(0xff,0xff,0xff);
 }
 
 enum CellAlignment {
