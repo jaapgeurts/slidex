@@ -55,6 +55,14 @@ struct AbstractTree {
 
 private:
 
+    enum SlidexTypeKind {
+        Text,
+        Image,
+        Video,
+    }
+
+    SlidexTypeKind[string] symboltable;
+
     Result!(slides.Slide) buildSlide(dsl.ast.Slide fromSlide) {
 
         Result!(slides.Slide) result = Result!(slides.Slide)(ok: true);
@@ -169,6 +177,8 @@ private:
 
         }
 
+        // TODO: cross check all symbol references. (2-pass)
+
         result.value = toSlide;
 
         return result;
@@ -253,10 +263,17 @@ private:
                     assert(false, "handling error during rich tech resolve not implemented");
                 }
             }
+            symboltable[fromItem.name] = SlidexTypeKind.Text;
             return new slides.Text(fromItem.name, rt, t.colour, t.size);
         },
-            (dsl.ast.Image i) => new slides.Image(fromItem.name, i.path),
-            (dsl.ast.Video m) => new slides.Video(fromItem.name, m.path),
+            (dsl.ast.Image i) {
+            symboltable[fromItem.name] = SlidexTypeKind.Image;
+            return new slides.Image(fromItem.name, i.path);
+        },
+            (dsl.ast.Video m) {
+            symboltable[fromItem.name] = SlidexTypeKind.Video;
+            return new slides.Video(fromItem.name, m.path);
+        },
         );
 
         toItem.layoutLocation = fromItem.layoutLocation;
@@ -376,10 +393,24 @@ private:
             assert(false, "Named arguments are currently not supported for event function calls");
         foreach (fromVal; fromFunc.arguments.positionalArgs) {
             if (fromVal.value.has!QualifiedIdentifier) {
+
+                string ident = cast(string)fromVal.value.get!QualifiedIdentifier.identifiers[0];
+                if (ident !in symboltable) {
+                    assert(false, "Undefined identifier `" ~ ident ~ "`");
+                }
+                else {
+                    // perhaps the identifier is in the table, but it's the wrong type
+                }
                 // TODO: this implementation is wonky.
                 import std.conv;
-                toFunc.positionalargs ~= Variant(fromVal.value.get!QualifiedIdentifier.identifiers.map!(to!string).join('.'));
-            } else {
+
+                toFunc.positionalargs ~= Variant(fromVal.value
+                        .get!QualifiedIdentifier
+                        .identifiers
+                        .map!(to!string)
+                        .join('.'));
+            }
+            else {
                 assert(false, "Values other than QualifiedIdentifiers are currently not supported");
             }
         }
