@@ -110,6 +110,45 @@ alias LayoutLocation = SumType!(CellLocation, BoundsLocation);
 
 alias TextItem = SumType!(Word, LineBreak, EscapedChar, Bold, Italic, Underline, Variable, InlineFunc, ListBlock, Code);
 
+string toString(TextItem item) {
+    return item.match!(
+        (Word w) { return w.text ~ " "; },
+        (Bold b) {
+        string s = "";
+        foreach (ti; b.items) {
+            s ~= toString(ti) ~ " ";
+        }
+        return s;
+    },
+        (Underline u) {
+        string s = "";
+        foreach (ti; u.items) {
+            s ~= toString(ti) ~ " ";
+        }
+        return s;
+    },
+        (Italic i) {
+        string s = "";
+        foreach (ti; i.items) {
+            s ~= toString(ti) ~ " ";
+        }
+        return s;
+    },
+        (ListBlock lb) {
+        string s = "";
+        foreach (ti; lb.items) {
+            s ~= "- ";
+            foreach(li; ti.content)
+                s ~= toString(li) ~ " ";
+            s ~= "\n";
+        }
+        return s;
+    },
+        (_) { return ""; },
+    );
+
+}
+
 /** Rich text items */
 class RichText {
     TextItem[] items;
@@ -124,12 +163,11 @@ class RichText {
     override string toString() const {
         string s = "";
         foreach (ti; items) {
-            ti.match!((Word w) { s ~= w.text ~ " "; }, (_) {});
+            s ~= types.toString(ti) ~ " ";
         }
         return s;
     }
 }
-
 
 struct Word {
     string text;
@@ -143,6 +181,7 @@ alias Seconds = Typedef!(int, int.init, "seconds");
 
 struct Bold {
     TextItem[] items;
+
 }
 
 struct Italic {
