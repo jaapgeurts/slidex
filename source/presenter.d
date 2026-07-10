@@ -196,6 +196,7 @@ class ProjectionWindow : Window {
     @property
     void debug_(bool debug_) {
         isDebugMode = debug_;
+        slideView.debug_ = debug_;
     }
 
     void setSlide(Slide slide) {
@@ -408,6 +409,7 @@ class PresentationController {
 
     Slide currentSlide;
     SlideState[] initialSlideStates;
+    SlideState[] slideStepStates;
     Deck deck;
 
     Signal!() onLastSlide;
@@ -441,6 +443,7 @@ class PresentationController {
 
     public void advance() {
         if (currentStepIdx < currentSlide.events.length) {
+            slideStepStates[currentStepIdx] = currentSlide.getState();
             ++currentStepIdx;
             onAdvanceStep.emit(1);
         }
@@ -458,6 +461,7 @@ class PresentationController {
     public void reverse() {
         if (currentStepIdx > 0) {
             --currentStepIdx;
+            currentSlide.setState(slideStepStates[currentStepIdx]);
             onReverseStep.emit(1);
         }
         else if (currentSlideIdx > 0) {
@@ -483,6 +487,7 @@ private:
         vartable["slide"] = slidenum + 1;
         currentSlide = deck.slides[slidenum];
         currentSlide.setState(initialSlideStates[slidenum]);
+        slideStepStates = new SlideState[currentSlide.events.length];
         onSlideChanged.emit(currentSlide, slidenum);
     }
 
@@ -553,7 +558,9 @@ class SlideView : DrawingArea {
         if (currentStep > 0) {
             currentStep -= step;
             slides.Event event = slide.events[currentStep];
-            evaluateFunction(event.func);
+            // should not run this function. it is meant to be evaluated
+            // when advancing into this state, not when reversing back into it.
+            // evaluateFunction(event.func);
             queueDraw();
         }
         writeln("TODO: reverseStep(): Not correctly implemented");
