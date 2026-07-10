@@ -41,7 +41,6 @@ import types;
 
 // import std.bitmanip;
 
-
 bool isVideo;
 
 // enum BULLET = "➤ ";
@@ -507,10 +506,6 @@ class GtkDrawingVisitor : ItemVisitor {
         // }
     }
 
-    void visit(Item item) {
-        // writeln("TODO: drawing item skipped. it is abstract");
-    }
-
     void visit(Rect rect) {
         // writeln("TODO: drawing rect");
 
@@ -638,7 +633,6 @@ class GtkDrawingVisitor : ItemVisitor {
 
         if (!text.visible)
             return;
-
 
         // writeln("TODO: drawing text");
 

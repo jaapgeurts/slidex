@@ -177,6 +177,9 @@ private:
 
         }
 
+        if (fromSlide.speakerNotes)
+            toSlide.speakerNotes = fromSlide.speakerNotes;
+
         // TODO: cross check all symbol references. (2-pass)
 
         result.value = toSlide;

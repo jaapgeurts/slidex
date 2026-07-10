@@ -61,8 +61,8 @@ struct RgbColour {
             throw new ArrayIndexError(i, 3, "Valid indexes are 0,1,2 equivalent to r,g,b");
     }
 
-    static RgbColour Black = RgbColour(0,0,0);
-    static RgbColour White = RgbColour(0xff,0xff,0xff);
+    static RgbColour Black = RgbColour(0, 0, 0);
+    static RgbColour White = RgbColour(0xff, 0xff, 0xff);
 }
 
 enum CellAlignment {
@@ -108,6 +108,7 @@ struct BoundsLocation {
 
 alias LayoutLocation = SumType!(CellLocation, BoundsLocation);
 
+alias TextItem = SumType!(Word, LineBreak, EscapedChar, Bold, Italic, Underline, Variable, InlineFunc, ListBlock, Code);
 
 /** Rich text items */
 class RichText {
@@ -119,9 +120,16 @@ class RichText {
     this(TextItem[] items) {
         this.items = items;
     }
+
+    override string toString() const {
+        string s = "";
+        foreach (ti; items) {
+            ti.match!((Word w) { s ~= w.text ~ " "; }, (_) {});
+        }
+        return s;
+    }
 }
 
-alias TextItem = SumType!(Word, LineBreak, EscapedChar, Bold, Italic, Underline, Variable, InlineFunc, ListBlock, Code);
 
 struct Word {
     string text;

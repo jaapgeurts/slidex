@@ -27,9 +27,10 @@ SlidexDoc:
     PropertyDeclaration <- (Identifier CREATE )? FuncCall Placement?
     ValueAssignment     <- QualifiedIdentifier EQUAL Value
     Placement           <- AT (CELL / BOUNDS) ArgList
+    SpeakerNotes        <- NOTES BEGIN RichText END
 
 # Slide Contents
-    SlideContent        <- SequenceList / Statement
+    SlideContent        <- SequenceList / Statement / SpeakerNotes
 
 # Events
     SequenceList        <- SEQUENCE BEGIN Event* END SEQUENCE
@@ -75,6 +76,7 @@ SlidexDoc:
     BEGIN               <- 'begin'    WsComment
     END                 <- 'end'      WsComment
     SEQUENCE            <- 'sequence' WsComment
+    NOTES               <- 'notes'    WsComment
     DO                  <- 'do'       WsComment
     CLICKEVENT          <- 'on' WsComment 'click' WsComment
     AFTER               <- 'after'    WsComment

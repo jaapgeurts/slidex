@@ -262,6 +262,8 @@ class Slide {
 
     // assignments that should be resolved later
     ValueAssignment[] assignments;
+    
+    RichText speakerNotes;
 }
 
 alias Statement = SumType!(ValueAssignment, PropertyDeclaration);

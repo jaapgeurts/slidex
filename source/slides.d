@@ -59,7 +59,6 @@ mixin template DumpFieldsToString() {
 interface ItemVisitor {
     void visit(Slide slide);
     void visit(Master master);
-    void visit(Item item);
     void visit(Rect rect);
     void visit(Image image);
     void visit(Video video);
@@ -70,7 +69,6 @@ class ItemVisitorAdapter : ItemVisitor {
     // dfmt off
     void visit(Slide slide) {}
     void visit(Master master) {}
-    void visit(Item item) {}
     void visit(Rect rect) {}
     void visit(Image image) {}
     void visit(Video video) {}
@@ -138,6 +136,86 @@ class Master {
 
 }
 
+class SlideState {
+
+    Variant[string] values;
+
+    void put(T)(string obj, string key, T value) {
+        values[obj ~ "." ~ key] = Variant(value);
+    }
+
+    T get(T)(string obj, string key) {
+        return values[obj ~ "." ~ key].get!T;
+    }
+}
+
+class ApplyStateVisitor : ItemVisitor {
+
+    SlideState state;
+
+    this(SlideState state) {
+        this.state = state;
+    }
+
+    void visit(Slide slide) {
+    }
+
+    void visit(Master master) {
+    }
+
+    void visit(Rect rect) {
+        rect.visible = state.get!bool(rect.name, "visible");
+    }
+
+    void visit(Image image) {
+        image.visible = state.get!bool(image.name, "visible");
+    }
+
+    void visit(Video video) {
+        video.visible = state.get!bool(video.name, "visible");
+    }
+
+    void visit(Text text) {
+        text.visible = state.get!bool(text.name, "visible");
+    }
+
+}
+
+class GetStateVisitor : ItemVisitor {
+
+    SlideState state;
+
+    this() {
+        state = new SlideState();
+    }
+
+    SlideState getState() {
+        return state;
+    }
+
+    void visit(Slide slide) {
+    }
+
+    void visit(Master master) {
+    }
+
+    void visit(Rect rect) {
+        state.put(rect.name, "visible", rect.visible);
+    }
+
+    void visit(Image image) {
+        state.put(image.name, "visible", image.visible);
+    }
+
+    void visit(Video video) {
+        state.put(video.name, "visible", video.visible);
+    }
+
+    void visit(Text text) {
+        state.put(text.name, "visible", text.visible);
+    }
+}
+
 class Slide {
     string name;
 
@@ -148,8 +226,11 @@ class Slide {
 
     Event[] events;
 
+    RichText speakerNotes;
+
     this(string name) {
         this.name = name;
+        speakerNotes = new RichText();
     }
 
     mixin DumpFieldsToString;
@@ -161,6 +242,16 @@ class Slide {
             item.accept(visitor);
         foreach (item; items)
             item.accept(visitor);
+    }
+
+    SlideState getState() {
+        GetStateVisitor visitor = new GetStateVisitor();
+        accept(visitor);
+        return visitor.getState();
+    }
+
+    void setState(SlideState state) {
+        accept(new ApplyStateVisitor(state));
     }
 
 }
@@ -226,9 +317,9 @@ mixin template DslProperties() {
     }
 
     override void setState(Variant[string] state) {
-         foreach(key, value; state) {
+        foreach (key, value; state) {
             setProperty(key, value);
-         }
+        }
     }
 }
 

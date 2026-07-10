@@ -559,11 +559,38 @@ Pass as root: "SlidexDoc.Slide"
                     result.absorb(r2);
                 }
                 break;
+            case "SlidexDoc.SpeakerNotes":
+                Result!RichText r1 = parseSpeakerNotes(child);
+                result.absorb(r1).ifSome((sn) { slide.speakerNotes = sn; });
+                break;
             default:
                 assert(false, "Unknown node: " ~ child.name);
             }
         }
         return result;
+    }
+
+    Result!RichText parseSpeakerNotes(ParseTree root) {
+
+        foreach (child; root.children) {
+            switch (child.name) {
+            case "SlidexDoc.NOTES":
+            case "SlidexDoc.BEGIN":
+            case "SlidexDoc.END":
+                break;
+            case "SlidexDoc.RichText":
+                Result!(LocatedVal!DslType) r1 = parseRichText(child);
+                Result!RichText result;
+                if (r1.ok) {
+                    result.ok = true;
+                    result.value = r1.value.get!RichText;
+                }
+                return result;
+            default:
+                assert(false, "Unknown node: " ~ child.name);
+            }
+        }
+        assert(false, "Unreachable");
     }
 
     Result!SequenceList parseSequenceList(ParseTree root) {
@@ -584,7 +611,7 @@ Pass as root: "SlidexDoc.Slide"
                 assert(false, "Unknown node: " ~ child.name);
             }
         }
-        
+
         result.value = list;
         return result;
     }
@@ -905,7 +932,7 @@ For root pass in "SlidexDoc.Statement"
                 assert(false, "Unknown node: " ~ child.name);
             }
         }
-        
+
         result.value = call;
         return result;
     }
@@ -1003,7 +1030,9 @@ For root pass in "SlidexDoc.Statement"
                 result.absorb(res);
                 if (res.ok) {
                     res.value.match!(
-                        (NamedArg na) { result.value.namedArgs[cast(string)na.name.value] = na; },
+                        (NamedArg na) {
+                        result.value.namedArgs[cast(string) na.name.value] = na;
+                    },
                         (LocatedVal!DslType pa) {
                         result.value.positionalArgs ~= pa;
                     });
@@ -1310,7 +1339,7 @@ EvalResult evalValue(LocatedVal!DslType val) {
     }
     else if (val.value.has!FuncCall) {
         FuncCall v = val.value.get!FuncCall;
-        switch (cast(string)v.name.value) {
+        switch (cast(string) v.name.value) {
         case "rgb":
             return evalColour(v);
         case "rect":
@@ -1357,7 +1386,8 @@ EvalResult evalColour(FuncCall rgb) {
                 result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, rgb
                         .arguments
                         .positionalArgs[i].loc, "Invalid value `" ~ rgb.arguments.positionalArgs[i].value.toVariant()
-                        .toString() ~ "` Expected a number but got `" ~ rgb.arguments
+                        .toString() ~ "` Expected a number but got `" ~ rgb
+                        .arguments
                         .positionalArgs[i].value.typeName ~ "`");
                 success = false;
             }

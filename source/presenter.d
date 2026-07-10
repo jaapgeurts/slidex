@@ -382,6 +382,8 @@ class PresenterWindow : Window {
 
     void setCurrentSlide(Slide slide) {
         currentSlideView.setSlide(slide);
+        if (slide)
+            lblNotes.setText(slide.speakerNotes.toString());
     }
 
     void setNextSlide(Slide slide) {
@@ -405,6 +407,7 @@ class PresentationController {
     SharedVariables vartable;
 
     Slide currentSlide;
+    SlideState[] initialSlideStates;
     Deck deck;
 
     Signal!() onLastSlide;
@@ -418,6 +421,11 @@ class PresentationController {
         this.vartable = vartable;
 
         this.deck = deck;
+
+        initialSlideStates = new SlideState[deck.slides.length];
+        for(size_t i; i < initialSlideStates.length; ++i) {
+            initialSlideStates[i] = deck.slides[i].getState();
+        }
 
         updateSlideView(currentSlideIdx);
     }
@@ -438,9 +446,11 @@ class PresentationController {
         }
         else if (currentSlideIdx + 1 < deck.slides.length) {
             ++currentSlideIdx;
+            currentStepIdx = 0;
             updateSlideView(currentSlideIdx);
         }
         else {
+            onLastSlide.emit();
             writeln("Warning: Cannot advance. Already at end of presentation.");
         }
     }
@@ -451,10 +461,12 @@ class PresentationController {
             onReverseStep.emit(1);
         }
         else if (currentSlideIdx > 0) {
+            currentStepIdx = 0;
             --currentSlideIdx;
             updateSlideView(currentSlideIdx);
         }
         else {
+            onFirstSlide.emit();
             writeln("Warning: Cannot reverse. Already at start of presentation.");
         }
     }
@@ -468,8 +480,9 @@ private:
         }
 
         vartable["total"] = deck.slides.length;
-        vartable["slide"] = slidenum;
+        vartable["slide"] = slidenum + 1;
         currentSlide = deck.slides[slidenum];
+        currentSlide.setState(initialSlideStates[slidenum]);
         onSlideChanged.emit(currentSlide, slidenum);
     }
 
