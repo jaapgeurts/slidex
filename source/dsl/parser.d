@@ -522,7 +522,6 @@ Pass as root: "SlidexDoc.Slide"
             // TODO: is the value assignment a local slide field assignment?
             // LATER: currently slides have no fields so can't assign anything either.
             // so keep it for later when the master is resolved.
-
             slide.assignments ~= va;
             return VoidResult(ok: true);
         }
@@ -559,38 +558,11 @@ Pass as root: "SlidexDoc.Slide"
                     result.absorb(r2);
                 }
                 break;
-            case "SlidexDoc.SpeakerNotes":
-                Result!RichText r1 = parseSpeakerNotes(child);
-                result.absorb(r1).ifSome((sn) { slide.speakerNotes = sn; });
-                break;
             default:
                 assert(false, "Unknown node: " ~ child.name);
             }
         }
         return result;
-    }
-
-    Result!RichText parseSpeakerNotes(ParseTree root) {
-
-        foreach (child; root.children) {
-            switch (child.name) {
-            case "SlidexDoc.NOTES":
-            case "SlidexDoc.BEGIN":
-            case "SlidexDoc.END":
-                break;
-            case "SlidexDoc.RichText":
-                Result!(LocatedVal!DslType) r1 = parseRichText(child);
-                Result!RichText result;
-                if (r1.ok) {
-                    result.ok = true;
-                    result.value = r1.value.get!RichText;
-                }
-                return result;
-            default:
-                assert(false, "Unknown node: " ~ child.name);
-            }
-        }
-        assert(false, "Unreachable");
     }
 
     Result!SequenceList parseSequenceList(ParseTree root) {

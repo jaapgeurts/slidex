@@ -27,10 +27,9 @@ SlidexDoc:
     PropertyDeclaration <- (Identifier CREATE )? FuncCall Placement?
     ValueAssignment     <- QualifiedIdentifier EQUAL Value
     Placement           <- AT (CELL / BOUNDS) ArgList
-    SpeakerNotes        <- NOTES BEGIN RichText END
 
 # Slide Contents
-    SlideContent        <- SequenceList / Statement / SpeakerNotes
+    SlideContent        <- SequenceList / Statement
 
 # Events
     SequenceList        <- SEQUENCE BEGIN Event* END SEQUENCE

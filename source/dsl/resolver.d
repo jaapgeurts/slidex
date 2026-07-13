@@ -104,74 +104,89 @@ private:
             // writeln("Assignment: " , assignment);
 
             // TODO: support slide assignments (currently only assignments to master items are supported).
-            if (toSlide.master is null)
+            if (toSlide.master is null) {
+                result.diagnostics ~= Diagnostic(DiagnosticKind.GeneralError, Severity.Warning, SourceLocation("", 0), "Slide `" ~ fromSlide.name ~ "` has no master attached. Slides without a master are currently unsupported.");
                 continue;
+            }
 
             // TODO: test whether there are no duplicate property identifiers between master and slides
             // search items in master
             string ident = (cast(string) assignment.ident.value[0]);
-            slides.Item* item = ident in toSlide.master.itemsMap;
-            // no item with that name in the master, then check the slide
-            if (item is null) {
-                item = ident in toSlide.itemsMap;
-            }
-            if (item !is null) {
-
-                Variant var = assignment.value.value.toVariant;
-
-                if (var.convertsTo!(Quantity)) {
-                    EvalResult res = evalQuantity(var.get!Quantity);
-                    result.absorb(res);
-                    if (res.ok) {
-                        // Convert Typedef wrappers here.
-                        if (res.value.has!Seconds)
-                            var = cast(int) res.value.get!Seconds;
-                        if (res.value.has!(Percent))
-                            var = cast(int) res.value.get!Percent;
-                        if (res.value.has!(Centimeter))
-                            var = cast(int) res.value.get!Centimeter;
-                        if (res.value.has!int) {
-                            var = res.value.get!int;
-                        }
-                    }
-                    else {
-                        assert(false, "Failed quantity conversion");
-                    }
+            // Check if identifier is slide field
+            // TODO: make this general.
+            if (ident == "notes") {
+                // TODO: check type
+                if (assignment.value.value.has!RichText) {
+                    toSlide.speakerNotes = assignment.value.value.get!RichText;
                 }
-                else if (var.convertsTo!(RichText)) {
-                    // RichText nodes are processed first
-                    RichText rt = var.get!RichText;
-                    Result!RichText res = resolveRichText(rt);
-                    if (res.ok) {
-                        var = res.value;
-                    }
-                    else {
-                        assert(false, "Error processing richtext assignment");
-                    }
-                }
-
-                if (!item.hasProperty(cast(string) assignment.ident.value[1])) {
-                    result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "No such property `" ~
-                            cast(string) assignment.ident.value[1] ~ "` on element `" ~
-                            cast(
-                                string) assignment.ident.value[0] ~ "`");
-                    result.ok = false;
-                }
-                else if (!item.isPropertyType(cast(string) assignment.ident.value[1], var)) {
-                    result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, assignment.value.loc, "Invalid type: `" ~
-                            assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value.toString ~ "`");
-                    result.ok = false;
-                }
-                else if (!item.setProperty(cast(string) assignment.ident.value[1], var)) {
-                    result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "Unable to set value: `" ~
-                            assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value.toString ~ "`");
-                    result.ok = false;
+                else {
+                    result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, assignment.value.loc, "Only RichText fields `{ ... }` can be assigned to notes.");
                 }
             }
             else {
-                result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownElement, Severity.Error, assignment.ident.loc, "Undefined element `" ~
-                        cast(string) assignment.ident.value[0] ~ "`");
-                result.ok = false;
+                slides.Item* item = ident in toSlide.master.itemsMap;
+                // no item with that name in the master, then check the slide
+                if (item is null) {
+                    item = ident in toSlide.itemsMap;
+                }
+                if (item !is null) {
+
+                    Variant var = assignment.value.value.toVariant;
+
+                    if (var.convertsTo!(Quantity)) {
+                        EvalResult res = evalQuantity(var.get!Quantity);
+                        result.absorb(res);
+                        if (res.ok) {
+                            // Convert Typedef wrappers here.
+                            if (res.value.has!Seconds)
+                                var = cast(int) res.value.get!Seconds;
+                            if (res.value.has!(Percent))
+                                var = cast(int) res.value.get!Percent;
+                            if (res.value.has!(Centimeter))
+                                var = cast(int) res.value.get!Centimeter;
+                            if (res.value.has!int) {
+                                var = res.value.get!int;
+                            }
+                        }
+                        else {
+                            assert(false, "Failed quantity conversion");
+                        }
+                    }
+                    else if (var.convertsTo!(RichText)) {
+                        // RichText nodes are processed first
+                        RichText rt = var.get!RichText;
+                        Result!RichText res = resolveRichText(rt);
+                        if (res.ok) {
+                            var = res.value;
+                        }
+                        else {
+                            assert(false, "Error processing richtext assignment");
+                        }
+                    }
+
+                    if (!item.hasProperty(cast(string) assignment.ident.value[1])) {
+                        result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "No such property `" ~
+                                cast(string) assignment.ident.value[1] ~ "` on element `" ~
+                                cast(
+                                    string) assignment.ident.value[0] ~ "`");
+                        result.ok = false;
+                    }
+                    else if (!item.isPropertyType(cast(string) assignment.ident.value[1], var)) {
+                        result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, assignment.value.loc, "Invalid type: `" ~
+                                assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value.toString ~ "`");
+                        result.ok = false;
+                    }
+                    else if (!item.setProperty(cast(string) assignment.ident.value[1], var)) {
+                        result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "Unable to set value: `" ~
+                                assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value.toString ~ "`");
+                        result.ok = false;
+                    }
+                }
+                else {
+                    result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownElement, Severity.Error, assignment.ident.loc, "Undefined element `" ~
+                            cast(string) assignment.ident.value[0] ~ "`");
+                    result.ok = false;
+                }
             }
             // writeln("Assignment succeeded: ", assignment);
 
@@ -397,7 +412,7 @@ private:
         foreach (fromVal; fromFunc.arguments.positionalArgs) {
             if (fromVal.value.has!QualifiedIdentifier) {
 
-                string ident = cast(string)fromVal.value.get!QualifiedIdentifier.identifiers[0];
+                string ident = cast(string) fromVal.value.get!QualifiedIdentifier.identifiers[0];
                 if (ident !in symboltable) {
                     assert(false, "Undefined identifier `" ~ ident ~ "`");
                 }

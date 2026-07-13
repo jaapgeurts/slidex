@@ -29,6 +29,8 @@ enum DiagnosticKind {
     NameMismatch,
     InvalidUnit,
     InvalidValue,
+    // Special error
+    GeneralError,
 }
 
 // enum DiagnosticKindMessage = [

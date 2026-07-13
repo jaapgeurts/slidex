@@ -30,10 +30,9 @@ SlidexDoc:
     PropertyDeclaration <- (Identifier CREATE )? FuncCall Placement?
     ValueAssignment     <- QualifiedIdentifier EQUAL Value
     Placement           <- AT (CELL / BOUNDS) ArgList
-    SpeakerNotes        <- NOTES BEGIN RichText END
 
 # Slide Contents
-    SlideContent        <- SequenceList / Statement / SpeakerNotes
+    SlideContent        <- SequenceList / Statement
 
 # Events
     SequenceList        <- SEQUENCE BEGIN Event* END SEQUENCE
@@ -199,7 +198,6 @@ import std.functional: toDelegate;
         rules["PropertyDeclaration"] = toDelegate(&PropertyDeclaration);
         rules["ValueAssignment"] = toDelegate(&ValueAssignment);
         rules["Placement"] = toDelegate(&Placement);
-        rules["SpeakerNotes"] = toDelegate(&SpeakerNotes);
         rules["SlideContent"] = toDelegate(&SlideContent);
         rules["SequenceList"] = toDelegate(&SequenceList);
         rules["Event"] = toDelegate(&Event);
@@ -708,47 +706,11 @@ import std.functional: toDelegate;
         return "SlidexDoc.Placement";
     }
 
-    static TParseTree SpeakerNotes(TParseTree p)
-    {
-        if(__ctfe)
-        {
-            return         pegged.peg.defined!(pegged.peg.and!(NOTES, BEGIN, RichText, END), "SlidexDoc.SpeakerNotes")(p);
-        }
-        else
-        {
-            if (auto m = tuple(`SpeakerNotes`, p.end) in memo)
-                return *m;
-            else
-            {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(NOTES, BEGIN, RichText, END), "SlidexDoc.SpeakerNotes"), "SpeakerNotes")(p);
-                memo[tuple(`SpeakerNotes`, p.end)] = result;
-                return result;
-            }
-        }
-    }
-
-    static TParseTree SpeakerNotes(string s)
-    {
-        if(__ctfe)
-        {
-            return         pegged.peg.defined!(pegged.peg.and!(NOTES, BEGIN, RichText, END), "SlidexDoc.SpeakerNotes")(TParseTree("", false,[], s));
-        }
-        else
-        {
-            forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(NOTES, BEGIN, RichText, END), "SlidexDoc.SpeakerNotes"), "SpeakerNotes")(TParseTree("", false,[], s));
-        }
-    }
-    static string SpeakerNotes(GetName g)
-    {
-        return "SlidexDoc.SpeakerNotes";
-    }
-
     static TParseTree SlideContent(TParseTree p)
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.or!(SequenceList, Statement, SpeakerNotes), "SlidexDoc.SlideContent")(p);
+            return         pegged.peg.defined!(pegged.peg.or!(SequenceList, Statement), "SlidexDoc.SlideContent")(p);
         }
         else
         {
@@ -756,7 +718,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(SequenceList, Statement, SpeakerNotes), "SlidexDoc.SlideContent"), "SlideContent")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.or!(SequenceList, Statement), "SlidexDoc.SlideContent"), "SlideContent")(p);
                 memo[tuple(`SlideContent`, p.end)] = result;
                 return result;
             }
@@ -767,12 +729,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.or!(SequenceList, Statement, SpeakerNotes), "SlidexDoc.SlideContent")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.or!(SequenceList, Statement), "SlidexDoc.SlideContent")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.or!(SequenceList, Statement, SpeakerNotes), "SlidexDoc.SlideContent"), "SlideContent")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.or!(SequenceList, Statement), "SlidexDoc.SlideContent"), "SlideContent")(TParseTree("", false,[], s));
         }
     }
     static string SlideContent(GetName g)
