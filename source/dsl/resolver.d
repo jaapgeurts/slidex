@@ -111,6 +111,7 @@ private:
 
             // TODO: test whether there are no duplicate property identifiers between master and slides
             // search items in master
+            // Not only search for duped items, also search for property - item name clashes
             string ident = (cast(string) assignment.ident.value[0]);
             Variant var = assignment.value.value.toVariant;
             slides.Item* item = ident in toSlide.master.itemsMap;
