@@ -110,6 +110,7 @@ private:
             // TODO: test whether there are no duplicate property identifiers between master and slides
             // search items in master
             string ident = (cast(string) assignment.ident.value[0]);
+            Variant var = assignment.value.value.toVariant;
             slides.Item* item = ident in toSlide.master.itemsMap;
             // no item with that name in the master, then check the slide
             if (item is null) {
@@ -117,7 +118,7 @@ private:
             }
             if (item !is null) {
 
-                Variant var = assignment.value.value.toVariant;
+                // TODO: get rid of the variant.
 
                 if (var.convertsTo!(Quantity)) {
                     EvalResult res = evalQuantity(var.get!Quantity);
@@ -149,24 +150,36 @@ private:
                         assert(false, "Error processing richtext assignment");
                     }
                 }
-
-                if (!item.hasProperty(cast(string) assignment.ident.value[1])) {
+                string propName = cast(string) assignment.ident.value[1];
+                if (!item.hasProperty(propName)) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "No such property `" ~
-                            cast(string) assignment.ident.value[1] ~ "` on element `" ~
+                            propName ~ "` on element `" ~
                             cast(
                                 string) assignment.ident.value[0] ~ "`");
                     result.ok = false;
                 }
-                else if (!item.isPropertyType(cast(string) assignment.ident.value[1], var)) {
+                else if (!item.isPropertyType(propName, var)) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, assignment.value.loc, "Invalid type: `" ~
                             assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value.toString ~ "`");
                     result.ok = false;
                 }
-                else if (!item.setProperty(cast(string) assignment.ident.value[1], var)) {
+                else if (!item.setProperty(propName, var)) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "Unable to set value: `" ~
                             assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value.toString ~ "`");
                     result.ok = false;
                 }
+            }
+            else if (toSlide.hasProperty(ident)) {
+                // The item is a property field of the slide.
+                if (toSlide.isPropertyType(ident, var)) {
+                    toSlide.setProperty(ident, var);
+                }
+                else {
+                    result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, assignment.value.loc, "Invalid type: `" ~
+                            assignment.value.value.typeName ~ "` for field `" ~ assignment.ident.value.toString ~ "`");
+                    result.ok = false;
+                }
+
             }
             else {
                 result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownElement, Severity.Error, assignment.ident.loc, "Undefined element `" ~
@@ -176,9 +189,6 @@ private:
             // writeln("Assignment succeeded: ", assignment);
 
         }
-
-        if (fromSlide.speakerNotes)
-            toSlide.speakerNotes = fromSlide.speakerNotes;
 
         // TODO: cross check all symbol references. (2-pass)
 
@@ -397,7 +407,7 @@ private:
         foreach (fromVal; fromFunc.arguments.positionalArgs) {
             if (fromVal.value.has!QualifiedIdentifier) {
 
-                string ident = cast(string)fromVal.value.get!QualifiedIdentifier.identifiers[0];
+                string ident = cast(string) fromVal.value.get!QualifiedIdentifier.identifiers[0];
                 if (ident !in symboltable) {
                     assert(false, "Undefined identifier `" ~ ident ~ "`");
                 }

@@ -383,8 +383,14 @@ class PresenterWindow : Window {
 
     void setCurrentSlide(Slide slide) {
         currentSlideView.setSlide(slide);
-        if (slide)
-            lblNotes.setText(slide.speakerNotes.toString());
+        if (slide) {
+            if (slide.notes) {
+                lblNotes.setText(slide.notes.toString);
+            }
+            else {
+                lblNotes.setText(null);
+            }
+        }
     }
 
     void setNextSlide(Slide slide) {
@@ -425,7 +431,7 @@ class PresentationController {
         this.deck = deck;
 
         initialSlideStates = new SlideState[deck.slides.length];
-        for(size_t i; i < initialSlideStates.length; ++i) {
+        for (size_t i; i < initialSlideStates.length; ++i) {
             initialSlideStates[i] = deck.slides[i].getState();
         }
 

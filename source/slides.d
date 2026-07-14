@@ -1,11 +1,13 @@
 module slides;
 
 import std.sumtype;
+import std.meta;
 import std.traits;
 import std.typecons;
 import std.sumtype;
 import std.variant;
 
+import property;
 import types;
 
 // TODO: This can be removed later
@@ -13,6 +15,7 @@ mixin template DumpFieldsToString() {
     import std.array : appender;
     import std.conv : to;
     import std.traits : FieldNameTuple;
+    import dsl.ast;
 
     override string toString() const {
         auto result = appender!string;
@@ -76,7 +79,7 @@ class ItemVisitorAdapter : ItemVisitor {
     // dfmt on
 }
 
-mixin template ItemAcceptVisitor() {
+mixin template AcceptItemVisitorFunc() {
     override void accept(ItemVisitor visitor) {
         visitor.visit(this);
     }
@@ -100,6 +103,88 @@ struct Length {
 }
 
 alias IntOrLength = SumType!(int, Length[]);
+
+template isValidPropertyType(T) {
+    enum isValidPropertyType = staticIndexOf!(T, PropertyTypes) != -1;
+}
+
+mixin template DefineProperty(T, string name, T defaultval = T.init) {
+    static assert(isValidPropertyType!T, "Property type " ~ T.stringof ~ " is not in PropertyTypes.");
+
+    // registers the property in the dict at construction
+    static this() {
+        defaultProperties[name] = Property(defaultval);
+    }
+
+    // generate typed accessors
+    mixin(T.stringof ~ " " ~ name ~ "() { return properties[\"" ~ name ~ "\"].match!((" ~ T.stringof ~ " v) => v, _ => " ~ T
+            .stringof ~ ".init); }");
+
+    mixin("void " ~ name ~ "(" ~ T.stringof ~ " val) { properties[name] = Property(val); }");
+
+}
+
+mixin template PropertyFunctions() {
+    Property[string] properties;
+    static Property[string] defaultProperties;
+
+    Property getProperty(string name) {
+        return properties[name];
+    }
+
+    bool setProperty(string name, Variant value) {
+        Property* p = name in properties;
+        if (p is null)
+            return false;
+
+        if (auto v = value.peek!TextAlignment)
+            *p = Property(*v);
+        else if (auto v = value.peek!string)
+            *p = Property(*v);
+        else if (auto v = value.peek!bool)
+            *p = Property(*v);
+        else if (auto v = value.peek!int)
+            *p = Property(*v);
+        else if (auto v = value.peek!float)
+            *p = Property(*v);
+        else if (auto v = value.peek!RichText)
+            *p = Property(*v);
+        else if (auto v = value.peek!RgbColour)
+            *p = Property(*v);
+        else
+            return false;
+
+        return true;
+    }
+
+    bool isPropertyType(string name, Variant t) {
+        Property* p = name in properties;
+        if (p is null)
+            return false;
+
+        return (*p).match!(
+            // _ => false
+                // static foreach(T;  PropertyTypes) {
+                //         (T ) => t.type() == typeid(T),
+                // }
+                (TextAlignment ta) => t.type() == typeid(TextAlignment),
+                (string s) => t.type() == typeid(string),
+                (bool b) => t.type() == typeid(bool),
+                (int i) => t.type() == typeid(int),
+                (float f) => t.type() == typeid(float),
+                (RichText rt) => t.type() == typeid(RichText),
+                (RgbColour rc) => t.type() == typeid(RgbColour), // _ => false,
+
+                
+
+        );
+
+    }
+
+    bool hasProperty(string name) {
+        return (name in properties) !is null;
+    }
+}
 
 class Master {
     string name;
@@ -138,14 +223,14 @@ class Master {
 
 class SlideState {
 
-    Variant[string] values;
+    Property[string] values;
 
     void put(T)(string obj, string key, T value) {
-        values[obj ~ "." ~ key] = Variant(value);
+        values[obj ~ "." ~ key] = Property(value);
     }
 
     T get(T)(string obj, string key) {
-        return values[obj ~ "." ~ key].get!T;
+        return values[obj ~ "." ~ key].match!((T v) => v, _ => T.init);
     }
 }
 
@@ -226,13 +311,17 @@ class Slide {
 
     Event[] events;
 
-    RichText speakerNotes;
+    mixin PropertyFunctions;
+
+    mixin DefineProperty!(RichText, "notes");
 
     this(string name) {
         this.name = name;
-        speakerNotes = new RichText();
+        this.properties = defaultProperties.dup;
+
     }
 
+    // TODO: remove this later
     mixin DumpFieldsToString;
 
     void accept(ItemVisitor visitor) {
@@ -256,163 +345,97 @@ class Slide {
 
 }
 
-// This struct is for field annotations
-struct DslField {
-}
-
-mixin template DslProperties() {
-    override bool hasProperty(string name) {
-        switch (name) {
-            static foreach (member; __traits(allMembers, typeof(this))) {
-                static if (hasUDA!(__traits(getMember, typeof(this), member), DslField)) {
-        case member:
-                    return true;
-                }
-            }
-        default:
-            return false;
-        }
-    }
-
-    override bool isPropertyType(string name, Variant var) {
-        switch (name) {
-            static foreach (member; __traits(allMembers, typeof(this))) {
-                static if (hasUDA!(__traits(getMember, typeof(this), member), DslField)) {
-        case member: {
-                        alias FT = typeof(__traits(getMember, typeof(this), member));
-                        return var.convertsTo!(FT);
-                    }
-                }
-            }
-        default:
-            return false;
-        }
-    }
-
-    override bool setProperty(string name, Variant value) {
-
-        switch (name) {
-            static foreach (member; __traits(allMembers, typeof(this))) {
-                static if (hasUDA!(__traits(getMember, typeof(this), member), DslField)) {
-        case member:
-                    alias FT = typeof(__traits(getMember, typeof(this), member));
-                    __traits(getMember, this, member) = value.get!FT;
-                    return true;
-                }
-            }
-            break;
-        default:
-        }
-        return false;
-    }
-
-    override Variant[string] getState() {
-        Variant[string] state;
-        static foreach (member; __traits(allMembers, typeof(this))) {
-            static if (hasUDA!(__traits(getMember, typeof(this), member), DslField)) {
-                state[member.stringof] = Variant(__traits(getMember, this, member));
-            }
-        }
-        return state;
-    }
-
-    override void setState(Variant[string] state) {
-        foreach (key, value; state) {
-            setProperty(key, value);
-        }
-    }
-}
-
 class Item {
     string name;
 
-    @DslField
-    bool visible = true;
+    static Property[string] defaultProperties;
+    mixin PropertyFunctions;
+    mixin DefineProperty!(bool, "visible", true);
 
     LayoutLocation layoutLocation;
 
+    this() {
+        properties = defaultProperties.dup;
+    }
+
     this(string name) {
+        this();
         this.name = name;
     }
 
-    abstract bool hasProperty(string name);
-    abstract bool isPropertyType(string name, Variant info);
-    abstract bool setProperty(string name, Variant value);
-
     abstract void accept(ItemVisitor visitor);
-
-    abstract Variant[string] getState();
-    abstract void setState(Variant[string] state);
 
 }
 
 class Rect : Item {
 
-    @DslField
-    RgbColour fill;
+    static Property[string] defaultProperties;
+    mixin DefineProperty!(RgbColour, "fill");
 
     this(string name, RgbColour fill) {
         super(name);
+        foreach (k, v; defaultProperties)
+            properties[k] = v;
+
         this.fill = fill;
     }
 
-    mixin DslProperties;
-
-    mixin ItemAcceptVisitor;
+    mixin AcceptItemVisitorFunc;
 }
 
 class Text : Item {
 
-    @DslField
-    RichText content;
+    static Property[string] defaultProperties;
+    mixin DefineProperty!(RichText, "content");
+    mixin DefineProperty!(RgbColour, "colour");
+    mixin DefineProperty!(int, "size", 32);
+    mixin DefineProperty!(TextAlignment, "alignment", TextAlignment.Left);
 
-    @DslField
-    RgbColour colour;
-
-    @DslField
-    int size = 32; // default font size
-
-    @DslField
-    TextAlignment alignment = TextAlignment.Left;
+    this() {
+        properties = defaultProperties.dup;
+    }
 
     this(string name, RichText content, RgbColour colour, int size) {
         super(name);
+        foreach (k, v; defaultProperties)
+            properties[k] = v;
+
         this.content = content;
         this.colour = colour;
         this.size = size;
     }
 
-    mixin DslProperties;
-
-    mixin ItemAcceptVisitor;
+    mixin AcceptItemVisitorFunc;
 }
 
 class Image : Item {
-    @DslField
-    string path;
+    static Property[string] defaultProperties;
+    mixin DefineProperty!(string, "path");
 
     this(string name, string path) {
         super(name);
+        foreach (k, v; defaultProperties)
+            properties[k] = v;
+
         this.path = path;
     }
 
-    mixin DslProperties;
-
-    mixin ItemAcceptVisitor;
+    mixin AcceptItemVisitorFunc;
 }
 
 class Video : Item {
-    @DslField
-    string path;
+    static Property[string] defaultProperties;
+    mixin DefineProperty!(string, "path");
 
     this(string name, string path) {
         super(name);
+        foreach (k, v; defaultProperties)
+            properties[k] = v;
+
         this.path = path;
     }
 
-    mixin DslProperties;
-
-    mixin ItemAcceptVisitor;
+    mixin AcceptItemVisitorFunc;
 }
 
 class Function {
