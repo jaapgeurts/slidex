@@ -110,6 +110,7 @@ alias LayoutLocation = SumType!(CellLocation, BoundsLocation);
 
 alias TextItem = SumType!(Word, LineBreak, EscapedChar, Bold, Italic, Underline, Variable, InlineFunc, ListBlock, Code);
 
+// TODO: reconsider moving this function and in which module(file) to place it.
 string toString(TextItem item) {
     return item.match!(
         (Word w) { return w.text ~ " "; },

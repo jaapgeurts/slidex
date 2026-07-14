@@ -11,7 +11,6 @@ import std.variant;
 
 public import types;
 import dsl.parser;
-import types;
 
 // TODO: move this to parser.d
 alias DslTypes = AliasSeq!(
@@ -263,7 +262,6 @@ class Slide {
     // assignments that should be resolved later
     ValueAssignment[] assignments;
     
-    RichText speakerNotes;
 }
 
 alias Statement = SumType!(ValueAssignment, PropertyDeclaration);
