@@ -56,27 +56,6 @@ SourceLocation sourceLocation(ParseTree root, string filepath) {
     return sourceLocation(position(root), filepath);
 }
 
-RgbColour namedColourToRgb(NamedColour colour) {
-    final switch (colour) {
-    case NamedColour.Red:
-        return RgbColour(0xff, 0x00, 0x00);
-    case NamedColour.Green:
-        return RgbColour(0x00, 0xff, 0x00);
-    case NamedColour.Blue:
-        return RgbColour(0x00, 0x00, 0xff);
-    case NamedColour.Cyan:
-        return RgbColour(0x00, 0xff, 0xff);
-    case NamedColour.Magenta:
-        return RgbColour(0xff, 0x00, 0xff);
-    case NamedColour.Yellow:
-        return RgbColour(0xff, 0xff, 0x00);
-    case NamedColour.White:
-        return RgbColour(0xff, 0xff, 0xff);
-    case NamedColour.Black:
-        return RgbColour(0x00, 0x00, 0x00);
-    }
-}
-
 CellAlignment alignmentToCellAlignment(Alignment alignment) {
     final switch (alignment) {
     case Alignment.TopLeft:

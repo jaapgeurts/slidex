@@ -63,6 +63,44 @@ struct RgbColour {
 
     static RgbColour Black = RgbColour(0, 0, 0);
     static RgbColour White = RgbColour(0xff, 0xff, 0xff);
+    static RgbColour Red = RgbColour(0xff, 0x00, 0x00);
+    static RgbColour Green = RgbColour(0x00, 0xff, 0x00);
+    static RgbColour Blue = RgbColour(0x00, 0x00, 0xff);
+    static RgbColour Cyan = RgbColour(0x00, 0xff, 0xff);
+    static RgbColour Magenta = RgbColour(0xff, 0x00, 0xff);
+    static RgbColour Yellow = RgbColour(0xff, 0xff, 0x00);
+}
+
+enum NamedColour {
+    Red,
+    Green,
+    Blue,
+    Cyan,
+    Magenta,
+    Yellow,
+    White,
+    Black,
+}
+
+RgbColour namedColourToRgb(NamedColour colour) {
+    final switch (colour) {
+    case NamedColour.Red:
+        return RgbColour.Red;
+    case NamedColour.Green:
+        return RgbColour.Green;
+    case NamedColour.Blue:
+        return RgbColour.Blue;
+    case NamedColour.Cyan:
+        return RgbColour.Cyan;
+    case NamedColour.Magenta:
+        return RgbColour.Magenta;
+    case NamedColour.Yellow:
+        return RgbColour.Yellow;
+    case NamedColour.White:
+        return RgbColour.White;
+    case NamedColour.Black:
+        return RgbColour.Black;
+    }
 }
 
 enum CellAlignment {
@@ -139,7 +177,7 @@ string toString(TextItem item) {
         string s = "";
         foreach (ti; lb.items) {
             s ~= "- ";
-            foreach(li; ti.content)
+            foreach (li; ti.content)
                 s ~= toString(li) ~ " ";
             s ~= "\n";
         }

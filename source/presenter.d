@@ -613,10 +613,13 @@ private:
 
         Slide activeSlide = slide;
 
+
+
         if (activeSlide is null) {
             activeSlide = endOfPresentationSlide;
         }
 
+        
         if (isBlanking && slide !is null) {
             writeln("blanking");
             context.setSourceRgb(0, 0, 0);
@@ -630,7 +633,8 @@ private:
 
         drawing.factor = factor;
 
-        activeSlide.master.accept(drawing);
+        if (activeSlide.master)
+            activeSlide.master.accept(drawing);
         activeSlide.accept(drawing);
 
         if (isDebugMode) {

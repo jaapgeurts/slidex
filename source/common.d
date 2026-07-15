@@ -7,11 +7,11 @@ import types;
 
 struct Config {
     bool debug_;
-	bool verbose;
-	uint slidenum;
-	uint monitornum;
-	bool showpresenter;
-	bool watch;
+    bool verbose;
+    uint slidenum;
+    uint monitornum;
+    bool showpresenter;
+    bool watch;
 }
 
 enum DiagnosticKind {
@@ -51,7 +51,13 @@ enum Severity {
     Warning,
 }
 
-private string[] severityMsg = ["Error", "Warning"];
+enum AnsiRed = "\x1b[1;31m";
+enum AnsiYellow = "\x1b[1;33m";
+enum AnsiClear = "\x1b[0m";
+
+private string[] severityMsg = [
+    AnsiRed ~ "Error" ~ AnsiClear, AnsiYellow ~ "Warning" ~ AnsiClear
+];
 
 struct Diagnostic {
     DiagnosticKind kind;
@@ -92,7 +98,7 @@ alias VoidResult = Result!void;
 // void printError(R)(const Diagnostic diagnostic, R sink) if (isOutputRange!(R, char)) {
 void printError(const Diagnostic diagnostic, File file) {
     // TODO: change concat to appender
-    string message = format("%s:(%u,%u): \x1b[1;31m%s\x1b[0m: %s",
+    string message = format("%s:(%u,%u): %s\x1b[0m: %s",
         diagnostic.loc.filepath,
         diagnostic.loc.line + 1,
         diagnostic.loc.column + 1,
@@ -101,18 +107,16 @@ void printError(const Diagnostic diagnostic, File file) {
     file.writeln(message);
 }
 
-ubyte[] fromHex(scope const(char)[] s)
-{
+ubyte[] fromHex(scope const(char)[] s) {
     import std.array;
     import std.conv;
-    
-    if (s.length % 2 != 0 )
+
+    if (s.length % 2 != 0)
         throw new Exception("Invalid hex input string. Odd number of characters");
 
     auto buf = appender!(ubyte[])();
 
-    foreach (i; 0 .. s.length / 2)
-    {
+    foreach (i; 0 .. s.length / 2) {
         auto byteStr = s[i * 2 .. i * 2 + 2];
         buf.put(cast(ubyte) to!uint(byteStr, 16));
     }

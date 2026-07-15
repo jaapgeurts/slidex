@@ -140,16 +140,6 @@ struct LocatedVal(T) {
 
 }
 
-enum NamedColour {
-    Red,
-    Green,
-    Blue,
-    Cyan,
-    Magenta,
-    Yellow,
-    White,
-    Black,
-}
 
 enum Alignment {
     TopLeft,
@@ -250,7 +240,7 @@ class Master {
 
 class Slide {
 
-    string name;
+    LocatedVal!string name;
     LocatedVal!string masterName;
     Master master;
 

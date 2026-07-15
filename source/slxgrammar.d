@@ -17,7 +17,7 @@ SlidexDoc:
     Master              <- MASTER OpeningIdentifier BEGIN MasterContent END MASTER ClosingIdentifier
 
 # Slide
-    Slide               <- SLIDE OpeningIdentifier FROM MasterIdentifier BEGIN SlideContent* END SLIDE ClosingIdentifier
+    Slide               <- SLIDE OpeningIdentifier (FROM MasterIdentifier)? BEGIN SlideContent* END SLIDE ClosingIdentifier
 
 # DeckContent
     DeckContent         <- ValueAssignment SEMICOLON
@@ -458,7 +458,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(SLIDE, OpeningIdentifier, FROM, MasterIdentifier, BEGIN, pegged.peg.zeroOrMore!(SlideContent), END, SLIDE, ClosingIdentifier), "SlidexDoc.Slide")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(SLIDE, OpeningIdentifier, pegged.peg.option!(pegged.peg.and!(FROM, MasterIdentifier)), BEGIN, pegged.peg.zeroOrMore!(SlideContent), END, SLIDE, ClosingIdentifier), "SlidexDoc.Slide")(p);
         }
         else
         {
@@ -466,7 +466,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(SLIDE, OpeningIdentifier, FROM, MasterIdentifier, BEGIN, pegged.peg.zeroOrMore!(SlideContent), END, SLIDE, ClosingIdentifier), "SlidexDoc.Slide"), "Slide")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(SLIDE, OpeningIdentifier, pegged.peg.option!(pegged.peg.and!(FROM, MasterIdentifier)), BEGIN, pegged.peg.zeroOrMore!(SlideContent), END, SLIDE, ClosingIdentifier), "SlidexDoc.Slide"), "Slide")(p);
                 memo[tuple(`Slide`, p.end)] = result;
                 return result;
             }
@@ -477,12 +477,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(SLIDE, OpeningIdentifier, FROM, MasterIdentifier, BEGIN, pegged.peg.zeroOrMore!(SlideContent), END, SLIDE, ClosingIdentifier), "SlidexDoc.Slide")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(SLIDE, OpeningIdentifier, pegged.peg.option!(pegged.peg.and!(FROM, MasterIdentifier)), BEGIN, pegged.peg.zeroOrMore!(SlideContent), END, SLIDE, ClosingIdentifier), "SlidexDoc.Slide")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(SLIDE, OpeningIdentifier, FROM, MasterIdentifier, BEGIN, pegged.peg.zeroOrMore!(SlideContent), END, SLIDE, ClosingIdentifier), "SlidexDoc.Slide"), "Slide")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(SLIDE, OpeningIdentifier, pegged.peg.option!(pegged.peg.and!(FROM, MasterIdentifier)), BEGIN, pegged.peg.zeroOrMore!(SlideContent), END, SLIDE, ClosingIdentifier), "SlidexDoc.Slide"), "Slide")(TParseTree("", false,[], s));
         }
     }
     static string Slide(GetName g)

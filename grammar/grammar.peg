@@ -14,7 +14,7 @@ SlidexDoc:
     Master              <- MASTER OpeningIdentifier BEGIN MasterContent END MASTER ClosingIdentifier
 
 # Slide
-    Slide               <- SLIDE OpeningIdentifier FROM MasterIdentifier BEGIN SlideContent* END SLIDE ClosingIdentifier
+    Slide               <- SLIDE OpeningIdentifier (FROM MasterIdentifier)? BEGIN SlideContent* END SLIDE ClosingIdentifier
 
 # DeckContent
     DeckContent         <- ValueAssignment SEMICOLON

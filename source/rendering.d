@@ -496,14 +496,15 @@ class GtkDrawingVisitor : ItemVisitor {
     }
 
     void visit(Slide slide) {
-        // with (context) {
-        // // find the dimensions of the text so we can center it
-        // setSourceRgb(0.0, 0.0, 1.0);
-        // textExtents(slide.name, &extents);
-        // moveTo(size.width / 2 - extents.width / 2, size.height / 2 - extents.height / 2);
-        // // moveTo(50,50);
-        // showText(slide.name);
-        // }
+        import std.conv;
+
+        with (context) {
+            slide.background.match!(
+                (RgbColour c) => setSourceRgb(c.r / 255.0, c.g / 255.0, c.b / 255.0),
+                (Image i) => assert(false, "2 Background images not implemented")
+            );
+            paint();
+        }
     }
 
     void visit(Rect rect) {
