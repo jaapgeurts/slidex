@@ -19,8 +19,8 @@ import gst.element_factory;
 import gst.c.types : GstState;
 
 import gtk.overlay;
-import gtk.widget;
 import gtk.types;
+import gtk.widget;
 
 import gobject.value;
 
@@ -83,6 +83,18 @@ class RichTextRenderer {
         fd.setFamily("Libertinus Sans");
         fd.setSize(cast(int)(text.size * factor * SCALE));
         layout.setFontDescription(fd);
+        final switch (text.alignment) {
+        case TextAlignment.Left:
+            layout.setAlignment(Alignment.Left);
+            break;
+        case TextAlignment.Centre:
+            layout.setAlignment(Alignment.Center);
+            break;
+        case TextAlignment.Right:
+            layout.setAlignment(Alignment.Right);
+            break;
+            //     assert(false,"Only left,center and right alignments are implemented");
+        }
         if (attrList)
             attrList.destroy();
         attrList = new AttrList();
@@ -121,35 +133,33 @@ class RichTextRenderer {
 
         // TODO: pull out into function.
         this.text.layoutLocation.match!(
-            (BoundsLocation bl) {
-            assert(false, "Text bounds location not implemented");
-        },
+            (BoundsLocation bl) { x = bl.x; y = bl.y; w = bl.width; h = bl.height; },
             (CellLocation cl) {
             final switch (cl.alignment) {
             case CellAlignment.TopLeft:
                 // default calculation is TopLeft
                 break;
-            case CellAlignment.TopCenter:
+            case CellAlignment.TopCentre:
                 x += (w - logicalRect.width) / 2.0;
                 break;
             case CellAlignment.TopRight:
                 x += w - logicalRect.width;
                 break;
-            case CellAlignment.CenterLeft:
+            case CellAlignment.CentreLeft:
                 y += (h - logicalRect.height) / 2.0;
                 break;
-            case CellAlignment.Center:
+            case CellAlignment.Centre:
                 x += (w - logicalRect.width) / 2.0;
                 y += (h - logicalRect.height) / 2.0;
                 break;
-            case CellAlignment.CenterRight:
+            case CellAlignment.CentreRight:
                 x += w - logicalRect.width;
                 y += (h - logicalRect.height) / 2.0;
                 break;
             case CellAlignment.BottomLeft:
                 y += h - logicalRect.height;
                 break;
-            case CellAlignment.BottomCenter:
+            case CellAlignment.BottomCentre:
                 x += (w - logicalRect.width) / 2.0;
                 y += h - logicalRect.height;
                 break;
@@ -166,13 +176,14 @@ class RichTextRenderer {
             setSourceRgb(this.text.colour.r / 255.0, this.text.colour.g / 255.0, this.text.colour.b / 255.0);
             // textExtents(text.content, &extents);
             // TODO: implement text box alignment
-            moveTo(x + logicalRect.x, y + logicalRect.y);
+            // moveTo(x + logicalRect.x, y + logicalRect.y);
+            moveTo(x, y);
             // showText(text.content);
             showLayout(context, layout);
 
             if (showDebugOverlay) {
                 setLineWidth(1);
-                rectangle(x, y, logicalRect.width, logicalRect.height);
+                rectangle(x, y, w,h);
                 setSourceRgb(0.85, 0.6, 0.6);
                 stroke();
             }
@@ -271,15 +282,6 @@ private:
         /// END
 
         outputLayout(result.data());
-
-        // if (text.alignment == Alignment.Left)
-        //     layout.setAlignment(PangoAlignment.LEFT);
-        // else if (text.alignment == Alignment.Center)
-        //     layout.setAlignment(PangoAlignment.CENTER);
-        // else if (text.alignment == Alignment.Right)
-        //     layout.setAlignment(PangoAlignment.RIGHT);
-        // else
-        //     assert(false,"Only left,center and right alignments are implemented");
 
     }
 
@@ -501,7 +503,7 @@ class GtkDrawingVisitor : ItemVisitor {
         with (context) {
             slide.background.match!(
                 (RgbColour c) => setSourceRgb(c.r / 255.0, c.g / 255.0, c.b / 255.0),
-                (Image i) => assert(false, "2 Background images not implemented")
+                (Image i) => assert(false, "Background images not implemented")
             );
             paint();
         }
@@ -639,9 +641,7 @@ class GtkDrawingVisitor : ItemVisitor {
 
         float x, y, w, h;
         text.layoutLocation.match!(
-            (BoundsLocation bl) {
-            assert(false, "Text bounds location not implemented");
-        },
+            (BoundsLocation bl) { x = bl.x; y = bl.y; w = bl.width; h = bl.height; },
             (CellLocation cl) {
             x = colsizes[0 .. cl.col].sum;
             w = colsizes[cl.col .. cl.col + cl.colspan].sum;

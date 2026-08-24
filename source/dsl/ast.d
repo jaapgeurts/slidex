@@ -18,11 +18,11 @@ alias DslTypes = AliasSeq!(
     int,
     float,
     bool,
-    Identifier,
-    QualifiedIdentifier,
+    Alignment,
     RichText,
     NamedColour,
-    Alignment,
+    QualifiedIdentifier,
+    Identifier,
     Quantity,
     Date,
     FuncCall,
@@ -140,16 +140,25 @@ struct LocatedVal(T) {
 
 }
 
+LocatedVal!T locatedVal(T)(T val, SourceLocation location) {
+    return LocatedVal!T(value: val, loc: location);
+}
 
+/// There is one alignment type for all alignment kinds.
+/// It's the job of the grammar, parser and resolver to validate actual values.
 enum Alignment {
+    Left,
+    Top,
+    Right,
+    Bottom,
     TopLeft,
-    TopCenter,
+    TopCentre,
     TopRight,
-    CenterLeft,
-    Center,
-    CenterRight,
+    CentreLeft,
+    Centre,
+    CentreRight,
     BottomLeft,
-    BottomCenter,
+    BottomCentre,
     BottomRight
 }
 
@@ -289,7 +298,7 @@ struct Text {
     RichText content;
     RgbColour colour;
     int size = 32; // default size
-    // Alignment alignment = Alignment.TopLeft;
+    LocatedVal!Alignment alignment;
 }
 
 struct Image {

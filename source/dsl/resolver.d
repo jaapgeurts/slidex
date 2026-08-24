@@ -2,6 +2,7 @@ module resolver;
 
 import std.algorithm;
 import std.array;
+import std.conv;
 import std.stdio;
 import std.sumtype;
 import std.variant;
@@ -29,6 +30,27 @@ import types;
 //         Diagnostic(DiagnosticKind.InvalidUnit, Severity.Error, loc, "Invalid unit name `" ~ str ~ "` conversion not implemented.")
 //     ]);
 // }
+
+Result!(types.TextAlignment) alignmentToTextAlignment(dsl.ast.Alignment alignment) {
+    Result!(types.TextAlignment) result = Result!(types.TextAlignment)(ok: true);
+    switch (alignment) {
+    case dsl.ast.Alignment.Left:
+        result.value = types.TextAlignment.Left;
+        break;
+    case dsl.ast.Alignment.Right:
+        result.value = types.TextAlignment.Right;
+        break;
+    case dsl.ast.Alignment.Centre:
+        result.value = types.TextAlignment.Centre;
+        break;
+    default:
+        // TODO: add source location
+        result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidValue, Severity.Error, SourceLocation(), "Invalid text alignment value `" ~ alignment
+                .to!string ~ "`. Expected: left, right, centre");
+        result.ok = false;
+    }
+    return result;
+}
 
 struct AbstractTree {
     dsl.parser.Deck root;
@@ -270,29 +292,41 @@ private:
 
     Result!(slides.Item) buildItem(dsl.ast.Item fromItem) {
         slides.Item toItem = fromItem.shape.match!(
-            (dsl.ast.Rect r) => cast(slides.Item) new slides.Rect(fromItem.name, r.fill),
-            (dsl.ast.Text t) {
-            RichText rt;
-            if (t.content !is null) {
-                Result!RichText res = resolveRichText(t.content);
+            // TODO: return errors
+                (dsl.ast.Rect r) => cast(slides.Item) new slides.Rect(fromItem.name, r.fill),
+                (dsl.ast.Text t) {
+                RichText rt;
+                if (t.content !is null) {
+                    Result!RichText res = resolveRichText(t.content);
+                    if (res.ok) {
+                        rt = res.value;
+                    }
+                    else {
+                        assert(false, "handling error during rich tech resolve not implemented");
+                    }
+                }
+                // TODO: keep symbol table??
+                symboltable[fromItem.name] = SlidexTypeKind.Text;
+                slides.Text text = new slides.Text(fromItem.name, rt, t.colour, t.size);
+                Result!TextAlignment res = alignmentToTextAlignment(t.alignment);
                 if (res.ok) {
-                    rt = res.value;
+                    text.alignment = res.value;
                 }
                 else {
-                    assert(false, "handling error during rich tech resolve not implemented");
+                    assert(false, "Conversion of text alignment failed");
                 }
-            }
-            symboltable[fromItem.name] = SlidexTypeKind.Text;
-            return new slides.Text(fromItem.name, rt, t.colour, t.size);
-        },
-            (dsl.ast.Image i) {
-            symboltable[fromItem.name] = SlidexTypeKind.Image;
-            return new slides.Image(fromItem.name, i.path);
-        },
-            (dsl.ast.Video m) {
-            symboltable[fromItem.name] = SlidexTypeKind.Video;
-            return new slides.Video(fromItem.name, m.path);
-        },
+
+                // return result errors in this function
+                return text;
+            },
+                (dsl.ast.Image i) {
+                symboltable[fromItem.name] = SlidexTypeKind.Image;
+                return new slides.Image(fromItem.name, i.path);
+            },
+                (dsl.ast.Video m) {
+                symboltable[fromItem.name] = SlidexTypeKind.Video;
+                return new slides.Video(fromItem.name, m.path);
+            },
         );
 
         toItem.layoutLocation = fromItem.layoutLocation;

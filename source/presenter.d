@@ -529,7 +529,7 @@ class SlideView : DrawingArea {
         master.background = RgbColour.Black;
         Text text = new Text("text-549839", new RichText("End of presentation".split(' ')
                 .map!(w => TextItem(Word(w))).array), RgbColour.White, 10);
-        text.layoutLocation = CellLocation(0, 0, 1, 1, 0, 0, 0, CellAlignment.BottomCenter);
+        text.layoutLocation = CellLocation(0, 0, 1, 1, 0, 0, 0, CellAlignment.BottomCentre);
         endOfPresentationSlide.items ~= text;
         endOfPresentationSlide.itemsMap[text.name] = text;
         endOfPresentationSlide.master = master;

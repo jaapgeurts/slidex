@@ -65,7 +65,7 @@ SlidexDoc:
     String              <- :doublequote ~(!doublequote .)* :doublequote WsComment
     RichText            <- :LBRACE :(space* eol)? RichTextNode* :RBRACE
     NamedColour         <- ('red' / 'green' / 'blue' / 'yellow' / 'cyan' / 'magenta' / 'white' / 'black') WsComment
-    Alignment           <- ('topleft' / 'topcenter' / 'topright' / 'centerleft' / 'centerright' / 'center' / 'bottomleft' / 'bottomcenter' / 'bottomright' ) WsComment
+    Alignment           <- ('topleft' / 'topcentre' / 'topright' / 'centreleft' / 'centreright' / 'centre' / 'bottomleft' / 'bottomcentre' / 'bottomright' / 'left' / 'top' / 'right' / 'bottom' ) WsComment
     Boolean             <- ('true' / 'false' / 'yes' / 'no' / 'on' / 'off' ) WsComment
 
     Identifier          <- identifier WsComment
@@ -1610,7 +1610,7 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.keywords!("topleft", "topcenter", "topright", "centerleft", "centerright", "center", "bottomleft", "bottomcenter", "bottomright"), WsComment), "SlidexDoc.Alignment")(p);
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.keywords!("topleft", "topcentre", "topright", "centreleft", "centreright", "centre", "bottomleft", "bottomcentre", "bottomright", "left", "top", "right", "bottom"), WsComment), "SlidexDoc.Alignment")(p);
         }
         else
         {
@@ -1618,7 +1618,7 @@ import std.functional: toDelegate;
                 return *m;
             else
             {
-                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.keywords!("topleft", "topcenter", "topright", "centerleft", "centerright", "center", "bottomleft", "bottomcenter", "bottomright"), WsComment), "SlidexDoc.Alignment"), "Alignment")(p);
+                TParseTree result = hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.keywords!("topleft", "topcentre", "topright", "centreleft", "centreright", "centre", "bottomleft", "bottomcentre", "bottomright", "left", "top", "right", "bottom"), WsComment), "SlidexDoc.Alignment"), "Alignment")(p);
                 memo[tuple(`Alignment`, p.end)] = result;
                 return result;
             }
@@ -1629,12 +1629,12 @@ import std.functional: toDelegate;
     {
         if(__ctfe)
         {
-            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.keywords!("topleft", "topcenter", "topright", "centerleft", "centerright", "center", "bottomleft", "bottomcenter", "bottomright"), WsComment), "SlidexDoc.Alignment")(TParseTree("", false,[], s));
+            return         pegged.peg.defined!(pegged.peg.and!(pegged.peg.keywords!("topleft", "topcentre", "topright", "centreleft", "centreright", "centre", "bottomleft", "bottomcentre", "bottomright", "left", "top", "right", "bottom"), WsComment), "SlidexDoc.Alignment")(TParseTree("", false,[], s));
         }
         else
         {
             forgetMemo();
-            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.keywords!("topleft", "topcenter", "topright", "centerleft", "centerright", "center", "bottomleft", "bottomcenter", "bottomright"), WsComment), "SlidexDoc.Alignment"), "Alignment")(TParseTree("", false,[], s));
+            return hooked!(pegged.peg.defined!(pegged.peg.and!(pegged.peg.keywords!("topleft", "topcentre", "topright", "centreleft", "centreright", "centre", "bottomleft", "bottomcentre", "bottomright", "left", "top", "right", "bottom"), WsComment), "SlidexDoc.Alignment"), "Alignment")(TParseTree("", false,[], s));
         }
     }
     static string Alignment(GetName g)

@@ -105,19 +105,19 @@ RgbColour namedColourToRgb(NamedColour colour) {
 
 enum CellAlignment {
     TopLeft,
-    TopCenter,
+    TopCentre,
     TopRight,
-    CenterLeft,
-    Center,
-    CenterRight,
+    CentreLeft,
+    Centre,
+    CentreRight,
     BottomLeft,
-    BottomCenter,
+    BottomCentre,
     BottomRight
 }
 
 enum TextAlignment {
     Left,
-    Center,
+    Centre,
     Right
 }
 

@@ -32,7 +32,7 @@ import slxgrammar;
 
 alias LocatedResult(T) = Result!(LocatedVal!T);
 
-alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Video, Seconds, Percent, Centimeter, Fraction, Pixel, CellAlignment, SlidexArray);
+alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Video, Seconds, Percent, Centimeter, Fraction, Pixel, Alignment, CellAlignment, SlidexArray);
 
 alias SlidexType = TaggedUnion!SlidexTypes;
 
@@ -56,28 +56,44 @@ SourceLocation sourceLocation(ParseTree root, string filepath) {
     return sourceLocation(position(root), filepath);
 }
 
-CellAlignment alignmentToCellAlignment(Alignment alignment) {
-    final switch (alignment) {
+Result!CellAlignment alignmentToCellAlignment(Alignment alignment) {
+    Result!CellAlignment result = Result!CellAlignment(ok: true);
+    switch (alignment) {
     case Alignment.TopLeft:
-        return CellAlignment.TopLeft;
-    case Alignment.TopCenter:
-        return CellAlignment.TopCenter;
+        result.value = CellAlignment.TopLeft;
+        break;
+    case Alignment.TopCentre:
+        result.value = CellAlignment.TopCentre;
+        break;
     case Alignment.TopRight:
-        return CellAlignment.TopRight;
-    case Alignment.CenterLeft:
-        return CellAlignment.CenterLeft;
-    case Alignment.Center:
-        return CellAlignment.Center;
-    case Alignment.CenterRight:
-        return CellAlignment.CenterRight;
+        result.value = CellAlignment.TopRight;
+        break;
+    case Alignment.CentreLeft:
+        result.value = CellAlignment.CentreLeft;
+        break;
+    case Alignment.Centre:
+        result.value = CellAlignment.Centre;
+        break;
+    case Alignment.CentreRight:
+        result.value = CellAlignment.CentreRight;
+        break;
     case Alignment.BottomLeft:
-        return CellAlignment.BottomLeft;
-    case Alignment.BottomCenter:
-        return CellAlignment.BottomCenter;
+        result.value = CellAlignment.BottomLeft;
+        break;
+    case Alignment.BottomCentre:
+        result.value = CellAlignment.BottomCentre;
+        break;
     case Alignment.BottomRight:
-        return CellAlignment.BottomRight;
+        result.value = CellAlignment.BottomRight;
+        break;
+    default:
+        result.ok = false;
+        // TODO: add source location
+        result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidValue, Severity.Error, SourceLocation(), "Invalid value " ~ alignment
+                .to!string ~ " for cell alignment");
     }
-    assert(false, "unreachable");
+
+    return result;
 }
 
 // TODO: should print the read value string, instead of a reconstructed string
@@ -826,17 +842,26 @@ For root pass in "SlidexDoc.Statement"
         SourceLocation loc = root.sourceLocation(sourceFilePath);
         static immutable AlignmentValues = [
             "topleft": Alignment.TopLeft,
-            "topcenter": Alignment.TopCenter,
+            "topcentre": Alignment.TopCentre,
             "topright": Alignment.TopRight,
-            "centerleft": Alignment.CenterLeft,
-            "center": Alignment.Center,
-            "centerright": Alignment.CenterRight,
+            "centreleft": Alignment.CentreLeft,
+            "centre": Alignment.Centre,
+            "centreright": Alignment.CentreRight,
             "bottomleft": Alignment.BottomLeft,
-            "bottomcenter": Alignment.BottomCenter,
-            "bottomright": Alignment.BottomRight
+            "bottomcentre": Alignment.BottomCentre,
+            "bottomright": Alignment.BottomRight,
+            "left": Alignment.Left,
+            "top": Alignment.Top,
+            "right": Alignment.Right,
+            "bottom": Alignment.Bottom,
         ];
-        Alignment t = AlignmentValues[root.matches[0].toLower.array.to!string];
-        return Result!(LocatedVal!DslType)(ok: true, value: locatedDslType(t, loc));
+        string textvalue = root.matches[0].toLower.array.to!string;
+        if (auto t = textvalue in AlignmentValues) {
+            return Result!(LocatedVal!DslType)(ok: true, value: locatedDslType!Alignment(*t, loc));
+        }
+        else {
+            return Result!(LocatedVal!DslType)(ok: false);
+        }
     }
 
     Result!(LocatedVal!DslType) parseBoolean(ParseTree root) {
@@ -1275,8 +1300,7 @@ EvalResult evalValue(LocatedVal!DslType val) {
                 namedColourToRgb(val.value.get!NamedColour)));
     }
     else if (val.value.has!Alignment) {
-        return EvalResult(ok: true, value: SlidexType(
-                alignmentToCellAlignment(val.value.get!Alignment)));
+        return EvalResult(ok: true, value: SlidexType(val.value.get!Alignment));
     }
     else if (val.value.has!Quantity) {
         return evalQuantity(val.value.get!Quantity);
@@ -1318,7 +1342,7 @@ EvalResult evalValue(LocatedVal!DslType val) {
         return result;
     }
 
-    assert(false, "Evaluation of `" ~ val.value.typeName ~ "` not implemented");
+    assert(false, "Evaluation of " ~ val.value.typeName ~ " with value `" ~ val.value.toString ~ "` not implemented");
 }
 
 EvalResult evalColour(FuncCall rgb) {
@@ -1473,6 +1497,17 @@ EvalResult evalText(FuncCall func) {
             else {
                 result.ok = false;
                 result.diagnostics ~= createInvalidTypeDiag(arg.value, "int");
+            }
+        }
+        if (NamedArg* arg = "align" in func.arguments.namedArgs) {
+            EvalResult res = evalValue(arg.value);
+            result.absorb(res);
+            if (res.ok && res.value.has!Alignment) {
+                text.alignment = locatedVal(res.value.get!Alignment, arg.value.loc);
+            }
+            else {
+                result.ok = false;
+                result.diagnostics ~= createInvalidTypeDiag(arg.value, "Alignment");
             }
         }
     }
