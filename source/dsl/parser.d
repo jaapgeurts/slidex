@@ -1140,66 +1140,83 @@ For root pass in "SlidexDoc.Statement"
                     continue;
                 switch (argname) {
                 case "col":
-                    if (res.value.has!int)
+                    if (res.value.has!int) {
                         cell.col = res.value.get!int - 1;
+                    }
                     else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                         result.ok = false;
                     }
                     break;
                 case "row":
-                    if (res.value.has!int)
+                    if (res.value.has!int) {
                         cell.row = res.value.get!int - 1;
+                    }
                     else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                         result.ok = false;
                     }
                     break;
                 case "colspan":
-                    if (res.value.has!int)
+                    if (res.value.has!int) {
                         cell.colspan = res.value.get!int;
+                    }
                     else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                         result.ok = false;
                     }
                     break;
                 case "rowspan":
-                    if (res.value.has!int)
+                    if (res.value.has!int) {
                         cell.rowspan = res.value.get!int;
+                    }
                     else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                         result.ok = false;
                     }
                     break;
                 case "dx":
-                    if (res.value.has!int)
+                    if (res.value.has!int) {
                         cell.dx = res.value.get!int;
+                    }
                     else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                         result.ok = false;
                     }
                     break;
                 case "dy":
-                    if (res.value.has!int)
+                    if (res.value.has!int) {
                         cell.dy = res.value.get!int;
+                    }
                     else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                         result.ok = false;
                     }
                     break;
                 case "angle":
-                    if (res.value.has!int)
+                    if (res.value.has!int) {
                         cell.angle = res.value.get!int * 0.0174532925;
+                    }
                     else {
                         result.diagnostics ~= createInvalidTypeDiag(val.value, "int");
                         result.ok = false;
                     }
                     break;
                 case "align":
-                    if (res.value.has!CellAlignment)
-                        cell.alignment = res.value.get!CellAlignment;
-                    else
-                        result.diagnostics ~= createInvalidTypeDiag(val.value, "call alignment");
+                    if (res.value.has!Alignment) {
+                        Alignment align_ = res.value.get!Alignment;
+                        Result!CellAlignment r1 = alignmentToCellAlignment(align_);
+                        if (r1.ok) {
+                            cell.alignment = r1.value;
+                        }
+                        else {
+                            result.ok = false;
+                            result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidValue, Severity.Error, val.value.loc, "Invalid cell alignment value: '" ~ align_.to!string ~ "'");
+                        }
+                    }
+                    else {
+                        result.diagnostics ~= createInvalidTypeDiag(val.value, "Alignment");
+                    }
                     break;
                 default:
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownArgument, Severity.Error, args[argname]

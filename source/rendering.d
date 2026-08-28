@@ -3,6 +3,7 @@ module rendering;
 import std.algorithm;
 import std.array;
 import std.conv;
+import std.path;
 import std.stdio;
 import std.sumtype;
 import std.variant;
@@ -11,6 +12,8 @@ import cairo.context;
 import cairo.surface;
 import cairo.types;
 import cairo.global;
+
+import glib.error;
 
 // import gst.types;
 // import gst.gstreamer;
@@ -32,6 +35,9 @@ import pango.types;
 import pango.global;
 
 import pangocairo.global;
+
+import rsvg.handle;
+import rsvg.types;
 
 import common;
 import sharedvars;
@@ -110,6 +116,10 @@ class RichTextRenderer {
         // writeln("SIZE: ", size);
         // writeln("Text: ", text);
 
+        // first attempt to layout the text according to the maximum bounding box allowed.
+        // then take the actual bounding box dimensions and place it in the cell/bounds 
+        // according to the alignment.
+
         float x = size.x + offsetx;
         float y = size.y + offsety;
         float w = size.width;
@@ -132,43 +142,54 @@ class RichTextRenderer {
         //         logicalRect.height)");
 
         // TODO: pull out into function.
+        if (w > logicalRect.width)
+            w = logicalRect.width;
+        if (h > logicalRect.height)
+            h = logicalRect.height;
+
         this.text.layoutLocation.match!(
-            (BoundsLocation bl) { x = bl.x; y = bl.y; w = bl.width; h = bl.height; },
+            (BoundsLocation bl) {
+            x = bl.x * factor;
+            y = bl.y * factor;
+            w = bl.width * factor;
+            h = bl.height * factor;
+        },
             (CellLocation cl) {
+            // don't move the cell, but move the text and
+            // render a frame around the text separate
             final switch (cl.alignment) {
             case CellAlignment.TopLeft:
                 // default calculation is TopLeft
                 break;
             case CellAlignment.TopCentre:
-                x += (w - logicalRect.width) / 2.0;
+                x += (size.width - w) / 2.0;
                 break;
             case CellAlignment.TopRight:
-                x += w - logicalRect.width;
+                x += size.width - w;
                 break;
             case CellAlignment.CentreLeft:
-                y += (h - logicalRect.height) / 2.0;
+                y += (size.height - h) / 2.0;
                 break;
             case CellAlignment.Centre:
-                x += (w - logicalRect.width) / 2.0;
-                y += (h - logicalRect.height) / 2.0;
+                x += (size.width - w) / 2.0;
+                y += (size.height - h) / 2.0;
                 break;
             case CellAlignment.CentreRight:
-                x += w - logicalRect.width;
-                y += (h - logicalRect.height) / 2.0;
+                x += size.width - w;
+                y += (size.height - h) / 2.0;
                 break;
             case CellAlignment.BottomLeft:
-                y += h - logicalRect.height;
+                y += size.height - h;
                 break;
             case CellAlignment.BottomCentre:
-                x += (w - logicalRect.width) / 2.0;
-                y += h - logicalRect.height;
+                x += (size.width - w) / 2.0;
+                y += size.height - h;
                 break;
             case CellAlignment.BottomRight:
-                x += w - logicalRect.width;
-                y += h - logicalRect.height;
+                x += size.width - w;
+                y += size.height - h;
                 break;
             }
-
         });
 
         with (context) {
@@ -183,7 +204,7 @@ class RichTextRenderer {
 
             if (showDebugOverlay) {
                 setLineWidth(1);
-                rectangle(x, y, w,h);
+                rectangle(x, y, w, h);
                 setSourceRgb(0.85, 0.6, 0.6);
                 stroke();
             }
@@ -395,7 +416,7 @@ class GtkDrawingVisitor : ItemVisitor {
             colsizes.length = numcols;
             colsizes[] = size.w / cast(float) numcols;
         },
-            (Length[] dims) {
+            (slides.Length[] dims) {
             colsizes.length = dims.length;
             float fractionSum = 0;
             float fixedSum = 0;
@@ -431,7 +452,7 @@ class GtkDrawingVisitor : ItemVisitor {
             rowsizes.length = numrows;
             rowsizes[] = size.h / cast(float) numrows;
         },
-            (Length[] dims) {
+            (slides.Length[] dims) {
             rowsizes.length = dims.length;
             float fractionSum = 0;
             float fixedSum = 0;
@@ -475,25 +496,6 @@ class GtkDrawingVisitor : ItemVisitor {
             );
             paint();
 
-            if (showDebugOverlay) {
-                // writeln("showdebug");
-                // draw grid
-                setSourceRgb(0.8, 0.8, 0.8);
-                setLineWidth(2);
-                float x = 0;
-                for (size_t i = 0; i < colsizes.length - 1; i++) {
-                    x += colsizes[i];
-                    moveTo(x, 0);
-                    lineTo(x, size.h - 1);
-                }
-                float y = 0;
-                for (size_t i = 0; i < rowsizes.length - 1; i++) {
-                    y += rowsizes[i];
-                    moveTo(0, y);
-                    lineTo(size.w - 1, y);
-                }
-                stroke();
-            }
         }
     }
 
@@ -506,6 +508,28 @@ class GtkDrawingVisitor : ItemVisitor {
                 (Image i) => assert(false, "Background images not implemented")
             );
             paint();
+
+            if (showDebugOverlay) {
+                // writeln("showdebug");
+                // draw grid
+                setSourceRgb(0.8, 0.8, 0.8);
+                setLineWidth(2);
+                float x = 0;
+                for (size_t i = 0; i < colsizes.length - 1; i++) {
+                    x += colsizes[i];
+                    moveTo(x, 0);
+                    lineTo(x, size.h - 1);
+                    // writeln("cols: x: ", x, " y: ", size.h - 1);
+                }
+                float y = 0;
+                for (size_t i = 0; i < rowsizes.length - 1; i++) {
+                    y += rowsizes[i];
+                    moveTo(0, y);
+                    lineTo(size.w - 1, y);
+                    // writeln("rows: x: ", size.w - 1, " y: ", y);
+                }
+                stroke();
+            }
         }
     }
 
@@ -546,9 +570,41 @@ class GtkDrawingVisitor : ItemVisitor {
         if (!image.visible)
             return;
 
-        // writeln("Drawing image: ", rootpath ~ "/" ~ image.path);
+        string filePath = rootpath ~ "/" ~ image.path;
+        //  writeln("Drawing image: ", filePath);
 
-        Surface surface = imageSurfaceCreateFromPng(rootpath ~ "/" ~ image.path);
+        Surface surface;
+        if (extension(filePath) == ".png") {
+            // Factor out code for loading images.
+            surface = imageSurfaceCreateFromPng(filePath);
+            if (surface.status() != Status.Success) {
+                writeln("ERROR: image `", filePath, "` could not be loaded as PNG.");
+                assert(false, "Add error handling");
+            }
+        }
+        else if (extension(filePath) == ".svg") {
+            // get with and height
+            float iw = 300, ih = 200;
+            image.layoutLocation.match!((CellLocation cl) {
+                iw = colsizes[cl.col .. cl.col + cl.colspan].sum;
+                ih = rowsizes[cl.row .. cl.row + cl.rowspan].sum;
+            },
+                (BoundsLocation bl) { iw = bl.width; ih = bl.height; });
+            Handle handle = rsvg.handle.Handle.newFromFile(filePath);
+            surface = imageSurfaceCreate(Format.Argb32, cast(int) iw, cast(int) ih);
+            rsvg.types.Rectangle viewport = rsvg.types.Rectangle(0, 0, iw, ih);
+            try {
+                if (!handle.renderDocument(surface.create(), viewport)) {
+                    writeln("ERROR: 1 image `", filePath, "` could not be loaded. ");
+                    assert(false, "Add error handling");
+                }
+            }
+            catch (ErrorWrap e) {
+                writeln("ERROR: 2 image `", filePath, "` could not be loaded. ", e.message);
+                assert(false, "Add error handling");
+            }
+        }
+
         float img_w = imageSurfaceGetWidth(surface);
         float img_h = imageSurfaceGetHeight(surface);
 

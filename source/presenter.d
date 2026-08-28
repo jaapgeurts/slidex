@@ -679,7 +679,7 @@ private:
     void onSizeAllocate(int width, int height, DrawingArea drawingArea) {
 
         size = Size(width, height);
-        factor = width / 920.0;
+        factor = width / cast(float)WIDTH;
     }
 
     void evaluateFunction(Function func) {
