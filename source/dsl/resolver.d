@@ -223,6 +223,12 @@ private:
 
         // TODO: cross check all symbol references. (2-pass)
 
+        // TODO: do postprocessing. e.g. place background images
+        toSlide.background.match!(
+            (slides.Image i) { i.layoutLocation = BoundsLocation(0,0,1280,720); },
+            (_) {},
+        );
+
         result.value = toSlide;
 
         return result;

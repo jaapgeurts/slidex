@@ -123,7 +123,89 @@ private string sumTypeSetterExpr(T)(string valueExpr) {
     return valueExpr ~ ".match!(" ~ handlers ~ ")";
 }
 
-// One-line-per-property mixin
+/++
+ + Defines a typed, observable property on the host class and registers it
+ + with the class's `properties` map for generic (name-based) access.
+ +
+ + Mixing this template in generates:
+ + $(UL
+ +   $(LI a private backing field `__prop_<name>` of type `T`, initialized
+ +        to `defaultval`;)
+ +   $(LI a public getter `T <name>()` and setter `void <name>(T val)` for
+ +        fast, statically-typed access;)
+ +   $(LI a `__prop_init_<name>()` hook, automatically discovered and
+ +        invoked by `PropertyContainer.initProperties()`, which registers
+ +        a `PropertyAccessor` for `<name>` in `properties`.)
+ + )
+ +
+ + The generated `PropertyAccessor` exposes the field through `PropertyType`
+ + (currently backed by `std.variant.Variant` or a `SumType`, depending on
+ + configuration) so the value can be read or written generically via
+ + `saveState()` / `restoreState()`, without callers needing to know `T`
+ + at compile time.
+ +
+ + If `T` is an integer type such as int, float, bool, enums, etc, then
+ + use or create a Typedef!(T) for it.
+ +
+ + Type aliases for use as `SumType` alternatives / property types in place
+ + of certain built-in D types.
+ +
+ + `SumType`'s `match!` dispatches on the exact static type held, and D's
+ + native `int`, `float`, and `bool` don't play well with that: they're
+ + subject to implicit conversions and overload ambiguities (e.g. `bool`
+ + converting to `int`, or an integer literal matching multiple numeric
+ + handlers at once), which can make `match!` pick the wrong handler or
+ + refuse to compile at all. Wrapping them in a distinct `Typedef` gives
+ + each one its own concrete type, so `match!` (and the property setter's
+ + type-matching logic) can distinguish them unambiguously.
+ +
+ + Use these instead of the native types wherever a property's `T` is used
+ + as a `SumType` alternative:
+ +
+ + If `T` is a `SumType`, the generated setter also accepts any of `T`'s
+ + alternative types directly and wraps them into `T` automatically —
+ + assigning a bare alternative behaves the same as assigning a full `T`
+ + holding that alternative. Assigning any other type throws.
+ +
+ + Params:
+ +   T          = the property's value type. May be a plain type or a
+ +                `std.sumtype.SumType`.
+ +   name       = the property's identifier, used both as the D member
+ +                name (`slide.title`) and as its string key in `properties`
+ +                (`slide.properties["title"]`). Must be a valid D
+ +                identifier.
+ +   defaultval = the value the property holds before anything sets it.
+ +                Defaults to `T.init`.
+ +
+ + Note:
+ +   Requires `mixin PropertyContainer;` (or equivalent) in the same class
+ +   to supply `properties`, `PropertyAccessor`, `PropertyType`, and
+ +   `initProperties()`. The host class's constructor must call
+ +   `initProperties();` before any property is used, or the
+ +   `PropertyContainer` invariant will fail.
+ +
+ + Example:
+ + ---
+ + class Slide
+ + {
+ +     mixin PropertyContainer;
+ +     mixin DefineProperty!(string, "title");
+ +     mixin DefineProperty!(Int, "order", Int(1));
+ +
+ +     this(string title)
+ +     {
+ +         initProperties();
+ +         this.title = title;
+ +     }
+ + }
+ +
+ + auto slide = new Slide("Intro");
+ + slide.order = 2;                 // typed access
+ + auto snap = slide.saveState();   // generic snapshot
+ + slide.order = 99;
+ + slide.restoreState(snap);        // slide.order == 2 again
+ + ---
+ +/
 mixin template DefineProperty(T, string name, T defaultval = T.init) {
     mixin("private " ~ T.stringof ~ " __prop_" ~ name ~ " = defaultval;");
 

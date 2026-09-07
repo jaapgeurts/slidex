@@ -21,6 +21,8 @@ import gst.element;
 import gst.element_factory;
 import gst.c.types : GstState;
 
+import gdkpixbuf.pixbuf;
+
 import gtk.overlay;
 import gtk.types;
 import gtk.widget;
@@ -504,10 +506,12 @@ class GtkDrawingVisitor : ItemVisitor {
 
         with (context) {
             slide.background.match!(
-                (RgbColour c) => setSourceRgb(c.r / 255.0, c.g / 255.0, c.b / 255.0),
-                (Image i) => assert(false, "Background images not implemented"),
+                (RgbColour c) {
+                    setSourceRgb(c.r / 255.0, c.g / 255.0, c.b / 255.0);
+                    paint();
+                },
+                (Image i) { drawImage(i); },
             );
-            paint();
 
             if (showDebugOverlay) {
                 // writeln("showdebug");
@@ -565,7 +569,7 @@ class GtkDrawingVisitor : ItemVisitor {
         }
     }
 
-    void visit(Image image) {
+    private void drawImage(Image image) {
 
         if (!image.visible)
             return;
@@ -574,6 +578,7 @@ class GtkDrawingVisitor : ItemVisitor {
         //  writeln("Drawing image: ", filePath);
 
         Surface surface;
+        // TODO: factor out loading images.
         if (extension(filePath) == ".png") {
             // Factor out code for loading images.
             surface = imageSurfaceCreateFromPng(filePath);
@@ -583,6 +588,8 @@ class GtkDrawingVisitor : ItemVisitor {
             }
         }
         else if (extension(filePath) == ".svg") {
+            // TODO: convert to Cairo using svgSurfaceCreate()
+            // remove dependency on rsvg
             // get with and height
             float iw = 300, ih = 200;
             image.layoutLocation.match!((CellLocation cl) {
@@ -603,6 +610,28 @@ class GtkDrawingVisitor : ItemVisitor {
                 writeln("ERROR: 2 image `", filePath, "` could not be loaded. ", e.message);
                 assert(false, "Add error handling");
             }
+        }
+        else if (extension(filePath) == ".jpg" || extension(filePath) == ".jpeg") {
+            // TODO: check if this handles PNG's as well
+            import gdk.texture;
+            import gdk.texture_downloader;
+
+            // auto pixbuf = Pixbuf.newFromFile(filePath);
+            Texture texture = Texture.newFromFilename(filePath);
+            TextureDownloader td = new TextureDownloader(texture);
+            size_t stride;
+            auto bytes = td.downloadBytes(stride);
+            stride /= 4;
+            surface = imageSurfaceCreate(Format.Argb32, cast(int) stride, texture.getHeight());
+            uint* dst = cast(uint*) surface.imageSurfaceGetData();
+            surface.flush();
+            uint[] src = cast(uint[]) bytes.getData();
+            dst[0 .. stride * texture.getHeight()] = src[0 .. stride * texture.getHeight()];
+            surface.markDirty();
+        }
+
+        if (surface is null || surface.status() != Status.Success) {
+            assert(false, "Failed loading image: " ~ filePath);
         }
 
         float img_w = imageSurfaceGetWidth(surface);
@@ -655,6 +684,12 @@ class GtkDrawingVisitor : ItemVisitor {
             paint();
             restore();
         }
+
+    }
+
+    void visit(Image image) {
+
+        drawImage(image);
 
     }
 
