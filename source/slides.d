@@ -1,5 +1,6 @@
 module slides;
 
+import std.datetime;
 import std.meta;
 import std.stdio;
 import std.sumtype;
@@ -12,19 +13,135 @@ import types;
 alias BackgroundTypes = AliasSeq!(RgbColour, Image);
 alias BackgroundType = SumType!(BackgroundTypes);
 
+alias Int = Typedef!(int, int.init, "Int");
+alias Float = Typedef!(float, float.init, "Float");
+alias Bool = Typedef!(bool, bool.init, "Bool");
+
 alias PropertyTypes = AliasSeq!(
+    Int,
+    Float,
+    Bool,
     string,
-    int,
-    float,
-    bool,
+    Date,
     RichText,
     RgbColour,
     TextAlignment,
+    Rect,
+    Text,
     Image,
+    Video,
     BackgroundType,
 );
 
 alias PropertyType = SumType!PropertyTypes;
+
+template TypeNameHandler(T) {
+    string handler(T) {
+        return T.stringof;
+    }
+
+    alias TypeNameHandler = handler;
+}
+
+string typeName(PropertyType value) {
+    alias handlers = staticMap!(TypeNameHandler, PropertyType.Types);
+
+    return value.match!handlers;
+}
+
+// Shared accessor type used by the property machinery — not itself mixed in.
+struct PropertyAccessor {
+    PropertyType delegate() get;
+    void delegate(PropertyType) set;
+}
+
+// One-line "shared machinery" mixin: storage + auto-wiring constructor
+mixin template PropertyContainer() {
+    PropertyAccessor[string] properties;
+    Variant[string] defaultProperties;
+
+    void initProperties() {
+        static foreach (member; __traits(allMembers, typeof(this))) {
+            static if (member.length >= 12 && member[0 .. 12] == "__prop_init_")
+                mixin("this." ~ member ~ "();");
+        }
+        // __propertiesWired = true;
+    }
+
+    // private bool __propertiesWired = false;
+    // invariant {
+    //     assert(__propertiesWired, "initProperties() was never called — "
+    //             ~ "add 'initProperties();' as the first line of your constructor");
+    // }
+
+    bool hasProperty(string name) {
+        return (name in properties) !is null;
+    }
+
+    bool setProperty(string name, PropertyType value) {
+        if (!hasProperty(name))
+            return false;
+        properties[name].set(value);
+        return true;
+    }
+
+    // Snapshot every registered property's current value.
+    Variant[string] saveState() {
+        Variant[string] state;
+        foreach (name, accessor; properties)
+            state[name] = accessor.get();
+        return state;
+    }
+
+    // Restore values from a previous saveState() snapshot.
+    // Unknown keys in `state` are silently ignored; missing keys are left untouched.
+    void restoreState(PropertyType[string] state) {
+        foreach (name, value; state) {
+            if (auto accessor = name in properties)
+                accessor.set(value);
+        }
+    }
+
+    void savePropertyDefaults() {
+        defaultProperties = saveState();
+    }
+}
+
+// Builds the string for a SumType-aware setter: exact match on T,
+// or wrap any of T's alternative types into T; anything else throws.
+private string sumTypeSetterExpr(T)(string valueExpr) {
+    string handlers = "(" ~ T.stringof ~ " exact) => exact, ";
+
+    static foreach (Sub; TemplateArgsOf!T)
+        handlers ~= "(" ~ Sub.stringof ~ " sub) => " ~ T.stringof ~ "(sub), ";
+
+    handlers ~= " (other) => assert(false, \"Type mismatch assigning property: got \" ~ typeid(other).toString()),";
+
+    // handlers ~= `(other) { throw new Exception(
+    //     "Type mismatch assigning property: got " ~ typeid(other).toString()); }`;
+
+    return valueExpr ~ ".match!(" ~ handlers ~ ")";
+}
+
+// One-line-per-property mixin
+mixin template DefineProperty(T, string name, T defaultval = T.init) {
+    mixin("private " ~ T.stringof ~ " __prop_" ~ name ~ " = defaultval;");
+
+    static if (isSumType!T) {
+        mixin("private void __prop_init_" ~ name ~ "() { properties[\"" ~ name
+                ~ "\"] = PropertyAccessor(() => PropertyType(__prop_" ~ name
+                ~ "), (PropertyType v) { __prop_" ~ name ~ " = " ~ sumTypeSetterExpr!T(
+                    "v") ~ "; });}");
+    }
+    else {
+        mixin("private void __prop_init_" ~ name ~ "() {properties[\"" ~ name
+                ~ "\"] = PropertyAccessor(() => PropertyType(__prop_" ~ name
+                ~ "),(PropertyType v) { __prop_" ~ name ~ " = v.get!(" ~ T.stringof ~ "); });}");
+    }
+
+    mixin(T.stringof ~ " " ~ name ~ "() { return __prop_" ~ name ~ "; }");
+    mixin("void " ~ name ~ "(" ~ T.stringof ~ " val) { __prop_" ~ name ~ " = val; }");
+}
 
 // TODO: This can be removed later
 mixin template DumpFieldsToString() {
@@ -120,135 +237,6 @@ struct Length {
 
 alias IntOrLength = SumType!(int, Length[]);
 
-template isValidPropertyType(T) {
-    enum isValidPropertyType = staticIndexOf!(T, PropertyTypes) != -1;
-}
-
-mixin template DefineProperty(T, string name, T defaultval = T.init) {
-    static assert(isValidPropertyType!T, "Property type " ~ T.stringof ~ " is not in PropertyTypes.");
-
-    // registers the property in the dict at construction
-    static this() {
-        defaultProperties[name] = PropertyType(defaultval);
-    }
-
-    // generate typed accessors
-    mixin(T.stringof ~ " " ~ name ~ "() { return properties[\"" ~ name ~ "\"].match!((" ~ T.stringof ~ " v) => v, _ => assert(false, \"Property `" ~ name ~ "`: Handler match for `" ~ T
-            .stringof ~ "` not found.\")); }");
-
-    // pragma(msg, T.stringof ~ " " ~ name ~ "() { return properties[\"" ~ name ~ "\"].match!((" ~ T.stringof ~ " v) => v, _ => assert(false, \"Property `" ~ name ~ "`. Getter match for `" ~ T
-    //         .stringof ~ "` not found.\")); }");
-
-    mixin("void " ~ name ~ "(" ~ T.stringof ~ " val) { properties[name] = PropertyType(val); }");
-
-}
-
-mixin template PropertyFunctions() {
-    PropertyType[string] properties;
-    static PropertyType[string] defaultProperties;
-
-    PropertyType getProperty(string name) {
-        return properties[name];
-    }
-
-    static foreach (T; PropertyTypes) {
-        bool setProperty(string name, T value) {
-            PropertyType* p = name in properties;
-            if (p is null)
-                return false;
-
-            if (!(*p).has!T)
-                return false;
-
-            properties[name] = value;
-            return true;
-        }
-
-    }
-
-    bool setProperty(string name, Variant value) {
-
-        PropertyType* p = name in properties;
-        if (p is null)
-            return false;
-
-        if (!isAssignable(name, value))
-            return false;
-
-        (*p).match!(
-            (TextAlignment v) { *p = PropertyType(value.get!TextAlignment);},
-            (string v) { *p = PropertyType(value.get!string);},
-            (bool v) { *p = PropertyType(value.get!bool);},
-            (int v) { *p = PropertyType(value.get!int);},
-            (float v) { *p = PropertyType(value.get!float);},
-            (RichText v) { *p = PropertyType(value.get!RichText);},
-            (Image v) { *p = PropertyType(value.get!Image);},
-            (RgbColour v) { *p = PropertyType(value.get!RgbColour);},
-            (BackgroundType v) {
-                if (value.type() == typeid(BackgroundType))
-                    *p = PropertyType(value.get!BackgroundType);
-                static foreach (T; BackgroundTypes) {
-                    if (value.type() == typeid(T)) {
-                        *p = PropertyType(BackgroundType(value.get!T));
-                        return;
-                    }
-                }
-            },
-        );
-        return true;
-        // static foreach (T; PropertyTypes) {
-        //     if (auto v = value.peek!T) {
-        //         *p = PropertyType(*v);
-        //         // writeln("Setting: ", name, " = ", v);
-        //         // writeln("Prop: ", name, "=", *p);
-        //         return true;
-        //     }
-        // }
-        // return false;
-
-    }
-
-    bool isAssignable(string name, Variant t) {
-        PropertyType* p = name in properties;
-        if (p is null)
-            return false;
-
-        return (*p).match!(
-            // _ => false
-                // static foreach(T;  PropertyTypes) {
-                //         (T ) => t.type() == typeid(T),
-                // }
-                // TODO: it should be possible to expand this from PropertyTypes using templates or mixins
-                (TextAlignment ta) => t.type() == typeid(TextAlignment),
-                (string s) => t.type() == typeid(string),
-                (bool b) => t.type() == typeid(bool),
-                (int i) => t.type() == typeid(int),
-                (float f) => t.type() == typeid(float),
-                (RichText rt) => t.type() == typeid(RichText),
-                (RgbColour rc) => t.type() == typeid(RgbColour),
-                (Image i) => t.type() == typeid(Image),
-                (BackgroundType bt) {
-                if (t.type() == typeid(BackgroundType))
-                    return true;
-                static foreach (T; BackgroundTypes) {
-                    if (t.type() == typeid(T)) {
-                        return true;
-                    }
-                }
-                return false;
-            }, // _ => false,
-
-                
-
-        );
-
-    }
-
-    bool hasProperty(string name) {
-        return (name in properties) !is null;
-    }
-}
-
 class Master {
     string name;
 
@@ -287,14 +275,14 @@ class Master {
 
 class SlideState {
 
-    PropertyType[string] values;
+    Variant[string] values;
 
     void put(T)(string obj, string key, T value) {
-        values[obj ~ "." ~ key] = PropertyType(value);
+        values[obj ~ "." ~ key] = value;
     }
 
     T get(T)(string obj, string key) {
-        return values[obj ~ "." ~ key].match!((T v) => v, _ => T.init);
+        return values[obj ~ "." ~ key].get!T;
     }
 }
 
@@ -313,19 +301,19 @@ class ApplyStateVisitor : ItemVisitor {
     }
 
     void visit(Rect rect) {
-        rect.visible = state.get!bool(rect.name, "visible");
+        rect.visible = state.get!Bool(rect.name, "visible");
     }
 
     void visit(Image image) {
-        image.visible = state.get!bool(image.name, "visible");
+        image.visible = state.get!Bool(image.name, "visible");
     }
 
     void visit(Video video) {
-        video.visible = state.get!bool(video.name, "visible");
+        video.visible = state.get!Bool(video.name, "visible");
     }
 
     void visit(Text text) {
-        text.visible = state.get!bool(text.name, "visible");
+        text.visible = state.get!Bool(text.name, "visible");
     }
 
 }
@@ -375,15 +363,16 @@ class Slide {
 
     Event[] events;
 
-    mixin PropertyFunctions;
+    mixin PropertyContainer;
 
     mixin DefineProperty!(BackgroundType, "background", BackgroundType(RgbColour(0xff, 0xff, 0xff)));
     mixin DefineProperty!(RichText, "notes");
 
     this(string name) {
+        initProperties();
         this.name = name;
-        this.properties = defaultProperties.dup;
 
+        savePropertyDefaults();
     }
 
     // TODO: remove this later
@@ -415,14 +404,15 @@ class Slide {
 class Item {
     string name;
 
-    static PropertyType[string] defaultProperties;
-    mixin PropertyFunctions;
-    mixin DefineProperty!(bool, "visible", true);
+    mixin PropertyContainer;
+    mixin DefineProperty!(Bool, "visible", Bool(true));
 
     LayoutLocation layoutLocation;
 
     this() {
-        properties = defaultProperties.dup;
+        initProperties();
+
+        savePropertyDefaults();
     }
 
     this(string name) {
@@ -436,15 +426,14 @@ class Item {
 
 class Rect : Item {
 
-    static PropertyType[string] defaultProperties;
     mixin DefineProperty!(RgbColour, "fill");
 
     this(string name, RgbColour fill) {
         super(name);
-        foreach (k, v; defaultProperties)
-            properties[k] = v;
 
         this.fill = fill;
+
+        savePropertyDefaults();
     }
 
     mixin AcceptItemVisitorFunc;
@@ -452,54 +441,49 @@ class Rect : Item {
 
 class Text : Item {
 
-    static PropertyType[string] defaultProperties;
     mixin DefineProperty!(RichText, "content");
     mixin DefineProperty!(RgbColour, "colour");
-    mixin DefineProperty!(int, "size", 32);
+    mixin DefineProperty!(Int, "size", Int(32));
     mixin DefineProperty!(TextAlignment, "alignment", TextAlignment.Left);
-
-    this() {
-        properties = defaultProperties.dup;
-    }
 
     this(string name, RichText content, RgbColour colour, int size) {
         super(name);
-        foreach (k, v; defaultProperties)
-            properties[k] = v;
 
         this.content = content;
         this.colour = colour;
-        this.size = size;
+        this.size = Int(size);
+
+        savePropertyDefaults();
     }
 
     mixin AcceptItemVisitorFunc;
 }
 
 class Image : Item {
-    static PropertyType[string] defaultProperties;
+
     mixin DefineProperty!(string, "path");
 
     this(string name, string path) {
         super(name);
-        foreach (k, v; defaultProperties)
-            properties[k] = v;
 
         this.path = path;
+
+        savePropertyDefaults();
     }
 
     mixin AcceptItemVisitorFunc;
 }
 
 class Video : Item {
-    static PropertyType[string] defaultProperties;
+
     mixin DefineProperty!(string, "path");
 
     this(string name, string path) {
         super(name);
-        foreach (k, v; defaultProperties)
-            properties[k] = v;
 
         this.path = path;
+
+        savePropertyDefaults();
     }
 
     mixin AcceptItemVisitorFunc;

@@ -32,9 +32,10 @@ import slxgrammar;
 
 alias LocatedResult(T) = Result!(LocatedVal!T);
 
-alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Video, Seconds, Percent, Centimeter, Fraction, Pixel, Alignment, CellAlignment, SlidexArray);
+alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Video, Seconds, Percent, Centimeter, Fraction, Pixel, TAlignment, TCellAlignment, SlidexArray);
 
-alias SlidexType = TaggedUnion!SlidexTypes;
+// alias SlidexType = TaggedUnion!SlidexTypes;
+alias SlidexType = SumType!SlidexTypes;
 
 alias EvalResult = Result!SlidexType;
 
@@ -379,29 +380,29 @@ private:
             if (va.ident == "columns") {
                 EvalResult res = evalValue(va.value);
                 r1.absorb(res);
-                if (res.ok && res.value.has!int) {
-                    master.columns = res.value.get!int;
-                }
-                else if (res.ok && res.value.has!SlidexArray) {
-                    master.columns = res.value.get!SlidexArray;
-                }
-                else {
-                    res.ok = false;
-                    r1.diagnostics ~= createInvalidTypeDiag(va.value, "int or quantity[]");
+                if (res.ok) {
+                    res.value.match!(
+                        (int i) { master.columns = ColumnRow(i); },
+                        (SlidexArray a) { master.columns = ColumnRow(a); },
+                        (_) {
+                        r1.ok = false;
+                        r1.diagnostics ~= createInvalidTypeDiag(va.value, "int or quantity[]");
+                    },
+                    );
                 }
             }
             else if (va.ident == "rows") {
                 EvalResult res = evalValue(va.value);
                 r1.absorb(res);
-                if (res.ok && res.value.has!int) {
-                    master.rows = res.value.get!int;
-                }
-                else if (res.ok && res.value.has!SlidexArray) {
-                    master.rows = res.value.get!SlidexArray;
-                }
-                else {
-                    r1.ok = false;
-                    r1.diagnostics ~= createInvalidTypeDiag(va.value, "int");
+                if (res.ok) {
+                    res.value.match!(
+                        (int i) { master.rows = ColumnRow(i); },
+                        (SlidexArray a) { master.rows = ColumnRow(a); },
+                        (_) {
+                        r1.ok = false;
+                        r1.diagnostics ~= createInvalidTypeDiag(va.value, "int or quantity[]");
+                    },
+                    );
                 }
             }
             else if (va.ident == "background") {
@@ -1211,7 +1212,8 @@ For root pass in "SlidexDoc.Statement"
                         }
                         else {
                             result.ok = false;
-                            result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidValue, Severity.Error, val.value.loc, "Invalid cell alignment value: '" ~ align_.to!string ~ "'");
+                            result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidValue, Severity.Error, val.value.loc, "Invalid cell alignment value: '" ~ align_
+                                    .to!string ~ "'");
                         }
                     }
                     else {

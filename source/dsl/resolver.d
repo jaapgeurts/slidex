@@ -3,6 +3,7 @@ module resolver;
 import std.algorithm;
 import std.array;
 import std.conv;
+import std.datetime;
 import std.stdio;
 import std.sumtype;
 import std.variant;
@@ -133,41 +134,55 @@ private:
             // search items in master
             // Not only search for duped items, also search for property - item name clashes
             string ident = (cast(string) assignment.ident.value[0]);
-            Variant var = assignment.value.value.toVariant;
+            EvalResult evaluatedResult = evalValue(assignment.value);
+            if (!evaluatedResult.ok) {
+                result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidValue, Severity.Error, assignment.value.loc, "Can't evaluate value `" ~ assignment
+                        .value.value.to!string ~ "`");
+                result.ok = false;
+                continue;
+            }
 
-            if (var.convertsTo!Quantity) {
-                EvalResult res = evalQuantity(var.get!Quantity);
-                result.absorb(res);
-                if (res.ok) {
-                    // Convert Typedef wrappers here.
-                    if (res.value.has!Seconds)
-                        var = cast(int) res.value.get!Seconds;
-                    if (res.value.has!(Percent))
-                        var = cast(int) res.value.get!Percent;
-                    if (res.value.has!(Centimeter))
-                        var = cast(int) res.value.get!Centimeter;
-                    if (res.value.has!int) {
-                        var = res.value.get!int;
-                    }
-                }
-                else {
-                    assert(false, "Failed quantity conversion");
-                }
-            }
-            else if (var.convertsTo!RichText) {
-                // RichText nodes are processed first
-                RichText rt = var.get!RichText;
-                Result!RichText res = resolveRichText(rt);
-                if (res.ok) {
-                    var = res.value;
-                }
-                else {
-                    assert(false, "Error processing richtext assignment");
-                }
-            }
-            else if (var.convertsTo!NamedColour) {
-                var = Variant(namedColourToRgb(var.get!NamedColour));
-            }
+            Result!PropertyType r1 = slidexValueToPropertyValue(evaluatedResult.value);
+            result.absorb(r1);
+            if (!r1.ok)
+                continue;
+            PropertyType propval = r1.value;
+
+            // Variant var = evaluatedResult.value.toVariant;
+
+            // if (var.convertsTo!Quantity) {
+            //     EvalResult res = evalQuantity(var.get!Quantity);
+            //     result.absorb(res);
+            //     if (res.ok) {
+            //         // Convert Typedef wrappers here.
+            //         if (res.value.has!Seconds)
+            //             var = cast(int) res.value.get!Seconds;
+            //         if (res.value.has!(Percent))
+            //             var = cast(int) res.value.get!Percent;
+            //         if (res.value.has!(Centimeter))
+            //             var = cast(int) res.value.get!Centimeter;
+            //         if (res.value.has!int) {
+            //             var = res.value.get!int;
+            //         }
+            //     }
+            //     else {
+            //         assert(false, "Failed quantity conversion");
+            //     }
+            // }
+            // else if (var.convertsTo!RichText) {
+            //     // RichText nodes are processed first
+            //     RichText rt = var.get!RichText;
+            //     Result!RichText res = resolveRichText(rt);
+            //     if (res.ok) {
+            //         var = res.value;
+            //     }
+            //     else {
+            //         assert(false, "Error processing richtext assignment");
+            //     }
+            // }
+            // else if (var.convertsTo!NamedColour) {
+            //     var = Variant(namedColourToRgb(var.get!NamedColour));
+            // }
 
             slides.Item* item;
             if (toSlide.master !is null)
@@ -186,28 +201,16 @@ private:
                             cast(string) assignment.ident.value[0] ~ "`");
                     result.ok = false;
                 }
-                else if (!item.isAssignable(propName, var)) {
-                    result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, assignment.value.loc, "Invalid type: `" ~
-                            assignment.value.value.typeName ~ "` for field `" ~ ident ~ "`");
-                    result.ok = false;
-                }
-                else if (!item.setProperty(propName, var)) {
+                else if (!item.setProperty(propName, propval)) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "Unable to set value: `" ~
-                            assignment.value.value.typeName ~ "` for field `" ~ ident ~ "`");
+                            propval.typeName() ~ "` for item field `" ~ ident ~ "`");
                     result.ok = false;
                 }
             }
             else if (toSlide.hasProperty(ident)) {
-                // The item is a property field of the slide.
-                if (toSlide.isAssignable(ident, var)) {
-                    toSlide.setProperty(ident, var);
-                }
-                else {
-                    result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidType, Severity.Error, assignment.value.loc, "Invalid type: `" ~
-                            assignment.value.value.typeName ~ "` for field `" ~ ident ~ "`");
-                    result.ok = false;
-                }
-
+                // The item is a fixed property field of the slide.
+                // TODO: evaluate type to slides type
+                toSlide.setProperty(ident, propval);
             }
             else {
                 result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownElement, Severity.Error, assignment.ident.loc, "Undefined element `" ~
@@ -290,48 +293,61 @@ private:
         return result;
     }
 
-    Result!(slides.Item) buildItem(dsl.ast.Item fromItem) {
-        slides.Item toItem = fromItem.shape.match!(
-            // TODO: return errors
-                (dsl.ast.Rect r) => cast(slides.Item) new slides.Rect(fromItem.name, r.fill),
-                (dsl.ast.Text t) {
-                RichText rt;
-                if (t.content !is null) {
-                    Result!RichText res = resolveRichText(t.content);
-                    if (res.ok) {
-                        rt = res.value;
-                    }
-                    else {
-                        assert(false, "handling error during rich tech resolve not implemented");
-                    }
-                }
-                // TODO: keep symbol table??
-                symboltable[fromItem.name] = SlidexTypeKind.Text;
-                slides.Text text = new slides.Text(fromItem.name, rt, t.colour, t.size);
-                Result!TextAlignment res = alignmentToTextAlignment(t.alignment);
-                if (res.ok) {
-                    text.alignment = res.value;
-                }
-                else {
-                    assert(false, "Conversion of text alignment failed");
-                }
+    Result!(slides.Rect) buildRect(string name, dsl.ast.Rect r) {
+        return Result!(slides.Rect)(ok: true, value: new slides.Rect(name, r.fill));
+    }
 
-                // return result errors in this function
-                return text;
-            },
-                (dsl.ast.Image i) {
-                symboltable[fromItem.name] = SlidexTypeKind.Image;
-                return new slides.Image(fromItem.name, i.path);
-            },
-                (dsl.ast.Video m) {
-                symboltable[fromItem.name] = SlidexTypeKind.Video;
-                return new slides.Video(fromItem.name, m.path);
-            },
+    Result!(slides.Text) buildText(string name, dsl.ast.Text t) {
+        RichText rt;
+        if (t.content !is null) {
+            Result!RichText res = resolveRichText(t.content);
+            if (res.ok) {
+                rt = res.value;
+            }
+            else {
+                assert(false, "handling error during rich tech resolve not implemented");
+            }
+        }
+        // TODO: keep symbol table??
+        symboltable[name] = SlidexTypeKind.Text;
+        slides.Text text = new slides.Text(name, rt, t.colour, t.size);
+        Result!TextAlignment res = alignmentToTextAlignment(t.alignment);
+        if (res.ok) {
+            text.alignment = res.value;
+        }
+        else {
+            assert(false, "Conversion of text alignment failed");
+        }
+
+        // return result errors in this function
+        return Result!(slides.Text)(ok: true, value: text);
+    }
+
+    Result!(slides.Image) buildImage(string name, dsl.ast.Image i) {
+        symboltable[name] = SlidexTypeKind.Image;
+        return Result!(slides.Image)(ok: true, value: new slides.Image(name, i.path));
+    }
+
+    Result!(slides.Video) buildVideo(string name, dsl.ast.Video m) {
+        symboltable[name] = SlidexTypeKind.Video;
+        return Result!(slides.Video)(ok: true, value: new slides.Video(name, m.path));
+    }
+
+    Result!(slides.Item) buildItem(dsl.ast.Item fromItem) {
+
+        Result!(slides.Item) toItem = fromItem.shape.match!(
+            // TODO: return errors
+                (dsl.ast.Rect r) => cast(Result!(slides.Item)) buildRect(fromItem.name, r),
+                (dsl.ast.Text t) => cast(Result!(slides.Item)) buildText(fromItem.name, t),
+                (dsl.ast.Image i) => cast(Result!(slides.Item)) buildImage(fromItem.name, i),
+                (dsl.ast.Video v) => cast(Result!(slides.Item)) buildVideo(fromItem.name, v),
         );
 
-        toItem.layoutLocation = fromItem.layoutLocation;
+        if (!toItem.ok)
+            return Result!(slides.Item)(ok: false);
 
-        return Result!(slides.Item)(ok: true, value: toItem);
+        toItem.value.layoutLocation = fromItem.layoutLocation;
+        return toItem;
     }
 
     Result!RichText resolveRichText(RichText rt) {
@@ -469,6 +485,64 @@ private:
         }
         return Result!Function(ok: true, toFunc);
 
+    }
+
+    Result!PropertyType slidexValueToPropertyValue(SlidexType value) {
+        // SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText,
+        //  Image, Rect, Text, Video, Seconds, Percent, Centimeter, Fraction, Pixel,
+        //  TAlignment, TCellAlignment, SlidexArray);
+        // TODO: can I improve this monstrosity?
+        return value.match!(
+            // if (value.has!int())
+                //     return Result!PropertyType(ok: true, value: PropertyType(value.get!int));
+                // else if (value.has!float)
+                //   return Result!PropertyType(ok: true, value: PropertyType(value.get!float));
+                // else if (value.has!bool)
+                //     return Result!PropertyType(ok: true, value: PropertyType(value.get!bool));
+                // else if (value.has!string)
+                (bool b) => Result!PropertyType(ok: true, value: PropertyType(Bool(b))),
+                (int i) => Result!PropertyType(ok: true, value: PropertyType(Int(i))),
+                (float f) => Result!PropertyType(ok: true, value: PropertyType(Float(f))),
+                (string s) => Result!PropertyType(ok: true, value: PropertyType(s)),
+                (Date d) => Result!PropertyType(ok: true, value: PropertyType(d)),
+                (RgbColour rgb) => Result!PropertyType(ok: true, value: PropertyType(rgb)),
+                (RichText rt) => Result!PropertyType(ok: true, value: PropertyType(rt)),
+                (dsl.ast.Rect r) {
+                Result!(slides.Rect) res = buildRect("anonymous", r);
+                if (!res.ok)
+                    return Result!PropertyType(ok: false);
+                return Result!PropertyType(ok: true, value: PropertyType(res.value));
+            },
+                (dsl.ast.Text t) {
+                Result!(slides.Text) res = buildText("anonymous", t);
+                if (!res.ok)
+                    return Result!PropertyType(ok: false);
+                return Result!PropertyType(ok: true, value: PropertyType(res.value));
+            },
+                (dsl.ast.Image i) {
+                Result!(slides.Image) res = buildImage("anonymous", i);
+                if (!res.ok)
+                    return Result!PropertyType(ok: false);
+                return Result!PropertyType(ok: true, value: PropertyType(res.value));
+            },
+                (dsl.ast.Video v) {
+                Result!(slides.Video) res = buildVideo("anonymous", v);
+                if (!res.ok)
+                    return Result!PropertyType(ok: false);
+                return Result!PropertyType(ok: true, value: PropertyType(res.value));
+            },
+
+                (Seconds s) => Result!PropertyType(ok: true, value: PropertyType(cast(Int) s)),
+                (Percent p) => Result!PropertyType(ok: true, value: PropertyType(cast(Int) p)),
+                (Centimeter c) => Result!PropertyType(ok: true, value: PropertyType(cast(Int) c)),
+                (Fraction f) => Result!PropertyType(ok: true, value: PropertyType(cast(Float) f)),
+                (Pixel p) => Result!PropertyType(ok: true, value: PropertyType(cast(Int) p)),
+                // TODO: fix next two conversions
+                (TAlignment a) => Result!PropertyType(ok: true),
+                (TCellAlignment ca) => Result!PropertyType(ok: true),
+                // END
+                (SlidexArray sa) => Result!PropertyType(ok: false),
+        );
     }
 
 }

@@ -114,6 +114,7 @@ enum CellAlignment {
     BottomCentre,
     BottomRight
 }
+alias TCellAlignment = Typedef!(CellAlignment,CellAlignment.init,"CellAlignment");
 
 enum TextAlignment {
     Left,

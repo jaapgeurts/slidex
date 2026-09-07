@@ -689,7 +689,7 @@ private:
                 // it seems the type is string, but it should be a Value
                 writeln("reveal: ", arg);
                 if (auto item = arg.get!string in slide.itemsMap)
-                    item.visible = true;
+                    item.visible = slides.Bool(true);
             }
         }
     }

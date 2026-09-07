@@ -505,7 +505,7 @@ class GtkDrawingVisitor : ItemVisitor {
         with (context) {
             slide.background.match!(
                 (RgbColour c) => setSourceRgb(c.r / 255.0, c.g / 255.0, c.b / 255.0),
-                (Image i) => assert(false, "Background images not implemented")
+                (Image i) => assert(false, "Background images not implemented"),
             );
             paint();
 

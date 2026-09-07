@@ -162,6 +162,9 @@ enum Alignment {
     BottomRight
 }
 
+alias TAlignment = Typedef!(Alignment, Alignment.init,"Alignment");
+
+
 struct Quantity {
     // TODO: Make distinction between int and float values
     LocatedVal!float value;
