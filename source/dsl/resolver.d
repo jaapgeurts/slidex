@@ -32,21 +32,21 @@ import types;
 //     ]);
 // }
 
-Result!(types.TextAlignment) alignmentToTextAlignment(dsl.ast.Alignment alignment) {
-    Result!(types.TextAlignment) result = Result!(types.TextAlignment)(ok: true);
+Result!(types.Justification) alignmentToJustification(dsl.ast.Alignment alignment) {
+    Result!(types.Justification) result = Result!(types.Justification)(ok: true);
     switch (alignment) {
     case dsl.ast.Alignment.Left:
-        result.value = types.TextAlignment.Left;
+        result.value = types.Justification.Left;
         break;
     case dsl.ast.Alignment.Right:
-        result.value = types.TextAlignment.Right;
+        result.value = types.Justification.Right;
         break;
     case dsl.ast.Alignment.Centre:
-        result.value = types.TextAlignment.Centre;
+        result.value = types.Justification.Centre;
         break;
     default:
         // TODO: add source location
-        result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidValue, Severity.Error, SourceLocation(), "Invalid text alignment value `" ~ alignment
+        result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidValue, Severity.Error, SourceLocation(), "Invalid text justification value `" ~ alignment
                 .to!string ~ "`. Expected: left, right, centre");
         result.ok = false;
     }
@@ -142,12 +142,6 @@ private:
                 continue;
             }
 
-            Result!PropertyType r1 = slidexValueToPropertyValue(evaluatedResult.value);
-            result.absorb(r1);
-            if (!r1.ok)
-                continue;
-            PropertyType propval = r1.value;
-
             // Variant var = evaluatedResult.value.toVariant;
 
             // if (var.convertsTo!Quantity) {
@@ -169,20 +163,14 @@ private:
             //         assert(false, "Failed quantity conversion");
             //     }
             // }
-            // else if (var.convertsTo!RichText) {
-            //     // RichText nodes are processed first
-            //     RichText rt = var.get!RichText;
-            //     Result!RichText res = resolveRichText(rt);
-            //     if (res.ok) {
-            //         var = res.value;
-            //     }
-            //     else {
-            //         assert(false, "Error processing richtext assignment");
-            //     }
-            // }
-            // else if (var.convertsTo!NamedColour) {
-            //     var = Variant(namedColourToRgb(var.get!NamedColour));
-            // }
+           
+
+
+            Result!PropertyType r1 = slidexValueToPropertyValue(evaluatedResult.value);
+            result.absorb(r1);
+            if (!r1.ok)
+                continue;
+            PropertyType propval = r1.value;
 
             slides.Item* item;
             if (toSlide.master !is null)
@@ -192,16 +180,24 @@ private:
 
             if (item !is null) {
 
-                // TODO: get rid of the variant.
-
                 string propName = cast(string) assignment.ident.value[1];
                 if (!item.hasProperty(propName)) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "No such property `" ~
                             propName ~ "` on element `" ~
                             cast(string) assignment.ident.value[0] ~ "`");
                     result.ok = false;
+                    continue;
                 }
-                else if (!item.setProperty(propName, propval)) {
+                switch(item.kindForProperty(propName)) {
+                    case PropertyKind.TCellAlignment:
+                    Result!CellAlignment r2 = alignmentToCellAlignment(propval.get!Alignment);
+                        if (r2.ok)
+                      propval = PropertyType(TCellAlignment(r2.value));
+                      break;
+                    default:
+                        assert(false,"Conversion for many types not implemented");
+                }
+                if (!item.setProperty(propName, propval)) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "Unable to set value: `" ~
                             propval.typeName() ~ "` for item field `" ~ ident ~ "`");
                     result.ok = false;
@@ -225,7 +221,9 @@ private:
 
         // TODO: do postprocessing. e.g. place background images
         toSlide.background.match!(
-            (slides.Image i) { i.layoutLocation = BoundsLocation(0,0,1280,720); },
+            (slides.Image i) {
+            i.layoutLocation = BoundsLocation(0, 0, 1280, 720);
+        },
             (_) {},
         );
 
@@ -317,9 +315,9 @@ private:
         // TODO: keep symbol table??
         symboltable[name] = SlidexTypeKind.Text;
         slides.Text text = new slides.Text(name, rt, t.colour, t.size);
-        Result!TextAlignment res = alignmentToTextAlignment(t.alignment);
+        Result!Justification res = alignmentToJustification(t.alignment);
         if (res.ok) {
-            text.alignment = res.value;
+            text.justification = TJustification(res.value);
         }
         else {
             assert(false, "Conversion of text alignment failed");
@@ -512,7 +510,15 @@ private:
                 (string s) => Result!PropertyType(ok: true, value: PropertyType(s)),
                 (Date d) => Result!PropertyType(ok: true, value: PropertyType(d)),
                 (RgbColour rgb) => Result!PropertyType(ok: true, value: PropertyType(rgb)),
-                (RichText rt) => Result!PropertyType(ok: true, value: PropertyType(rt)),
+                (RichText rt) {
+                    Result!RichText res = resolveRichText(rt);
+                    if (res.ok) {
+                        return Result!PropertyType(ok: true, value: PropertyType(res.value));
+                    }
+                    else {
+                        assert(false, "Error processing richtext assignment");
+                    }
+                },
                 (dsl.ast.Rect r) {
                 Result!(slides.Rect) res = buildRect("anonymous", r);
                 if (!res.ok)
@@ -542,12 +548,9 @@ private:
                 (Percent p) => Result!PropertyType(ok: true, value: PropertyType(cast(Int) p)),
                 (Centimeter c) => Result!PropertyType(ok: true, value: PropertyType(cast(Int) c)),
                 (Fraction f) => Result!PropertyType(ok: true, value: PropertyType(cast(Float) f)),
-                (Pixel p) => Result!PropertyType(ok: true, value: PropertyType(cast(Int) p)),
-                // TODO: fix next two conversions
-                (TAlignment a) => Result!PropertyType(ok: true),
-                (TCellAlignment ca) => Result!PropertyType(ok: true),
-                // END
-                (SlidexArray sa) => Result!PropertyType(ok: false),
+                (Pixel p) => Result!PropertyType(ok: true, value: PropertyType(cast(Int) p)),// TODO: fix next two conversions
+                (TAlignment a) => Result!PropertyType(ok: false),
+                (SlidexArray sa) => assert(false,"Array conversion not implemented"),
         );
     }
 

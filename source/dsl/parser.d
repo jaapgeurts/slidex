@@ -32,7 +32,7 @@ import slxgrammar;
 
 alias LocatedResult(T) = Result!(LocatedVal!T);
 
-alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Video, Seconds, Percent, Centimeter, Fraction, Pixel, TAlignment, TCellAlignment, SlidexArray);
+alias SlidexTypes = AliasSeq!(int, float, bool, string, Date, RgbColour, RichText, Image, Rect, Text, Video, Seconds, Percent, Centimeter, Fraction, Pixel, TAlignment, SlidexArray);
 
 // alias SlidexType = TaggedUnion!SlidexTypes;
 alias SlidexType = SumType!SlidexTypes;
@@ -1204,15 +1204,15 @@ For root pass in "SlidexDoc.Statement"
                     }
                     break;
                 case "align":
-                    if (res.value.has!Alignment) {
-                        Alignment align_ = res.value.get!Alignment;
-                        Result!CellAlignment r1 = alignmentToCellAlignment(align_);
+                    if (res.value.has!TAlignment) {
+                        Alignment a = cast(Alignment)res.value.get!TAlignment;
+                        Result!CellAlignment r1 = alignmentToCellAlignment(a);
                         if (r1.ok) {
                             cell.alignment = r1.value;
                         }
                         else {
                             result.ok = false;
-                            result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidValue, Severity.Error, val.value.loc, "Invalid cell alignment value: '" ~ align_
+                            result.diagnostics ~= Diagnostic(DiagnosticKind.InvalidValue, Severity.Error, val.value.loc, "Invalid cell alignment value: '" ~ a
                                     .to!string ~ "'");
                         }
                     }
@@ -1319,7 +1319,7 @@ EvalResult evalValue(LocatedVal!DslType val) {
                 namedColourToRgb(val.value.get!NamedColour)));
     }
     else if (val.value.has!Alignment) {
-        return EvalResult(ok: true, value: SlidexType(val.value.get!Alignment));
+        return EvalResult(ok: true, value: SlidexType(TAlignment(val.value.get!Alignment)));
     }
     else if (val.value.has!Quantity) {
         return evalQuantity(val.value.get!Quantity);

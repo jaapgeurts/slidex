@@ -116,11 +116,13 @@ enum CellAlignment {
 }
 alias TCellAlignment = Typedef!(CellAlignment,CellAlignment.init,"CellAlignment");
 
-enum TextAlignment {
+enum Justification {
     Left,
     Centre,
     Right
 }
+
+alias TJustification = Typedef!(Justification, Justification.init, "Justification");
 
 struct CellLocation {
     int col = 1;

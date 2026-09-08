@@ -13,10 +13,12 @@ import types;
 alias BackgroundTypes = AliasSeq!(RgbColour, Image);
 alias BackgroundType = SumType!(BackgroundTypes);
 
+// Typedefs for properties because bare ints, floats etc don't match in a SumType match function
 alias Int = Typedef!(int, int.init, "Int");
 alias Float = Typedef!(float, float.init, "Float");
 alias Bool = Typedef!(bool, bool.init, "Bool");
 
+// The valid property types for slide properties
 alias PropertyTypes = AliasSeq!(
     Int,
     Float,
@@ -25,16 +27,37 @@ alias PropertyTypes = AliasSeq!(
     Date,
     RichText,
     RgbColour,
-    TextAlignment,
+    TJustification,
+    TCellAlignment,
     Rect,
     Text,
     Image,
     Video,
     BackgroundType,
+    // If you add a type here, also add it to the property kind.
 );
 
+// Use this type to pass around a property value
 alias PropertyType = SumType!PropertyTypes;
 
+enum PropertyKind {
+    Int,
+    Float,
+    Bool,
+    String,
+    Date,
+    RichText,
+    RgbColour,
+    TJustification,
+    TCellAlignment,
+    Rect,
+    Text,
+    Image,
+    Video,
+    BackgroundType,
+}
+
+// helper tempate to print the typename of a propertytype
 template TypeNameHandler(T) {
     string handler(T) {
         return T.stringof;
@@ -43,6 +66,7 @@ template TypeNameHandler(T) {
     alias TypeNameHandler = handler;
 }
 
+/// give the name of the type of this property type
 string typeName(PropertyType value) {
     alias handlers = staticMap!(TypeNameHandler, PropertyType.Types);
 
@@ -60,6 +84,8 @@ mixin template PropertyContainer() {
     PropertyAccessor[string] properties;
     Variant[string] defaultProperties;
 
+    PropertyKind[string] propertyKinds;
+
     void initProperties() {
         static foreach (member; __traits(allMembers, typeof(this))) {
             static if (member.length >= 12 && member[0 .. 12] == "__prop_init_")
@@ -76,6 +102,10 @@ mixin template PropertyContainer() {
 
     bool hasProperty(string name) {
         return (name in properties) !is null;
+    }
+
+    PropertyKind kindForProperty(string name) {
+        return propertyKinds[name];
     }
 
     bool setProperty(string name, PropertyType value) {
@@ -207,6 +237,7 @@ private string sumTypeSetterExpr(T)(string valueExpr) {
  + ---
  +/
 mixin template DefineProperty(T, string name, T defaultval = T.init) {
+
     mixin("private " ~ T.stringof ~ " __prop_" ~ name ~ " = defaultval;");
 
     static if (isSumType!T) {
@@ -526,7 +557,7 @@ class Text : Item {
     mixin DefineProperty!(RichText, "content");
     mixin DefineProperty!(RgbColour, "colour");
     mixin DefineProperty!(Int, "size", Int(32));
-    mixin DefineProperty!(TextAlignment, "alignment", TextAlignment.Left);
+    mixin DefineProperty!(TJustification, "justification", TJustification(Justification.Left));
 
     this(string name, RichText content, RgbColour colour, int size) {
         super(name);

@@ -91,14 +91,15 @@ class RichTextRenderer {
         fd.setFamily("Libertinus Sans");
         fd.setSize(cast(int)(text.size * factor * SCALE));
         layout.setFontDescription(fd);
-        final switch (text.alignment) {
-        case TextAlignment.Left:
+        writeln("render 1: Justification: ", text.justification);
+        final switch (cast(types.Justification)text.justification) {
+        case types.Justification.Left:
             layout.setAlignment(Alignment.Left);
             break;
-        case TextAlignment.Centre:
+        case types.Justification.Centre:
             layout.setAlignment(Alignment.Center);
             break;
-        case TextAlignment.Right:
+        case types.Justification.Right:
             layout.setAlignment(Alignment.Right);
             break;
             //     assert(false,"Only left,center and right alignments are implemented");
@@ -157,6 +158,7 @@ class RichTextRenderer {
             h = bl.height * factor;
         },
             (CellLocation cl) {
+                writeln("render2: alignment", cl.alignment);
             // don't move the cell, but move the text and
             // render a frame around the text separate
             final switch (cl.alignment) {
