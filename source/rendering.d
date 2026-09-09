@@ -91,7 +91,7 @@ class RichTextRenderer {
         fd.setFamily("Libertinus Sans");
         fd.setSize(cast(int)(text.size * factor * SCALE));
         layout.setFontDescription(fd);
-        writeln("render 1: Justification: ", text.justification);
+
         final switch (cast(types.Justification)text.justification) {
         case types.Justification.Left:
             layout.setAlignment(Alignment.Left);
@@ -158,7 +158,6 @@ class RichTextRenderer {
             h = bl.height * factor;
         },
             (CellLocation cl) {
-                writeln("render2: alignment", cl.alignment);
             // don't move the cell, but move the text and
             // render a frame around the text separate
             final switch (cl.alignment) {
@@ -521,14 +520,14 @@ class GtkDrawingVisitor : ItemVisitor {
                 setSourceRgb(0.8, 0.8, 0.8);
                 setLineWidth(2);
                 float x = 0;
-                for (size_t i = 0; i < colsizes.length - 1; i++) {
+                for (size_t i = 0; i+1 < colsizes.length; i++) {
                     x += colsizes[i];
                     moveTo(x, 0);
                     lineTo(x, size.h - 1);
                     // writeln("cols: x: ", x, " y: ", size.h - 1);
                 }
                 float y = 0;
-                for (size_t i = 0; i < rowsizes.length - 1; i++) {
+                for (size_t i = 0; i+1 < rowsizes.length; i++) {
                     y += rowsizes[i];
                     moveTo(0, y);
                     lineTo(size.w - 1, y);

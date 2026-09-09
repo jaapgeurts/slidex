@@ -188,14 +188,15 @@ private:
                     result.ok = false;
                     continue;
                 }
-                switch(item.kindForProperty(propName)) {
+                PropertyKind propkind = item.kindForProperty(propName);
+                switch(propkind) {
                     case PropertyKind.TCellAlignment:
                     Result!CellAlignment r2 = alignmentToCellAlignment(propval.get!Alignment);
                         if (r2.ok)
                       propval = PropertyType(TCellAlignment(r2.value));
                       break;
                     default:
-                        assert(false,"Conversion for many types not implemented");
+                        assert(false,"Conversion for type `"~propkind.stringof~"` not implemented");
                 }
                 if (!item.setProperty(propName, propval)) {
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "Unable to set value: `" ~
