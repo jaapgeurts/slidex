@@ -40,22 +40,6 @@ alias PropertyTypes = AliasSeq!(
 // Use this type to pass around a property value
 alias PropertyType = SumType!PropertyTypes;
 
-enum PropertyKind {
-    Int,
-    Float,
-    Bool,
-    String,
-    Date,
-    RichText,
-    RgbColour,
-    TJustification,
-    TCellAlignment,
-    Rect,
-    Text,
-    Image,
-    Video,
-    BackgroundType,
-}
 
 // helper tempate to print the typename of a propertytype
 template TypeNameHandler(T) {
@@ -84,7 +68,6 @@ mixin template PropertyContainer() {
     PropertyAccessor[string] properties;
     Variant[string] defaultProperties;
 
-    PropertyKind[string] propertyKinds;
 
     void initProperties() {
         static foreach (member; __traits(allMembers, typeof(this))) {
@@ -104,13 +87,13 @@ mixin template PropertyContainer() {
         return (name in properties) !is null;
     }
 
-    PropertyKind kindForProperty(string name) {
-        return propertyKinds[name];
+    PropertyType property(string name) {         
+        assert(name in properties,"Property `"~name~"` not present");
+        return  properties[name].get();
     }
 
     bool setProperty(string name, PropertyType value) {
-        if (!hasProperty(name))
-            return false;
+        assert(name in properties,"Property `"~name~"` not present");
         properties[name].set(value);
         return true;
     }
@@ -244,7 +227,7 @@ mixin template DefineProperty(T, string name, T defaultval = T.init) {
         mixin("private void __prop_init_" ~ name ~ "() { properties[\"" ~ name
                 ~ "\"] = PropertyAccessor(() => PropertyType(__prop_" ~ name
                 ~ "), (PropertyType v) { __prop_" ~ name ~ " = " ~ sumTypeSetterExpr!T(
-                    "v") ~ "; });}");
+                    "v") ~ "; }); }");
     }
     else {
         mixin("private void __prop_init_" ~ name ~ "() {properties[\"" ~ name

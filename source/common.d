@@ -12,6 +12,8 @@ struct Config {
     uint monitornum;
     bool showpresenter;
     bool watch;
+    string filename;
+    string fileformat;
 }
 
 enum DiagnosticKind {

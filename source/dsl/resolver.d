@@ -163,8 +163,6 @@ private:
             //         assert(false, "Failed quantity conversion");
             //     }
             // }
-           
-
 
             Result!PropertyType r1 = slidexValueToPropertyValue(evaluatedResult.value);
             result.absorb(r1);
@@ -188,21 +186,17 @@ private:
                     result.ok = false;
                     continue;
                 }
-                PropertyKind propkind = item.kindForProperty(propName);
-                switch(propkind) {
-                    case PropertyKind.TCellAlignment:
-                    Result!CellAlignment r2 = alignmentToCellAlignment(propval.get!Alignment);
+                item.property(propName).match!(
+                    (TCellAlignment align_) {
+                        Result!CellAlignment r2 = alignmentToCellAlignment(propval.get!Alignment);
                         if (r2.ok)
-                      propval = PropertyType(TCellAlignment(r2.value));
-                      break;
-                    default:
-                        assert(false,"Conversion for type `"~propkind.stringof~"` not implemented");
-                }
-                if (!item.setProperty(propName, propval)) {
-                    result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "Unable to set value: `" ~
-                            propval.typeName() ~ "` for item field `" ~ ident ~ "`");
-                    result.ok = false;
-                }
+                            item.setProperty(propName, PropertyType(TCellAlignment(r2.value)));
+                    },
+                    (_) { item.setProperty(propName, propval); }
+                );
+                // result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "Unable to set value: `" ~
+                //         propval.typeName() ~ "` for item field `" ~ ident ~ "`");
+                // result.ok = false;
             }
             else if (toSlide.hasProperty(ident)) {
                 // The item is a fixed property field of the slide.
@@ -512,14 +506,14 @@ private:
                 (Date d) => Result!PropertyType(ok: true, value: PropertyType(d)),
                 (RgbColour rgb) => Result!PropertyType(ok: true, value: PropertyType(rgb)),
                 (RichText rt) {
-                    Result!RichText res = resolveRichText(rt);
-                    if (res.ok) {
-                        return Result!PropertyType(ok: true, value: PropertyType(res.value));
-                    }
-                    else {
-                        assert(false, "Error processing richtext assignment");
-                    }
-                },
+                Result!RichText res = resolveRichText(rt);
+                if (res.ok) {
+                    return Result!PropertyType(ok: true, value: PropertyType(res.value));
+                }
+                else {
+                    assert(false, "Error processing richtext assignment");
+                }
+            },
                 (dsl.ast.Rect r) {
                 Result!(slides.Rect) res = buildRect("anonymous", r);
                 if (!res.ok)
@@ -549,9 +543,9 @@ private:
                 (Percent p) => Result!PropertyType(ok: true, value: PropertyType(cast(Int) p)),
                 (Centimeter c) => Result!PropertyType(ok: true, value: PropertyType(cast(Int) c)),
                 (Fraction f) => Result!PropertyType(ok: true, value: PropertyType(cast(Float) f)),
-                (Pixel p) => Result!PropertyType(ok: true, value: PropertyType(cast(Int) p)),// TODO: fix next two conversions
+                (Pixel p) => Result!PropertyType(ok: true, value: PropertyType(cast(Int) p)), // TODO: fix next two conversions
                 (TAlignment a) => Result!PropertyType(ok: false),
-                (SlidexArray sa) => assert(false,"Array conversion not implemented"),
+                (SlidexArray sa) => assert(false, "Array conversion not implemented"),
         );
     }
 

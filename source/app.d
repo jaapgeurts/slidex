@@ -2,6 +2,7 @@ import std.file;
 import std.getopt;
 import std.path;
 import std.stdio;
+import std.zip;
 
 import dsl.parser;
 import resolver;
@@ -9,6 +10,7 @@ import slides;
 import common;
 
 import presenter;
+import odpwriter;
 
 enum ErrorReturnCode {
     CmdLineArguments = 1,
@@ -34,6 +36,8 @@ int main(string[] args) {
 			"debug|d", "Enable debug mode.", &config.debug_,
 			"verbose|v", "Print debugging output.", &config.verbose,
 			"slide|s", "Start presentation at slide #", &config.slidenum,
+			"ouput|o", "Output file", & config.filename,
+			"format|f|", "Output format. Currently only `ods` is supported",&config.fileformat,
 			"monitor|m", "Show slide on monitor # or 0 to list monitors", &config.monitornum,
 			"presenter|p", "Show presenter view", &config.showpresenter,
 			"watch|w", "Watches input file and update changes immediately.", &config.watch,
@@ -108,6 +112,18 @@ int main(string[] args) {
 	if (config.slidenum > 0)
 		config.slidenum--;
 
+	if (config.filename.length != 0 ) {
+		if (config.fileformat != "odp") {
+			writeln("Error: only Open document Presentation (ods) is currently supported. (Supported by powerpoint)");
+			return 1;
+		}
+		
+		OdpWriter writer = new OdpWriter(deck.value);
+		ZipArchive zip = writer.build();
+
+		std.file.write("presentation.odp",zip.build());
+	}
+
 	// show the desk.
 	// writeln("Slide:  ", deck.slides[0].toString);
 	// writeln("Master: ", deck.slides[0].master.toString);
@@ -118,3 +134,4 @@ int main(string[] args) {
 	return app.run(null);
 
 }
+

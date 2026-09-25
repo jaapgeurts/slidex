@@ -627,7 +627,7 @@ private:
             return;
         }
 
-        // TODO: do not create on each draw.
+        // TODO: do not create on each draw. 
         GtkDrawingVisitor drawing = new GtkDrawingVisitor(context, Size(width, height), vartable, rootpath);
         drawing.showDebugOverlay = isDebugMode;
 
