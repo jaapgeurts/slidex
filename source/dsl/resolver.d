@@ -128,7 +128,7 @@ private:
         // TODO: check if symbols are duplicated between master and slide
         // apply deferred assignments
         foreach (assignment; fromSlide.assignments) {
-            writeln("Assignment: ", assignment);
+            // writeln("Assignment: ", assignment);
 
             // TODO: test whether there are no duplicate property identifiers between master and slides
             // search items in master
@@ -180,6 +180,7 @@ private:
 
                 string propName = cast(string) assignment.ident.value[1];
                 if (!item.hasProperty(propName)) {
+                    // writeln("Item: ", item.properties);
                     result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "No such property `" ~
                             propName ~ "` on element `" ~
                             cast(string) assignment.ident.value[0] ~ "`");
@@ -187,16 +188,19 @@ private:
                     continue;
                 }
                 item.property(propName).match!(
-                    (TCellAlignment align_) {
+                    (ref TCellAlignment align_) {
                         Result!CellAlignment r2 = alignmentToCellAlignment(propval.get!Alignment);
                         if (r2.ok)
                             item.setProperty(propName, PropertyType(TCellAlignment(r2.value)));
                     },
-                    (_) { item.setProperty(propName, propval); }
+                    (_) {
+                        if (!item.setProperty(propName, propval)) {
+                            result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "Unable to set value: `" ~
+                                propval.typeName() ~ "` for item field `" ~ ident ~ "`");
+                            result.ok = false;
+                        }
+                    }
                 );
-                // result.diagnostics ~= Diagnostic(DiagnosticKind.UnknownProperty, Severity.Error, assignment.value.loc, "Unable to set value: `" ~
-                //         propval.typeName() ~ "` for item field `" ~ ident ~ "`");
-                // result.ok = false;
             }
             else if (toSlide.hasProperty(ident)) {
                 // The item is a fixed property field of the slide.
@@ -372,7 +376,7 @@ private:
                 (Italic i) { items ~= TextItem(i); },
                 (Underline u) { items ~= TextItem(u); },
                 (Variable v) {
-                stderr.writeln("TODO: variable resolution not implemented.");
+                stderr.writeln("TODO: variable ("~v.name~") resolution not implemented.");
                 items ~= TextItem(v);
             },
                 (InlineFunc f) {

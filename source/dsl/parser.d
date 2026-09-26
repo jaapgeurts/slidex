@@ -100,7 +100,7 @@ Result!CellAlignment alignmentToCellAlignment(Alignment alignment) {
 // TODO: should print the read value string, instead of a reconstructed string
 private Diagnostic createInvalidTypeDiag(LocatedVal!DslType val, string expectedType) {
     return Diagnostic(DiagnosticKind.InvalidType,
-        Severity.Error, val.loc, "Invalid value `" ~ val.value.toVariant.toString() ~ "`. Expected a " ~ expectedType ~ " but got " ~ val
+        Severity.Error, val.loc, "Invalid value `" ~ val.value.toVariant.toString() ~ "`. Expected " ~ expectedType ~ " but got " ~ val
             .value.typeName() ~ ".");
 }
 
@@ -1521,10 +1521,11 @@ EvalResult evalText(FuncCall func) {
         if (NamedArg* arg = "align" in func.arguments.namedArgs) {
             EvalResult res = evalValue(arg.value);
             result.absorb(res);
-            if (res.ok && res.value.has!Alignment) {
-                text.alignment = locatedVal(res.value.get!Alignment, arg.value.loc);
+            if (res.ok && res.value.has!TAlignment) {
+                text.alignment = locatedVal(cast(Alignment)res.value.get!TAlignment, arg.value.loc);
             }
             else {
+                writeln("VAL: ",res.value);
                 result.ok = false;
                 result.diagnostics ~= createInvalidTypeDiag(arg.value, "Alignment");
             }

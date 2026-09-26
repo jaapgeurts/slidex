@@ -33,13 +33,14 @@ alias PropertyTypes = AliasSeq!(
     Text,
     Image,
     Video,
-    BackgroundType,
-    // If you add a type here, also add it to the property kind.
+    BackgroundType, // If you add a type here, also add it to the property kind.
+
+    
+
 );
 
 // Use this type to pass around a property value
 alias PropertyType = SumType!PropertyTypes;
-
 
 // helper tempate to print the typename of a propertytype
 template TypeNameHandler(T) {
@@ -63,19 +64,23 @@ struct PropertyAccessor {
     void delegate(PropertyType) set;
 }
 
+mixin template initProperties() {
+    void initProperties() {
+        static foreach (member; __traits(allMembers, typeof(this))) {
+            static if (member.length >= 12 && member[0 .. 12] == "__prop_init_") {
+                mixin("this." ~ member ~ "();");
+                writeln("init property: " ~ member);
+            }
+        }
+    }
+}
+
 // One-line "shared machinery" mixin: storage + auto-wiring constructor
 mixin template PropertyContainer() {
     PropertyAccessor[string] properties;
     Variant[string] defaultProperties;
 
-
-    void initProperties() {
-        static foreach (member; __traits(allMembers, typeof(this))) {
-            static if (member.length >= 12 && member[0 .. 12] == "__prop_init_")
-                mixin("this." ~ member ~ "();");
-        }
-        // __propertiesWired = true;
-    }
+    // __propertiesWired = true;
 
     // private bool __propertiesWired = false;
     // invariant {
@@ -87,13 +92,13 @@ mixin template PropertyContainer() {
         return (name in properties) !is null;
     }
 
-    PropertyType property(string name) {         
-        assert(name in properties,"Property `"~name~"` not present");
-        return  properties[name].get();
+    PropertyType property(string name) {
+        assert(name in properties, "Property `" ~ name ~ "` not present");
+        return properties[name].get();
     }
 
     bool setProperty(string name, PropertyType value) {
-        assert(name in properties,"Property `"~name~"` not present");
+        assert(name in properties, "Property `" ~ name ~ "` not present");
         properties[name].set(value);
         return true;
     }
@@ -460,6 +465,7 @@ class Slide {
     Event[] events;
 
     mixin PropertyContainer;
+    mixin initProperties;
 
     mixin DefineProperty!(BackgroundType, "background", BackgroundType(RgbColour(0xff, 0xff, 0xff)));
     mixin DefineProperty!(RichText, "notes");
